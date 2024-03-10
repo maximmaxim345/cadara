@@ -1,16 +1,12 @@
-[workspace]
-members = [
-  "crates/utils",
-  "crates/project",
-  "crates/opencascade-sys",
-]
-
 [package]
-name = "cadara"
+name = "opencascade-sys"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-iced = "0.12.1"
+
+[build-dependencies]
+cmake = "0.1.50"
+walkdir = "2.4.0"
