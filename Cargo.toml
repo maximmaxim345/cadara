@@ -3,6 +3,7 @@ members = [
   "crates/utils",
   "crates/project",
   "crates/opencascade-sys",
+  "crates/occara",
 ]
 
 [package]
