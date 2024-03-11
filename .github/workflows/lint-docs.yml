@@ -1,0 +1,39 @@
+name: Lint Rust Documentation
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache OpenCASCADE
+        uses: actions/cache@v4
+        with:
+          path: |
+            crates/opencascade-sys/occt_build
+            crates/opencascade-sys/occt_source
+          key: opencascade-${{ runner.os }}-${{ hashFiles('**/occt_commit_hash.lock') }}
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: cargo-${{ runner.os }}-stable-${{ hashFiles('**/Cargo.lock') }}
+      - name: Check documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --no-deps --document-private-items --workspace
