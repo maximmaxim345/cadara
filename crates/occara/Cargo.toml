@@ -7,13 +7,11 @@ edition = "2021"
 
 [dependencies]
 autocxx = "0.26.0"
-cpp = "0.5.9"
 cxx = "1.0.117"
 walkdir = "2.4.0"
 
 [build-dependencies]
 opencascade-sys = { path = "../opencascade-sys" }
-cpp_build = "0.5.9"
 cxx-build = { version = "1.0.118", features = ["parallel"] }
 walkdir = "2.4.0"
 autocxx-build = "0.26.0"
