@@ -30,14 +30,19 @@ fn main() {
         println!("cargo:rerun-if-changed={}", entry.path().to_str().unwrap());
     }
 
-    // Generate cxx bridge code and compile it
-    // TODO: figure out how to enable more pedantic warnings for c++ code
-    cxx_build::bridge("src/lib.rs")
-        .files(files)
+    // Generate autocxx bindings
+    let mut autocxx_build = autocxx_build::Builder::new(
+        "src/lib.rs",
+        [&std::path::PathBuf::from("include"), &include_dir],
+    )
+    .build()
+    .unwrap();
+
+    autocxx_build
         .flag_if_supported("-std=c++20")
-        .include(&include_dir)
-        .include("include")
-        .compile("opencascade-cxx-bridge");
+        .files(files)
+        .compile("occara-autocxx-bridge");
+    println!("cargo:rerun-if-changed=src/lib.rs");
 
     // Build inline c++ code using the cpp_build crate
     cpp_build::Config::new()
