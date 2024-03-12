@@ -3,26 +3,7 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::cognitive_complexity)]
 
-use autocxx::prelude::*;
-
-// Run 'touch cpp' and 'bear -- cargo build' in this crates directory for autocompleation of c++ source files
-#[cxx::bridge]
-mod cxxffi {
-    unsafe extern "C++" {
-        include!("TopoDS_Shape.hxx");
-        include!("MakeBottle.hpp");
-        type TopoDS_Shape;
-
-        fn MakeBottle(width: f64, height: f64, thickness: f64) -> UniquePtr<TopoDS_Shape>;
-    }
-}
-
-include_cpp! {
-    #include "MakeBottle.hpp"
-    #include "shape/vertex.hpp"
-    safety!(unsafe)
-    generate_ns!("shape")
-}
+mod ffi;
 
 pub mod shape {
     use super::ffi;
@@ -62,7 +43,7 @@ mod tests {
     use crate::shape;
     #[test]
     fn test_simple() {
-        let _shape = crate::cxxffi::MakeBottle(50.0, 70.0, 30.0);
+        let _shape = crate::ffi::MakeBottle(50.0, 70.0, 30.0);
     }
 
     #[test]
