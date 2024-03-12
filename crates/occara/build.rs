@@ -1,6 +1,6 @@
 use walkdir::WalkDir;
 
-fn main() {
+fn main() -> miette::Result<()> {
     let include_dir = opencascade_sys::include_dir();
     // Find all cpp files in the cpp directory
     let files: Vec<_> = WalkDir::new("cpp")
@@ -35,8 +35,7 @@ fn main() {
         "src/lib.rs",
         [&std::path::PathBuf::from("include"), &include_dir],
     )
-    .build()
-    .unwrap();
+    .build()?;
 
     autocxx_build
         .flag_if_supported("-std=c++20")
@@ -51,4 +50,5 @@ fn main() {
         .include("include")
         .build("src/lib.rs");
     opencascade_sys::link_opencascade();
+    Ok(())
 }
