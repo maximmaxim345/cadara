@@ -1,6 +1,6 @@
 use walkdir::WalkDir;
 
-fn main() {
+fn main() -> miette::Result<()> {
     let include_dir = opencascade_sys::include_dir();
     // Find all cpp files in the cpp directory
     let files: Vec<_> = WalkDir::new("cpp")
@@ -30,20 +30,19 @@ fn main() {
         println!("cargo:rerun-if-changed={}", entry.path().to_str().unwrap());
     }
 
-    // Generate cxx bridge code and compile it
-    // TODO: figure out how to enable more pedantic warnings for c++ code
-    cxx_build::bridge("src/lib.rs")
-        .files(files)
-        .flag_if_supported("-std=c++20")
-        .include(&include_dir)
-        .include("include")
-        .compile("opencascade-cxx-bridge");
+    // Generate autocxx bindings
+    let mut autocxx_build = autocxx_build::Builder::new(
+        "src/ffi.rs",
+        [&std::path::PathBuf::from("include"), &include_dir],
+    )
+    .build()?;
 
-    // Build inline c++ code using the cpp_build crate
-    cpp_build::Config::new()
+    autocxx_build
         .flag_if_supported("-std=c++20")
-        .include(include_dir)
-        .include("include")
-        .build("src/lib.rs");
+        .files(files)
+        .compile("occara-autocxx-bridge");
+    println!("cargo:rerun-if-changed=src/ffi.rs");
+
     opencascade_sys::link_opencascade();
+    Ok(())
 }

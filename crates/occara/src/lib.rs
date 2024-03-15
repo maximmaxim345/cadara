@@ -3,39 +3,19 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::cognitive_complexity)]
 
-// Run 'touch cpp' and 'bear -- cargo build' in this crates directory for autocompleation of c++ source files
-#[cxx::bridge]
-mod ffi {
-    unsafe extern "C++" {
-        include!("TopoDS_Shape.hxx");
-        include!("MakeBottle.hpp");
-        type TopoDS_Shape;
-
-        fn MakeBottle(width: f64, height: f64, thickness: f64) -> UniquePtr<TopoDS_Shape>;
-    }
-
-    #[namespace = "shape"]
-    unsafe extern "C++" {
-        include!("shape/vertex.hpp");
-        type Vertex;
-
-        fn vertex_new() -> UniquePtr<Vertex>;
-        fn vertex_new_with_coordinates(x: f64, y: f64, z: f64) -> UniquePtr<Vertex>;
-        fn set_coordinates(self: Pin<&mut Vertex>, x: f64, y: f64, z: f64);
-        fn get_coordinates(self: &Vertex, x: &mut f64, y: &mut f64, z: &mut f64);
-    }
-}
+mod ffi;
 
 pub mod shape {
     use super::ffi;
-    use cxx::UniquePtr;
+    use autocxx::prelude::*;
+    use std::pin::Pin;
 
-    pub struct Vertex(UniquePtr<ffi::Vertex>);
+    pub struct Vertex(UniquePtr<ffi::shape::Vertex>);
 
     impl Vertex {
         #[must_use]
         pub fn new() -> Self {
-            Self(ffi::vertex_new())
+            Self(ffi::shape::Vertex::new(0.0, 0.0, 0.0).within_unique_ptr())
         }
 
         pub fn set_coordinates(&mut self, x: f64, y: f64, z: f64) {
@@ -45,7 +25,8 @@ pub mod shape {
         #[must_use]
         pub fn get_coordinates(&self) -> (f64, f64, f64) {
             let (mut x, mut y, mut z) = (0.0, 0.0, 0.0);
-            self.0.get_coordinates(&mut x, &mut y, &mut z);
+            self.0
+                .get_coordinates(Pin::new(&mut x), Pin::new(&mut y), Pin::new(&mut z));
             (x, y, z)
         }
     }

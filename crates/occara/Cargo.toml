@@ -6,12 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cpp = "0.5.9"
+autocxx = "0.26.0"
 cxx = "1.0.117"
 walkdir = "2.4.0"
 
 [build-dependencies]
 opencascade-sys = { path = "../opencascade-sys" }
-cpp_build = "0.5.9"
 cxx-build = { version = "1.0.118", features = ["parallel"] }
 walkdir = "2.4.0"
+autocxx-build = "0.26.0"
+miette = { version = "5", features = ["fancy"] }
