@@ -223,15 +223,5 @@ std::unique_ptr<TopoDS_Shape> MakeBottle(const Standard_Real theWidth,
   aBuilder.Add(aRes, myBody);
   aBuilder.Add(aRes, myThreading);
 
-  // Print the resulting shape
-  TopExp_Explorer explorer;
-  for (explorer.Init(aRes, TopAbs_ShapeEnum::TopAbs_FACE); explorer.More();
-       explorer.Next()) {
-    const TopoDS_Shape &currentShape = explorer.Current();
-    // Print information about the current shape
-    std::cout << "Shape Type: " << currentShape.ShapeType() << std::endl;
-    // You can add more details here depending on what you want to print
-  }
-
   return std::make_unique<TopoDS_Shape>(TopoDS_Shape(aRes));
 }

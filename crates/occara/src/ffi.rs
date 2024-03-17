@@ -6,10 +6,17 @@
 // Run 'touch cpp' and 'bear -- cargo build' in this crates directory for autocompleation of c++ source files
 
 autocxx::include_cpp! {
+    #include "gp_Pnt.hxx"
+    #include "gp_Dir.hxx"
+    #include "gp_Ax1.hxx"
     #include "MakeBottle.hpp"
-    #include "shape/vertex.hpp"
+    #include "shape.hpp"
+    #include "geom.hpp"
     safety!(unsafe)
-    generate_ns!("shape")
+    generate_ns!("occara")
+    generate!("gp_Pnt")
+    generate!("gp_Dir")
+    generate!("gp_Ax1")
 }
 
 #[cxx::bridge]

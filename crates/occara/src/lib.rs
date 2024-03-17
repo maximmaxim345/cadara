@@ -5,38 +5,8 @@
 
 mod ffi;
 
-pub mod shape {
-    use super::ffi;
-    use autocxx::prelude::*;
-    use std::pin::Pin;
-
-    pub struct Vertex(UniquePtr<ffi::shape::Vertex>);
-
-    impl Vertex {
-        #[must_use]
-        pub fn new() -> Self {
-            Self(ffi::shape::Vertex::new(0.0, 0.0, 0.0).within_unique_ptr())
-        }
-
-        pub fn set_coordinates(&mut self, x: f64, y: f64, z: f64) {
-            self.0.as_mut().unwrap().set_coordinates(x, y, z);
-        }
-
-        #[must_use]
-        pub fn get_coordinates(&self) -> (f64, f64, f64) {
-            let (mut x, mut y, mut z) = (0.0, 0.0, 0.0);
-            self.0
-                .get_coordinates(Pin::new(&mut x), Pin::new(&mut y), Pin::new(&mut z));
-            (x, y, z)
-        }
-    }
-
-    impl Default for Vertex {
-        fn default() -> Self {
-            Self::new()
-        }
-    }
-}
+pub mod geom;
+pub mod shape;
 
 #[cfg(test)]
 mod tests {
