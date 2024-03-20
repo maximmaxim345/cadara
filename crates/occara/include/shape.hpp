@@ -90,4 +90,7 @@ struct MakeWire {
   void add_wire(const occara::shape::Wire &wire);
 };
 
+Shape make_cylinder(const occara::geom::Axis2d &axis, Standard_Real radius,
+                    Standard_Real height);
+
 } // namespace occara::shape

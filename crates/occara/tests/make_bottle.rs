@@ -6,7 +6,7 @@
 // use occara::solid::{Cylinder, Loft, Solid};
 // use std::f64::consts::PI;
 use occara::geom::{Direction, Point, Transformation, Vector};
-use occara::shape::{Edge, Wire};
+use occara::shape::{make_cylinder, Edge, Wire};
 
 #[allow(unused)]
 #[test]
@@ -63,8 +63,8 @@ fn test_make_bottle() {
     let neck_radius = thickness / 4.0;
     let neck_height = height / 10.0;
 
-    // let neck = Cylinder::new(neck_plane, neck_radius, neck_height);
-    //
+    let neck = make_cylinder(&neck_plane, neck_radius, neck_height);
+
     // // Fuse the body and the neck
     // let body = body.fuse(neck);
     //

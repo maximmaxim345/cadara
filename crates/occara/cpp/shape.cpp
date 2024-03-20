@@ -1,4 +1,5 @@
 #include "shape.hpp"
+#include "BRepPrimAPI_MakeCylinder.hxx"
 
 namespace occara::shape {
 
@@ -71,6 +72,12 @@ void MakeWire::add_edge(const occara::shape::Edge &edge) {
 
 void MakeWire::add_wire(const occara::shape::Wire &wire) {
   make_wire.Add(wire.wire);
+}
+
+Shape make_cylinder(const occara::geom::Axis2d &axis, Standard_Real radius,
+                    Standard_Real height) {
+  BRepPrimAPI_MakeCylinder cylinder(axis.axis, radius, height);
+  return Shape(cylinder.Shape());
 }
 
 } // namespace occara::shape

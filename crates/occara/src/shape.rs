@@ -141,3 +141,7 @@ impl AddableToWire for Wire {
         maker.as_mut().add_wire(&self.0);
     }
 }
+
+pub fn make_cylinder(axis: &geom::Axis2d, radius: f64, height: f64) -> Shape {
+    Shape(ffi::occara::shape::make_cylinder(&axis.0.as_ref(), radius, height).within_box())
+}
