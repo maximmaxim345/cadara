@@ -58,11 +58,11 @@ fn test_make_bottle() {
         make_fillet.build()
     };
 
-    // // Create the neck from a cylinder
-    // let neck_plane = Point::new(0.0, 0.0, height).axis2d_with(Direction::Z());
-    // let neck_radius = thickness / 4.0;
-    // let neck_height = height / 10.0;
-    //
+    // Create the neck from a cylinder
+    let neck_plane = Point::new(0.0, 0.0, height).axis2d_with(Direction::z());
+    let neck_radius = thickness / 4.0;
+    let neck_height = height / 10.0;
+
     // let neck = Cylinder::new(neck_plane, neck_radius, neck_height);
     //
     // // Fuse the body and the neck

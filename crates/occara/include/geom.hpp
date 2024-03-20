@@ -3,6 +3,7 @@
 #include "GC_MakeSegment.hxx"
 #include "Geom_TrimmedCurve.hxx"
 #include "gp_Ax1.hxx"
+#include "gp_Ax2.hxx"
 #include "gp_Pnt.hxx"
 
 namespace occara::geom {
@@ -29,6 +30,12 @@ struct Axis {
   gp_Ax1 axis;
 
   Axis(const Point &origin, const Direction &direction);
+};
+
+struct Axis2d {
+  gp_Ax2 axis;
+
+  Axis2d(const Point &origin, const Direction &direction);
 };
 
 struct TrimmedCurve {

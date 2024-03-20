@@ -22,6 +22,11 @@ impl Point {
     pub fn axis_with(&self, direction: Direction) -> Axis {
         Axis::new(self, &direction)
     }
+
+    #[must_use]
+    pub fn axis2d_with(&self, direction: Direction) -> Axis2d {
+        Axis2d::new(self, &direction)
+    }
 }
 
 pub struct Direction(pub(crate) Pin<Box<ffi::occara::geom::Direction>>);
@@ -54,6 +59,15 @@ impl Axis {
     #[must_use]
     pub fn new(location: &Point, direction: &Direction) -> Self {
         Self(ffi::occara::geom::Axis::new(&location.0, &direction.0).within_box())
+    }
+}
+
+pub struct Axis2d(pub(crate) Pin<Box<ffi::occara::geom::Axis2d>>);
+
+impl Axis2d {
+    #[must_use]
+    pub fn new(location: &Point, direction: &Direction) -> Self {
+        Self(ffi::occara::geom::Axis2d::new(&location.0, &direction.0).within_box())
     }
 }
 
