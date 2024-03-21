@@ -20,6 +20,7 @@ autocxx::include_cpp! {
     generate!("gp_Pnt")
     generate!("gp_Dir")
     generate!("gp_Ax1")
+    generate!("MakeBottle")
 }
 
 #[cxx::bridge]

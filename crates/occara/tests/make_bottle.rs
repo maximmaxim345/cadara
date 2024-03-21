@@ -2,17 +2,11 @@ use occara::geom::{
     CylindricalSurface, Direction, Direction2D, Ellipse2D, Point, Point2D, Transformation,
     TrimmedCurve2D, Vector,
 };
-use occara::shape::{make_cylinder, Compound, Edge, Loft, Wire};
+use occara::shape::{make_cylinder, Compound, Edge, Loft, Shape, Wire};
 use ordered_float::OrderedFloat;
 use std::f64::consts::PI;
 
-#[allow(unused)]
-#[test]
-fn test_make_bottle() {
-    let width = 50.0;
-    let height = 70.0;
-    let thickness = 30.0;
-
+fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
     // Define first half of the profile
     let wire = {
         let point1 = Point::new(-width / 2.0, 0.0, 0.0);
@@ -121,5 +115,19 @@ fn test_make_bottle() {
             .build()
     };
 
-    let result = Compound::new().add_shapes(&[&body, &threading]).build();
+    Compound::new().add_shapes(&[&body, &threading]).build()
+}
+
+#[test]
+fn test_make_bottle() {
+    use occara::internal::make_bottle_cpp;
+
+    let width = 50.0;
+    let height = 70.0;
+    let thickness = 30.0;
+
+    let _bottle_rust = make_bottle_rust(width, height, thickness);
+    let _result_cpp = make_bottle_cpp(width, height, thickness);
+
+    // TODO: Compare the two shapes
 }

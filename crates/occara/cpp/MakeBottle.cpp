@@ -77,9 +77,9 @@
 
 #include <TopTools_ListOfShape.hxx>
 
-std::unique_ptr<TopoDS_Shape> MakeBottle(const Standard_Real theWidth,
-                                         const Standard_Real theHeight,
-                                         const Standard_Real theThickness) {
+occara::shape::Shape MakeBottle(const Standard_Real theWidth,
+                                const Standard_Real theHeight,
+                                const Standard_Real theThickness) {
   // Profile : Define Support Points
   gp_Pnt aPnt1(-theWidth / 2., 0, 0);
   gp_Pnt aPnt2(-theWidth / 2., -theThickness / 4., 0);
@@ -223,5 +223,5 @@ std::unique_ptr<TopoDS_Shape> MakeBottle(const Standard_Real theWidth,
   aBuilder.Add(aRes, myBody);
   aBuilder.Add(aRes, myThreading);
 
-  return std::make_unique<TopoDS_Shape>(TopoDS_Shape(aRes));
+  return occara::shape::Shape{TopoDS_Shape(aRes)};
 }

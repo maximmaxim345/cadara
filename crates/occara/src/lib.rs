@@ -8,13 +8,19 @@ mod ffi;
 pub mod geom;
 pub mod shape;
 
+#[doc(hidden)]
+pub mod internal {
+    use autocxx::prelude::*;
+
+    #[doc(hidden)]
+    pub fn make_bottle_cpp(width: f64, height: f64, thickness: f64) -> crate::shape::Shape {
+        crate::shape::Shape(crate::ffi::MakeBottle(width, height, thickness).within_box())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::shape;
-    #[test]
-    fn test_simple() {
-        let _shape = crate::ffi::MakeBottle(50.0, 70.0, 30.0);
-    }
 
     #[test]
     fn test_vertex_coordinates() {
