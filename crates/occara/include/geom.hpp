@@ -1,12 +1,15 @@
 #pragma once
 #include "GC_MakeArcOfCircle.hxx"
 #include "GC_MakeSegment.hxx"
+#include "Geom_CylindricalSurface.hxx"
 #include "Geom_Plane.hxx"
 #include "Geom_Surface.hxx"
 #include "Geom_TrimmedCurve.hxx"
 #include "gp_Ax1.hxx"
 #include "gp_Ax2.hxx"
+#include "gp_Dir2d.hxx"
 #include "gp_Pnt.hxx"
+#include "gp_Pnt2d.hxx"
 
 namespace occara::geom {
 
@@ -23,6 +26,17 @@ struct Point {
   Standard_Real z() const;
 };
 
+struct Point2D {
+  gp_Pnt2d point;
+
+  Point2D(Standard_Real x, Standard_Real y);
+  Point2D(const gp_Pnt2d &point);
+
+  void get_coordinates(Standard_Real &x, Standard_Real &y) const;
+  Standard_Real x() const;
+  Standard_Real y() const;
+};
+
 struct Vector {
   gp_Vec vector;
 
@@ -35,10 +49,22 @@ struct Direction {
   Direction(Standard_Real x, Standard_Real y, Standard_Real z);
 };
 
+struct Direction2D {
+  gp_Dir2d direction;
+
+  Direction2D(Standard_Real x, Standard_Real y);
+};
+
 struct Axis {
   gp_Ax1 axis;
 
   Axis(const Point &origin, const Direction &direction);
+};
+
+struct Axis2D {
+  gp_Ax2d axis;
+
+  Axis2D(const Point2D &origin, const Direction2D &direction);
 };
 
 struct PlaneAxis {
@@ -73,6 +99,12 @@ struct Transformation {
   Transformation();
 
   void mirror(const Axis &axis);
+};
+
+struct CylindricalSurface {
+  Handle(Geom_CylindricalSurface) surface;
+
+  CylindricalSurface(const PlaneAxis &axis, Standard_Real radius);
 };
 
 } // namespace occara::geom

@@ -85,6 +85,70 @@ impl Axis {
     }
 }
 
+pub struct Point2D(pub(crate) Pin<Box<ffi::occara::geom::Point2D>>);
+
+impl Point2D {
+    #[must_use]
+    pub fn new(x: f64, y: f64) -> Self {
+        Self(ffi::occara::geom::Point2D::new(x, y).within_box())
+    }
+
+    #[must_use]
+    pub fn x(self) -> f64 {
+        self.0.x()
+    }
+
+    #[must_use]
+    pub fn y(self) -> f64 {
+        self.0.y()
+    }
+
+    #[must_use]
+    pub fn get_coordinates(&self) -> (f64, f64) {
+        let (mut x, mut y) = (0.0, 0.0);
+        self.0.get_coordinates(Pin::new(&mut x), Pin::new(&mut y));
+        (x, y)
+    }
+
+    #[must_use]
+    pub fn origin() -> Self {
+        Self::new(0.0, 0.0)
+    }
+
+    #[must_use]
+    pub fn axis2d_with(&self, direction: Direction2D) -> Axis2D {
+        Axis2D::new(self, &direction)
+    }
+}
+
+pub struct Direction2D(pub(crate) Pin<Box<ffi::occara::geom::Direction2D>>);
+
+impl Direction2D {
+    #[must_use]
+    pub fn new(x: f64, y: f64) -> Self {
+        Self(ffi::occara::geom::Direction2D::new(x, y).within_box())
+    }
+
+    #[must_use]
+    pub fn x() -> Self {
+        Self::new(1.0, 0.0)
+    }
+
+    #[must_use]
+    pub fn y() -> Self {
+        Self::new(0.0, 1.0)
+    }
+}
+
+pub struct Axis2D(pub(crate) Pin<Box<ffi::occara::geom::Axis2D>>);
+
+impl Axis2D {
+    #[must_use]
+    pub fn new(location: &Point2D, direction: &Direction2D) -> Self {
+        Self(ffi::occara::geom::Axis2D::new(&location.0, &direction.0).within_box())
+    }
+}
+
 pub struct PlaneAxis(pub(crate) Pin<Box<ffi::occara::geom::PlaneAxis>>);
 
 impl PlaneAxis {
@@ -157,5 +221,13 @@ impl Vector {
     #[must_use]
     pub fn new(x: f64, y: f64, z: f64) -> Self {
         Self(ffi::occara::geom::Vector::new(x, y, z).within_box())
+    }
+}
+
+pub struct CylindricalSurface(pub(crate) Pin<Box<ffi::occara::geom::CylindricalSurface>>);
+
+impl CylindricalSurface {
+    pub fn new(plane: &PlaneAxis, radius: f64) -> Self {
+        Self(ffi::occara::geom::CylindricalSurface::new(&plane.0, radius).within_box())
     }
 }

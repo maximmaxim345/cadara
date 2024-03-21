@@ -4,10 +4,12 @@
 // };
 // use occara::shape::{Compound, Edge, Face, Wire};
 // use occara::solid::{Cylinder, Loft, Solid};
-// use std::f64::consts::PI;
-use occara::geom::{Direction, Point, Transformation, Vector};
+use occara::geom::{
+    CylindricalSurface, Direction, Direction2D, Point, Point2D, Transformation, Vector,
+};
 use occara::shape::{make_cylinder, Edge, Wire};
 use ordered_float::OrderedFloat;
+use std::f64::consts::PI;
 
 #[allow(unused)]
 #[test]
@@ -89,40 +91,40 @@ fn test_make_bottle() {
             .build()
     };
 
-    // // Add threading to the neck
-    // let threading = {
-    //     let cylinder1 = CylindricalSurface::new(neck_plane, neck_radius * 0.99);
-    //     let cylinder2 = CylindricalSurface::new(neck_plane, neck_radius * 1.05);
-    //
-    //     let axis2d = Point2D::new(2.0 * PI, neck_height / 2.0)
-    //         .axis2d_with(Direction2D::new(2.0 * PI, neck_height / 4.0));
-    //
-    //     let major = 2.0 * PI;
-    //     let minor = neck_height / 10.0;
-    //
-    //     let ellipse1 = Ellipse2D::new(axis2d, major, minor);
-    //     let ellipse2 = Ellipse2D::new(axis2d, major, minor / 4.0);
-    //     let arc1 = ellipse1.trim(0.0, PI);
-    //     let arc2 = ellipse2.trim(0.0, PI);
-    //
-    //     let segment = TrimmedCurve2D::line(ellipse1.value(0.0), ellipse1.value(PI));
-    //
-    //     let threading_wire1 = Wire::new(&[
-    //         Edge::new_with_surface(arc1, cylinder1),
-    //         Edge::new_with_surface(segment, cylinder1),
-    //     ])
-    //     .build_curves_3d();
-    //     let threading_wire2 = Wire::new(&[
-    //         Edge::new_with_surface(arc2, cylinder2),
-    //         Edge::new_with_surface(segment, cylinder2),
-    //     ])
-    //     .build_curves_3d();
-    //
-    //     Loft::new_solid()
-    //         .add_wires(&[threading_wire1, threading_wire2])
-    //         .check_compatibility(false)
-    //         .build();
-    // };
+    // Add threading to the neck
+    let threading = {
+        let cylinder1 = CylindricalSurface::new(&neck_plane, neck_radius * 0.99);
+        let cylinder2 = CylindricalSurface::new(&neck_plane, neck_radius * 1.05);
+
+        let axis2d = Point2D::new(2.0 * PI, neck_height / 2.0)
+            .axis2d_with(Direction2D::new(2.0 * PI, neck_height / 4.0));
+
+        let major = 2.0 * PI;
+        let minor = neck_height / 10.0;
+
+        // let ellipse1 = Ellipse2D::new(axis2d, major, minor);
+        // let ellipse2 = Ellipse2D::new(axis2d, major, minor / 4.0);
+        // let arc1 = ellipse1.trim(0.0, PI);
+        // let arc2 = ellipse2.trim(0.0, PI);
+        //
+        // let segment = TrimmedCurve2D::line(ellipse1.value(0.0), ellipse1.value(PI));
+        //
+        // let threading_wire1 = Wire::new(&[
+        //     Edge::new_with_surface(arc1, cylinder1),
+        //     Edge::new_with_surface(segment, cylinder1),
+        // ])
+        // .build_curves_3d();
+        // let threading_wire2 = Wire::new(&[
+        //     Edge::new_with_surface(arc2, cylinder2),
+        //     Edge::new_with_surface(segment, cylinder2),
+        // ])
+        // .build_curves_3d();
+        //
+        // Loft::new_solid()
+        //     .add_wires(&[threading_wire1, threading_wire2])
+        //     .check_compatibility(false)
+        //     .build();
+    };
     //
     // let result = Compound::new().add_shapes(&[body, threading]);
 }
