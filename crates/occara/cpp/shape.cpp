@@ -1,6 +1,7 @@
 #include "shape.hpp"
 #include "BRepAlgoAPI_Fuse.hxx"
 #include "BRepPrimAPI_MakeCylinder.hxx"
+#include <BRepLib.hxx>
 
 namespace occara::shape {
 
@@ -52,6 +53,10 @@ Edge::Edge(const occara::geom::TrimmedCurve &curve)
     : edge(BRepBuilderAPI_MakeEdge(curve.curve)) {}
 
 Edge::Edge(const TopoDS_Edge &edge) : edge(edge) {}
+
+Edge::Edge(const occara::geom::TrimmedCurve2D &curve,
+           const occara::geom::CylindricalSurface &surface)
+    : edge(BRepBuilderAPI_MakeEdge(curve.curve, surface.surface)) {}
 
 void FilletBuilder::add_edge(Standard_Real radius, const Edge &edge) {
   make_fillet.Add(radius, edge.edge);
@@ -109,6 +114,8 @@ Wire Wire::transform(const occara::geom::Transformation &transformation) const {
 }
 
 Face Wire::make_face() const { return Face{BRepBuilderAPI_MakeFace(wire)}; }
+
+void Wire::build_curves_3d() { BRepLib::BuildCurves3d(wire); }
 
 void WireBuilder::add_edge(const occara::shape::Edge &edge) {
   make_wire.Add(edge.edge);

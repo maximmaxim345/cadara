@@ -138,6 +138,16 @@ impl Edge {
     pub fn line(p1: &geom::Point, p2: &geom::Point) -> Self {
         geom::TrimmedCurve::line(p1, p2).into()
     }
+
+    // TODO: this should be a geom::Curve2D
+    // TODO: this should be a geom::Surface
+    #[must_use]
+    pub fn new_with_surface(
+        curve: &geom::TrimmedCurve2D,
+        surface: &geom::CylindricalSurface,
+    ) -> Self {
+        Self(ffi::occara::shape::Edge::new2(&curve.0, &surface.0).within_box())
+    }
 }
 
 impl From<geom::TrimmedCurve> for Edge {
@@ -177,6 +187,12 @@ impl Wire {
     #[must_use]
     pub fn make_face(&self) -> Face {
         Face(self.0.make_face().within_box())
+    }
+
+    #[must_use]
+    pub fn build_curves_3d(mut self) -> Self {
+        ffi::occara::shape::Wire::build_curves_3d(self.0.as_mut());
+        self
     }
 }
 

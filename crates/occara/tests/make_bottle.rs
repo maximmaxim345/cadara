@@ -110,17 +110,17 @@ fn test_make_bottle() {
 
         let segment = TrimmedCurve2D::line(&ellipse1.value(0.0), &ellipse1.value(PI));
 
-        // let threading_wire1 = Wire::new(&[
-        //     Edge::new_with_surface(arc1, cylinder1),
-        //     Edge::new_with_surface(segment, cylinder1),
-        // ])
-        // .build_curves_3d();
-        // let threading_wire2 = Wire::new(&[
-        //     Edge::new_with_surface(arc2, cylinder2),
-        //     Edge::new_with_surface(segment, cylinder2),
-        // ])
-        // .build_curves_3d();
-        //
+        let threading_wire1 = Wire::new(&[
+            &Edge::new_with_surface(&arc1, &cylinder1),
+            &Edge::new_with_surface(&segment, &cylinder1),
+        ])
+        .build_curves_3d();
+        let threading_wire2 = Wire::new(&[
+            &Edge::new_with_surface(&arc2, &cylinder2),
+            &Edge::new_with_surface(&segment, &cylinder2),
+        ])
+        .build_curves_3d();
+
         // Loft::new_solid()
         //     .add_wires(&[threading_wire1, threading_wire2])
         //     .check_compatibility(false)

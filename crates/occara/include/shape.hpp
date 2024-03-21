@@ -70,6 +70,8 @@ struct Edge {
 
   Edge(const occara::geom::TrimmedCurve &curve);
   Edge(const TopoDS_Edge &edge);
+  Edge(const occara::geom::TrimmedCurve2D &curve,
+       const occara::geom::CylindricalSurface &surface);
 };
 
 struct EdgeIterator {
@@ -107,6 +109,7 @@ struct Wire {
 
   Wire transform(const occara::geom::Transformation &transformation) const;
   Face make_face() const;
+  void build_curves_3d();
 };
 
 struct WireBuilder {
