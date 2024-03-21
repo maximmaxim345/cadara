@@ -1,4 +1,5 @@
 #include "geom.hpp"
+#include "GCE2d_MakeSegment.hxx"
 
 namespace occara::geom {
 
@@ -52,6 +53,24 @@ TrimmedCurve::TrimmedCurve(const Point &p1, const Point &p2, const Point &p3)
 
 TrimmedCurve::TrimmedCurve(const Point &p1, const Point &p2)
     : curve(GC_MakeSegment(p1.point, p2.point)) {}
+
+TrimmedCurve2D::TrimmedCurve2D(const Geom2d_TrimmedCurve &curve)
+    : curve(new Geom2d_TrimmedCurve(curve)) {}
+
+TrimmedCurve2D::TrimmedCurve2D(const Point2D &p1, const Point2D &p2)
+    : curve(GCE2d_MakeSegment(p1.point, p2.point)) {}
+
+Ellipse2D::Ellipse2D(const Axis2D &axis, Standard_Real major_radius,
+                     Standard_Real minor_radius)
+    : ellipse(new Geom2d_Ellipse(axis.axis, major_radius, minor_radius)) {}
+
+TrimmedCurve2D Ellipse2D::trim(Standard_Real u1, Standard_Real u2) const {
+  return TrimmedCurve2D(Geom2d_TrimmedCurve(ellipse, u1, u2));
+}
+
+Point2D Ellipse2D::value(Standard_Real u) const {
+  return Point2D(ellipse->Value(u));
+}
 
 Point Plane::location() const { return Point(plane->Location()); }
 

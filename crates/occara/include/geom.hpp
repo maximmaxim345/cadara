@@ -1,6 +1,8 @@
 #pragma once
 #include "GC_MakeArcOfCircle.hxx"
 #include "GC_MakeSegment.hxx"
+#include "Geom2d_Ellipse.hxx"
+#include "Geom2d_TrimmedCurve.hxx"
 #include "Geom_CylindricalSurface.hxx"
 #include "Geom_Plane.hxx"
 #include "Geom_Surface.hxx"
@@ -79,6 +81,22 @@ struct TrimmedCurve {
   TrimmedCurve(const Point &p1, const Point &p2, const Point &p3);
 
   TrimmedCurve(const Point &p1, const Point &p2);
+};
+
+struct TrimmedCurve2D {
+  Handle(Geom2d_TrimmedCurve) curve;
+
+  TrimmedCurve2D(const Geom2d_TrimmedCurve &curve);
+  TrimmedCurve2D(const Point2D &p1, const Point2D &p2);
+};
+
+struct Ellipse2D {
+  Handle(Geom2d_Ellipse) ellipse;
+
+  Ellipse2D(const Axis2D &axis, Standard_Real major_radius,
+            Standard_Real minor_radius);
+  TrimmedCurve2D trim(Standard_Real u1, Standard_Real u2) const;
+  Point2D value(Standard_Real u) const;
 };
 
 struct Plane {

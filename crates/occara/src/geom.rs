@@ -174,6 +174,34 @@ impl TrimmedCurve {
     }
 }
 
+pub struct TrimmedCurve2D(pub(crate) Pin<Box<ffi::occara::geom::TrimmedCurve2D>>);
+
+impl TrimmedCurve2D {
+    #[must_use]
+    pub fn line(p1: &Point2D, p2: &Point2D) -> Self {
+        Self(ffi::occara::geom::TrimmedCurve2D::new1(&p1.0, &p2.0).within_box())
+    }
+}
+
+pub struct Ellipse2D(pub(crate) Pin<Box<ffi::occara::geom::Ellipse2D>>);
+
+impl Ellipse2D {
+    #[must_use]
+    pub fn new(axis: &Axis2D, major_radius: f64, minor_radius: f64) -> Self {
+        Self(ffi::occara::geom::Ellipse2D::new(&axis.0, major_radius, minor_radius).within_box())
+    }
+
+    pub fn trim(&self, u1: f64, u2: f64) -> TrimmedCurve2D {
+        let trimmed_curve = ffi::occara::geom::Ellipse2D::trim(&self.0, u1, u2).within_box();
+        TrimmedCurve2D(trimmed_curve)
+    }
+
+    pub fn value(&self, u: f64) -> Point2D {
+        let point = ffi::occara::geom::Ellipse2D::value(&self.0, u).within_box();
+        Point2D(point)
+    }
+}
+
 pub struct Plane(pub(crate) Pin<Box<ffi::occara::geom::Plane>>);
 
 impl Plane {
