@@ -131,4 +131,14 @@ Shape make_cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
   return Shape(cylinder.Shape());
 }
 
+Loft::Loft(Standard_Boolean solid) : loft(solid) {}
+
+void Loft::add_wire(const Wire &wire) { loft.AddWire(wire.wire); }
+
+void Loft::check_compatibility(Standard_Boolean check) {
+  loft.CheckCompatibility(check);
+}
+
+Shape Loft::build() { return Shape(loft.Shape()); }
+
 } // namespace occara::shape

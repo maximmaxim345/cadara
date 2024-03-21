@@ -221,3 +221,29 @@ impl AddableToWire for Wire {
 pub fn make_cylinder(axis: &geom::PlaneAxis, radius: f64, height: f64) -> Shape {
     Shape(ffi::occara::shape::make_cylinder(&axis.0.as_ref(), radius, height).within_box())
 }
+
+pub struct Loft(pub(crate) Pin<Box<ffi::occara::shape::Loft>>);
+
+impl Loft {
+    #[must_use]
+    pub fn new_solid() -> Self {
+        let loft = ffi::occara::shape::Loft::new(true).within_box();
+        Self(loft)
+    }
+
+    pub fn add_wires(&mut self, wire: &[&Wire]) -> &mut Self {
+        for w in wire {
+            self.0.as_mut().add_wire(&w.0);
+        }
+        self
+    }
+
+    pub fn check_compatibility(&mut self, check: bool) -> &mut Self {
+        self.0.as_mut().check_compatibility(check);
+        self
+    }
+
+    pub fn build(&mut self) -> Shape {
+        Shape(self.0.as_mut().build().within_box())
+    }
+}

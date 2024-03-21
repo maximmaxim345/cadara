@@ -8,7 +8,7 @@ use occara::geom::{
     CylindricalSurface, Direction, Direction2D, Ellipse2D, Point, Point2D, Transformation,
     TrimmedCurve2D, Vector,
 };
-use occara::shape::{make_cylinder, Edge, Wire};
+use occara::shape::{make_cylinder, Edge, Loft, Wire};
 use ordered_float::OrderedFloat;
 use std::f64::consts::PI;
 
@@ -121,10 +121,10 @@ fn test_make_bottle() {
         ])
         .build_curves_3d();
 
-        // Loft::new_solid()
-        //     .add_wires(&[threading_wire1, threading_wire2])
-        //     .check_compatibility(false)
-        //     .build();
+        Loft::new_solid()
+            .add_wires(&[&threading_wire1, &threading_wire2])
+            .check_compatibility(false)
+            .build()
     };
     //
     // let result = Compound::new().add_shapes(&[body, threading]);

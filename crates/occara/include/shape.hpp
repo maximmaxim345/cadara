@@ -6,6 +6,7 @@
 #include "BRepBuilderAPI_Transform.hxx"
 #include "BRepFilletAPI_MakeFillet.hxx"
 #include "BRepOffsetAPI_MakeThickSolid.hxx"
+#include "BRepOffsetAPI_ThruSections.hxx"
 #include "BRepPrimAPI_MakePrism.hxx"
 #include "BRep_Tool.hxx"
 #include "TopExp_Explorer.hxx"
@@ -121,5 +122,14 @@ struct WireBuilder {
 
 Shape make_cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
                     Standard_Real height);
+
+struct Loft {
+  BRepOffsetAPI_ThruSections loft;
+
+  Loft(Standard_Boolean solid);
+  void add_wire(const Wire &wire);
+  void check_compatibility(Standard_Boolean check);
+  Shape build();
+};
 
 } // namespace occara::shape
