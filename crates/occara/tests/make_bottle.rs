@@ -79,7 +79,7 @@ fn test_make_bottle() {
             })
             .unwrap();
 
-        body.make_thick_solid()
+        body.make_shell()
             .faces_to_remove(&[&face_to_remove])
             .offset(-thickness / 50.0)
             .tolerance(1.0e-3)

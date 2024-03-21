@@ -46,13 +46,13 @@ struct FilletBuilder {
   Shape build();
 };
 
-struct ThickSolidBuilder {
+struct ShellBuilder {
   TopoDS_Shape shape;
   TopTools_ListOfShape facesToRemove;
   Standard_Real tolerance = 1.e-3;
   Standard_Real offset = 0.0;
 
-  ThickSolidBuilder(const Shape &shape);
+  ShellBuilder(const Shape &shape);
   void add_face_to_remove(const Face &face);
   void set_offset(Standard_Real offset);
   void set_tolerance(Standard_Real tolerance);

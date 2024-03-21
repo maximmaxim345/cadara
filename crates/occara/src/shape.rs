@@ -54,8 +54,8 @@ impl Shape {
     }
 
     #[must_use]
-    pub fn make_thick_solid(&self) -> ThickSolidBuilder {
-        ThickSolidBuilder(ffi::occara::shape::ThickSolidBuilder::new(&self.0).within_box())
+    pub fn make_shell(&self) -> ShellBuilder {
+        ShellBuilder(ffi::occara::shape::ShellBuilder::new(&self.0).within_box())
     }
 }
 
@@ -101,9 +101,9 @@ impl FilletBuilder {
     }
 }
 
-pub struct ThickSolidBuilder(pub(crate) Pin<Box<ffi::occara::shape::ThickSolidBuilder>>);
+pub struct ShellBuilder(pub(crate) Pin<Box<ffi::occara::shape::ShellBuilder>>);
 
-impl ThickSolidBuilder {
+impl ShellBuilder {
     pub fn faces_to_remove(&mut self, faces: &[&Face]) -> &mut Self {
         for face in faces {
             self.0.as_mut().add_face_to_remove(&face.0);

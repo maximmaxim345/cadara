@@ -20,21 +20,19 @@ void Vertex::get_coordinates(double &x, double &y, double &z) const {
   z = point.Z();
 }
 
-ThickSolidBuilder::ThickSolidBuilder(const Shape &shape) : shape(shape.shape) {}
+ShellBuilder::ShellBuilder(const Shape &shape) : shape(shape.shape) {}
 
-void ThickSolidBuilder::add_face_to_remove(const Face &face) {
+void ShellBuilder::add_face_to_remove(const Face &face) {
   facesToRemove.Append(face.face);
 }
 
-void ThickSolidBuilder::set_offset(Standard_Real offset) {
-  this->offset = offset;
-}
+void ShellBuilder::set_offset(Standard_Real offset) { this->offset = offset; }
 
-void ThickSolidBuilder::set_tolerance(Standard_Real tolerance) {
+void ShellBuilder::set_tolerance(Standard_Real tolerance) {
   this->tolerance = tolerance;
 }
 
-Shape ThickSolidBuilder::build() {
+Shape ShellBuilder::build() {
   BRepOffsetAPI_MakeThickSolid make_thick_solid;
   make_thick_solid.MakeThickSolidByJoin(shape, facesToRemove, offset,
                                         tolerance);
