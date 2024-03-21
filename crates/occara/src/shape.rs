@@ -42,6 +42,11 @@ impl Shape {
     pub fn edges(&self) -> EdgeIterator {
         EdgeIterator(ffi::occara::shape::EdgeIterator::new(&self.0).within_box())
     }
+
+    #[must_use]
+    pub fn fuse(&mut self, other: &Shape) -> Shape {
+        Shape(self.0.as_mut().fuse(&other.0).within_box())
+    }
 }
 
 pub struct EdgeIterator(pub(crate) Pin<Box<ffi::occara::shape::EdgeIterator>>);

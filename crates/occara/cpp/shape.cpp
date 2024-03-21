@@ -1,4 +1,5 @@
 #include "shape.hpp"
+#include "BRepAlgoAPI_Fuse.hxx"
 #include "BRepPrimAPI_MakeCylinder.hxx"
 
 namespace occara::shape {
@@ -20,6 +21,10 @@ void Vertex::get_coordinates(double &x, double &y, double &z) const {
 
 FilletBuilder Shape::make_fillet() const {
   return FilletBuilder{BRepFilletAPI_MakeFillet(shape)};
+}
+
+Shape Shape::fuse(const Shape &other) {
+  return Shape{BRepAlgoAPI_Fuse(shape, other.shape).Shape()};
 }
 
 Edge::Edge(const occara::geom::TrimmedCurve &curve)

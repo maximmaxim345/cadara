@@ -46,6 +46,7 @@ struct Shape {
   TopoDS_Shape shape;
 
   FilletBuilder make_fillet() const;
+  Shape fuse(const Shape &other);
 };
 
 struct Edge {

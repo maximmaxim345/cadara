@@ -49,7 +49,7 @@ fn test_make_bottle() {
     };
 
     // Chamfer all edges of the bottle
-    let body = {
+    let mut body = {
         let fillet_radius = thickness / 12.0;
         let mut make_fillet = body.make_fillet();
         for edge in body.edges() {
@@ -65,9 +65,9 @@ fn test_make_bottle() {
 
     let neck = make_cylinder(&neck_plane, neck_radius, neck_height);
 
-    // // Fuse the body and the neck
-    // let body = body.fuse(neck);
-    //
+    // Fuse the body and the neck
+    let body = body.fuse(&neck);
+
     // // Hollow out the body, leaving a hole at the top of the neck
     // let body = {
     //     let face_to_remove = body.faces().max_by(|face| {
