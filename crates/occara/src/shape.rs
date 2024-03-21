@@ -52,6 +52,11 @@ impl Shape {
     pub fn fuse(&mut self, other: &Shape) -> Shape {
         Shape(self.0.as_mut().fuse(&other.0).within_box())
     }
+
+    #[must_use]
+    pub fn make_thick_solid(&self) -> ThickSolidBuilder {
+        ThickSolidBuilder(ffi::occara::shape::ThickSolidBuilder::new(&self.0).within_box())
+    }
 }
 
 pub struct EdgeIterator(pub(crate) Pin<Box<ffi::occara::shape::EdgeIterator>>);
@@ -91,6 +96,31 @@ impl FilletBuilder {
         self.0.as_mut().add_edge(radius, &edge.0);
     }
     #[must_use]
+    pub fn build(&mut self) -> Shape {
+        Shape(self.0.as_mut().build().within_box())
+    }
+}
+
+pub struct ThickSolidBuilder(pub(crate) Pin<Box<ffi::occara::shape::ThickSolidBuilder>>);
+
+impl ThickSolidBuilder {
+    pub fn faces_to_remove(&mut self, faces: &[&Face]) -> &mut Self {
+        for face in faces {
+            self.0.as_mut().add_face_to_remove(&face.0);
+        }
+        self
+    }
+
+    pub fn tolerance(&mut self, tolerance: f64) -> &mut Self {
+        self.0.as_mut().set_tolerance(tolerance);
+        self
+    }
+
+    pub fn offset(&mut self, offset: f64) -> &mut Self {
+        self.0.as_mut().set_offset(offset);
+        self
+    }
+
     pub fn build(&mut self) -> Shape {
         Shape(self.0.as_mut().build().within_box())
     }

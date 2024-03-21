@@ -5,6 +5,7 @@
 #include "BRepBuilderAPI_MakeWire.hxx"
 #include "BRepBuilderAPI_Transform.hxx"
 #include "BRepFilletAPI_MakeFillet.hxx"
+#include "BRepOffsetAPI_MakeThickSolid.hxx"
 #include "BRepPrimAPI_MakePrism.hxx"
 #include "BRep_Tool.hxx"
 #include "TopExp_Explorer.hxx"
@@ -13,6 +14,7 @@
 #include "TopoDS_Wire.hxx"
 #include "geom.hpp"
 #include <TopoDS.hxx>
+#include <optional>
 
 namespace occara {
 namespace geom {
@@ -34,11 +36,25 @@ struct Vertex {
 
 struct Edge;
 struct Shape;
+struct Face;
 
 struct FilletBuilder {
   BRepFilletAPI_MakeFillet make_fillet;
 
   void add_edge(Standard_Real radius, const Edge &edge);
+  Shape build();
+};
+
+struct ThickSolidBuilder {
+  TopoDS_Shape shape;
+  TopTools_ListOfShape facesToRemove;
+  Standard_Real tolerance = 1.e-3;
+  Standard_Real offset = 0.0;
+
+  ThickSolidBuilder(const Shape &shape);
+  void add_face_to_remove(const Face &face);
+  void set_offset(Standard_Real offset);
+  void set_tolerance(Standard_Real tolerance);
   Shape build();
 };
 

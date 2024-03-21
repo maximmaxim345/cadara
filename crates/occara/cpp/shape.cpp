@@ -19,6 +19,27 @@ void Vertex::get_coordinates(double &x, double &y, double &z) const {
   z = point.Z();
 }
 
+ThickSolidBuilder::ThickSolidBuilder(const Shape &shape) : shape(shape.shape) {}
+
+void ThickSolidBuilder::add_face_to_remove(const Face &face) {
+  facesToRemove.Append(face.face);
+}
+
+void ThickSolidBuilder::set_offset(Standard_Real offset) {
+  this->offset = offset;
+}
+
+void ThickSolidBuilder::set_tolerance(Standard_Real tolerance) {
+  this->tolerance = tolerance;
+}
+
+Shape ThickSolidBuilder::build() {
+  BRepOffsetAPI_MakeThickSolid make_thick_solid;
+  make_thick_solid.MakeThickSolidByJoin(shape, facesToRemove, offset,
+                                        tolerance);
+  return Shape{make_thick_solid.Shape()};
+}
+
 FilletBuilder Shape::make_fillet() const {
   return FilletBuilder{BRepFilletAPI_MakeFillet(shape)};
 }

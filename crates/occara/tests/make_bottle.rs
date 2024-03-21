@@ -81,10 +81,12 @@ fn test_make_bottle() {
                 }
             })
             .unwrap();
-        // body.make_thick_solid()
-        //     .by_join(&[face_to_remove], -thickness / 50.0)
-        //     .tolerance(1.0e-3)
-        //     .build()
+
+        body.make_thick_solid()
+            .faces_to_remove(&[&face_to_remove])
+            .offset(-thickness / 50.0)
+            .tolerance(1.0e-3)
+            .build()
     };
 
     // // Add threading to the neck
