@@ -24,8 +24,8 @@ fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
 
     // Mirror the profile to get the full profile
     let mirrored_wire = {
-        let axis = Point::origin().axis_with(Direction::x());
-        let transformation = Transformation::mirror(axis);
+        let axis = Point::origin().axis_with(&Direction::x());
+        let transformation = Transformation::mirror(&axis);
         transformation.apply(wire.clone())
     };
 
@@ -51,7 +51,7 @@ fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
     };
 
     // Create the neck from a cylinder
-    let neck_plane = Point::new(0.0, 0.0, height).plane_axis_with(Direction::z());
+    let neck_plane = Point::new(0.0, 0.0, height).plane_axis_with(&Direction::z());
     let neck_radius = thickness / 4.0;
     let neck_height = height / 10.0;
 
@@ -86,7 +86,7 @@ fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
         let cylinder2 = CylindricalSurface::new(&neck_plane, neck_radius * 1.05);
 
         let axis2d = Point2D::new(2.0 * PI, neck_height / 2.0)
-            .axis2d_with(Direction2D::new(2.0 * PI, neck_height / 4.0));
+            .axis2d_with(&Direction2D::new(2.0 * PI, neck_height / 4.0));
 
         let major = 2.0 * PI;
         let minor = neck_height / 10.0;

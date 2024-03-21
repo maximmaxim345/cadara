@@ -13,6 +13,7 @@ pub mod internal {
     use autocxx::prelude::*;
 
     #[doc(hidden)]
+    #[must_use]
     pub fn make_bottle_cpp(width: f64, height: f64, thickness: f64) -> crate::shape::Shape {
         crate::shape::Shape(crate::ffi::MakeBottle(width, height, thickness).within_box())
     }

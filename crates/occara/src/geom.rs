@@ -42,13 +42,13 @@ impl Point {
     }
 
     #[must_use]
-    pub fn axis_with(&self, direction: Direction) -> Axis {
-        Axis::new(self, &direction)
+    pub fn axis_with(&self, direction: &Direction) -> Axis {
+        Axis::new(self, direction)
     }
 
     #[must_use]
-    pub fn plane_axis_with(&self, direction: Direction) -> PlaneAxis {
-        PlaneAxis::new(self, &direction)
+    pub fn plane_axis_with(&self, direction: &Direction) -> PlaneAxis {
+        PlaneAxis::new(self, direction)
     }
 }
 
@@ -116,8 +116,8 @@ impl Point2D {
     }
 
     #[must_use]
-    pub fn axis2d_with(&self, direction: Direction2D) -> Axis2D {
-        Axis2D::new(self, &direction)
+    pub fn axis2d_with(&self, direction: &Direction2D) -> Axis2D {
+        Axis2D::new(self, direction)
     }
 }
 
@@ -191,11 +191,13 @@ impl Ellipse2D {
         Self(ffi::occara::geom::Ellipse2D::new(&axis.0, major_radius, minor_radius).within_box())
     }
 
+    #[must_use]
     pub fn trim(&self, u1: f64, u2: f64) -> TrimmedCurve2D {
         let trimmed_curve = ffi::occara::geom::Ellipse2D::trim(&self.0, u1, u2).within_box();
         TrimmedCurve2D(trimmed_curve)
     }
 
+    #[must_use]
     pub fn value(&self, u: f64) -> Point2D {
         let point = ffi::occara::geom::Ellipse2D::value(&self.0, u).within_box();
         Point2D(point)
@@ -230,7 +232,7 @@ pub struct Transformation(pub(crate) Pin<Box<ffi::occara::geom::Transformation>>
 
 impl Transformation {
     #[must_use]
-    pub fn mirror(axis: Axis) -> Self {
+    pub fn mirror(axis: &Axis) -> Self {
         let mut transformation = ffi::occara::geom::Transformation::new().within_box();
         transformation.as_mut().mirror(&axis.0);
         Self(transformation)
@@ -255,6 +257,7 @@ impl Vector {
 pub struct CylindricalSurface(pub(crate) Pin<Box<ffi::occara::geom::CylindricalSurface>>);
 
 impl CylindricalSurface {
+    #[must_use]
     pub fn new(plane: &PlaneAxis, radius: f64) -> Self {
         Self(ffi::occara::geom::CylindricalSurface::new(&plane.0, radius).within_box())
     }

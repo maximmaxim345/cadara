@@ -49,8 +49,8 @@ impl Shape {
     }
 
     #[must_use]
-    pub fn fuse(&mut self, other: &Shape) -> Shape {
-        Shape(self.0.as_mut().fuse(&other.0).within_box())
+    pub fn fuse(&mut self, other: &Self) -> Self {
+        Self(self.0.as_mut().fuse(&other.0).within_box())
     }
 
     #[must_use]
@@ -218,6 +218,7 @@ impl AddableToWire for Wire {
     }
 }
 
+#[must_use]
 pub fn make_cylinder(axis: &geom::PlaneAxis, radius: f64, height: f64) -> Shape {
     Shape(ffi::occara::shape::make_cylinder(&axis.0.as_ref(), radius, height).within_box())
 }
@@ -250,7 +251,14 @@ impl Loft {
 
 pub struct Compound(pub(crate) Pin<Box<ffi::occara::shape::Compound>>);
 
+impl Default for Compound {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Compound {
+    #[must_use]
     pub fn new() -> Self {
         Self(ffi::occara::shape::Compound::new().within_box())
     }
