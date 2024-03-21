@@ -141,4 +141,12 @@ void Loft::check_compatibility(Standard_Boolean check) {
 
 Shape Loft::build() { return Shape(loft.Shape()); }
 
+Compound::Compound() { builder.MakeCompound(compound); }
+
+void Compound::add_shape(const Shape &shape) {
+  builder.Add(compound, shape.shape);
+}
+
+Shape Compound::build() { return Shape(compound); }
+
 } // namespace occara::shape

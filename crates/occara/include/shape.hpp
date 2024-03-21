@@ -132,4 +132,12 @@ struct Loft {
   Shape build();
 };
 
+struct Compound {
+  TopoDS_Compound compound;
+  BRep_Builder builder;
+  Compound();
+  void add_shape(const Shape &shape);
+  Shape build();
+};
+
 } // namespace occara::shape

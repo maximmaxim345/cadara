@@ -1,14 +1,8 @@
-// use occara::geom::{
-//     Axis, CylindericalSurface, Direction, Direction2D, Ellipse2D, Point, Point2D, Transformation,
-//     TrimmedCurve2D, Vector,
-// };
-// use occara::shape::{Compound, Edge, Face, Wire};
-// use occara::solid::{Cylinder, Loft, Solid};
 use occara::geom::{
     CylindricalSurface, Direction, Direction2D, Ellipse2D, Point, Point2D, Transformation,
     TrimmedCurve2D, Vector,
 };
-use occara::shape::{make_cylinder, Edge, Loft, Wire};
+use occara::shape::{make_cylinder, Compound, Edge, Loft, Wire};
 use ordered_float::OrderedFloat;
 use std::f64::consts::PI;
 
@@ -126,6 +120,6 @@ fn test_make_bottle() {
             .check_compatibility(false)
             .build()
     };
-    //
-    // let result = Compound::new().add_shapes(&[body, threading]);
+
+    let result = Compound::new().add_shapes(&[&body, &threading]).build();
 }

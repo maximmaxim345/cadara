@@ -247,3 +247,22 @@ impl Loft {
         Shape(self.0.as_mut().build().within_box())
     }
 }
+
+pub struct Compound(pub(crate) Pin<Box<ffi::occara::shape::Compound>>);
+
+impl Compound {
+    pub fn new() -> Self {
+        Self(ffi::occara::shape::Compound::new().within_box())
+    }
+
+    pub fn add_shapes(&mut self, shape: &[&Shape]) -> &mut Self {
+        for s in shape {
+            self.0.as_mut().add_shape(&s.0);
+        }
+        self
+    }
+
+    pub fn build(&mut self) -> Shape {
+        Shape(self.0.as_mut().build().within_box())
+    }
+}
