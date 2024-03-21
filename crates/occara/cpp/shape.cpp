@@ -52,8 +52,26 @@ Edge EdgeIterator::next() {
   throw std::out_of_range("No more edges");
 }
 
+FaceIterator::FaceIterator(const Shape &shape)
+    : explorer(shape.shape, TopAbs_FACE) {}
+
+bool FaceIterator::more() const { return explorer.More(); }
+
+Face FaceIterator::next() {
+  if (explorer.More()) {
+    Face face{TopoDS::Face(explorer.Current())};
+    explorer.Next();
+    return face;
+  }
+  throw std::out_of_range("No more faces");
+}
+
 Shape Face::extrude(const occara::geom::Vector &vector) const {
   return Shape{BRepPrimAPI_MakePrism(face, vector.vector).Shape()};
+}
+
+geom::Surface Face::surface() const {
+  return geom::Surface{BRep_Tool::Surface(face)};
 }
 
 Wire::Wire(MakeWire &make_wire) : wire(make_wire.make_wire.Wire()) {}

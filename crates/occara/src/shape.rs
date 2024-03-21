@@ -44,6 +44,11 @@ impl Shape {
     }
 
     #[must_use]
+    pub fn faces(&self) -> FaceIterator {
+        FaceIterator(ffi::occara::shape::FaceIterator::new(&self.0).within_box())
+    }
+
+    #[must_use]
     pub fn fuse(&mut self, other: &Shape) -> Shape {
         Shape(self.0.as_mut().fuse(&other.0).within_box())
     }
@@ -58,6 +63,21 @@ impl Iterator for EdgeIterator {
         let edge_iterator = self.0.as_mut();
         if edge_iterator.more() {
             Some(Edge(edge_iterator.next().within_box()))
+        } else {
+            None
+        }
+    }
+}
+
+pub struct FaceIterator(pub(crate) Pin<Box<ffi::occara::shape::FaceIterator>>);
+
+impl Iterator for FaceIterator {
+    type Item = Face;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let face_iterator = self.0.as_mut();
+        if face_iterator.more() {
+            Some(Face(face_iterator.next().within_box()))
         } else {
             None
         }
@@ -102,6 +122,11 @@ impl Face {
     #[must_use]
     pub fn extrude(&self, vec: &geom::Vector) -> Shape {
         Shape(self.0.extrude(&vec.0).within_box())
+    }
+
+    #[must_use]
+    pub fn surface(&self) -> geom::Surface {
+        geom::Surface(self.0.surface().within_box())
     }
 }
 

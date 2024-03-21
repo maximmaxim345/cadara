@@ -14,6 +14,29 @@ impl Point {
     }
 
     #[must_use]
+    pub fn x(self) -> f64 {
+        self.0.x()
+    }
+
+    #[must_use]
+    pub fn y(self) -> f64 {
+        self.0.y()
+    }
+
+    #[must_use]
+    pub fn z(self) -> f64 {
+        self.0.z()
+    }
+
+    #[must_use]
+    pub fn get_coordinates(&self) -> (f64, f64, f64) {
+        let (mut x, mut y, mut z) = (0.0, 0.0, 0.0);
+        self.0
+            .get_coordinates(Pin::new(&mut x), Pin::new(&mut y), Pin::new(&mut z));
+        (x, y, z)
+    }
+
+    #[must_use]
     pub fn origin() -> Self {
         Self::new(0.0, 0.0, 0.0)
     }
@@ -82,6 +105,30 @@ impl TrimmedCurve {
     #[must_use]
     pub fn line(p1: &Point, p2: &Point) -> Self {
         Self(ffi::occara::geom::TrimmedCurve::new1(&p1.0, &p2.0).within_box())
+    }
+}
+
+pub struct Plane(pub(crate) Pin<Box<ffi::occara::geom::Plane>>);
+
+impl Plane {
+    #[must_use]
+    pub fn location(&self) -> Point {
+        let point = ffi::occara::geom::Plane::location(&self.0).within_box();
+        Point(point)
+    }
+}
+
+pub struct Surface(pub(crate) Pin<Box<ffi::occara::geom::Surface>>);
+
+impl Surface {
+    #[must_use]
+    pub fn as_plane(&self) -> Option<Plane> {
+        if ffi::occara::geom::Surface::is_plane(&self.0) {
+            let plane = ffi::occara::geom::Surface::as_plane(&self.0).within_box();
+            Some(Plane(plane))
+        } else {
+            None
+        }
     }
 }
 

@@ -68,6 +68,15 @@ struct Face {
   TopoDS_Face face;
 
   Shape extrude(const occara::geom::Vector &vector) const;
+  geom::Surface surface() const;
+};
+
+struct FaceIterator {
+  TopExp_Explorer explorer;
+
+  FaceIterator(const Shape &shape);
+  bool more() const;
+  Face next();
 };
 
 struct MakeWire;

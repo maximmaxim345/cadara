@@ -7,6 +7,7 @@
 // use std::f64::consts::PI;
 use occara::geom::{Direction, Point, Transformation, Vector};
 use occara::shape::{make_cylinder, Edge, Wire};
+use ordered_float::OrderedFloat;
 
 #[allow(unused)]
 #[test]
@@ -68,21 +69,24 @@ fn test_make_bottle() {
     // Fuse the body and the neck
     let body = body.fuse(&neck);
 
-    // // Hollow out the body, leaving a hole at the top of the neck
-    // let body = {
-    //     let face_to_remove = body.faces().max_by(|face| {
-    //         if let Some(plane) = face.surface().as_plane() {
-    //             plane.location().z()
-    //         } else {
-    //             f64::NEG_INFINITY
-    //         }
-    //     });
-    //     body.make_thick_solid()
-    //         .by_join(&[face_to_remove], -thickness / 50.0)
-    //         .tolerance(1.0e-3)
-    //         .build()
-    // };
-    //
+    // Hollow out the body, leaving a hole at the top of the neck
+    let body = {
+        let face_to_remove = body
+            .faces()
+            .max_by_key(|face| {
+                if let Some(plane) = face.surface().as_plane() {
+                    OrderedFloat(plane.location().z())
+                } else {
+                    OrderedFloat(f64::NEG_INFINITY)
+                }
+            })
+            .unwrap();
+        // body.make_thick_solid()
+        //     .by_join(&[face_to_remove], -thickness / 50.0)
+        //     .tolerance(1.0e-3)
+        //     .build()
+    };
+
     // // Add threading to the neck
     // let threading = {
     //     let cylinder1 = CylindricalSurface::new(neck_plane, neck_radius * 0.99);
