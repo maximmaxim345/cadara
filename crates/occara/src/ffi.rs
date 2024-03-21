@@ -1,8 +1,11 @@
+// This file includes only auto-generated bindings
+// We can safely ignore all clippy warnings here
 #![allow(clippy::nursery)]
 #![allow(clippy::pedantic)]
 #![allow(unused_imports)]
 #![allow(dead_code)]
 #![allow(clippy::module_inception)]
+#![allow(clippy::needless_lifetimes)]
 // Run 'touch cpp' and 'bear -- cargo build' in this crates directory for autocompleation of c++ source files
 
 autocxx::include_cpp! {
