@@ -166,7 +166,7 @@ impl Wire {
     #[must_use]
     pub fn new(edges: &[&dyn AddableToWire]) -> Self {
         moveit! {
-            let mut w = ffi::occara::shape::MakeWire::new();
+            let mut w = ffi::occara::shape::WireBuilder::new();
         }
         for edge in edges {
             edge.add_to_wire(w.as_mut());
@@ -187,17 +187,17 @@ impl Clone for Wire {
 }
 
 pub trait AddableToWire {
-    fn add_to_wire(&self, maker: Pin<&mut ffi::occara::shape::MakeWire>);
+    fn add_to_wire(&self, maker: Pin<&mut ffi::occara::shape::WireBuilder>);
 }
 
 impl AddableToWire for Edge {
-    fn add_to_wire(&self, mut maker: Pin<&mut ffi::occara::shape::MakeWire>) {
+    fn add_to_wire(&self, mut maker: Pin<&mut ffi::occara::shape::WireBuilder>) {
         maker.as_mut().add_edge(&self.0);
     }
 }
 
 impl AddableToWire for Wire {
-    fn add_to_wire(&self, mut maker: Pin<&mut ffi::occara::shape::MakeWire>) {
+    fn add_to_wire(&self, mut maker: Pin<&mut ffi::occara::shape::WireBuilder>) {
         maker.as_mut().add_wire(&self.0);
     }
 }

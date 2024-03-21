@@ -95,12 +95,12 @@ struct FaceIterator {
   Face next();
 };
 
-struct MakeWire;
+struct WireBuilder;
 
 struct Wire {
   TopoDS_Wire wire;
 
-  Wire(MakeWire &make_wire);
+  Wire(WireBuilder &make_wire);
   Wire(const TopoDS_Wire &wire);
   Wire(const Wire &other);
   static Wire clone(const Wire &other);
@@ -109,7 +109,7 @@ struct Wire {
   Face make_face() const;
 };
 
-struct MakeWire {
+struct WireBuilder {
   BRepBuilderAPI_MakeWire make_wire;
 
   void add_edge(const occara::shape::Edge &edge);

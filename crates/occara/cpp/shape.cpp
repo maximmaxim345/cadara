@@ -95,7 +95,7 @@ geom::Surface Face::surface() const {
   return geom::Surface{BRep_Tool::Surface(face)};
 }
 
-Wire::Wire(MakeWire &make_wire) : wire(make_wire.make_wire.Wire()) {}
+Wire::Wire(WireBuilder &make_wire) : wire(make_wire.make_wire.Wire()) {}
 
 Wire::Wire(const TopoDS_Wire &wire) : wire(wire) {}
 
@@ -110,11 +110,11 @@ Wire Wire::transform(const occara::geom::Transformation &transformation) const {
 
 Face Wire::make_face() const { return Face{BRepBuilderAPI_MakeFace(wire)}; }
 
-void MakeWire::add_edge(const occara::shape::Edge &edge) {
+void WireBuilder::add_edge(const occara::shape::Edge &edge) {
   make_wire.Add(edge.edge);
 }
 
-void MakeWire::add_wire(const occara::shape::Wire &wire) {
+void WireBuilder::add_wire(const occara::shape::Wire &wire) {
   make_wire.Add(wire.wire);
 }
 
