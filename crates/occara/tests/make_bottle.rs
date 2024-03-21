@@ -60,7 +60,7 @@ fn test_make_bottle() {
     };
 
     // Create the neck from a cylinder
-    let neck_plane = Point::new(0.0, 0.0, height).axis2d_with(Direction::z());
+    let neck_plane = Point::new(0.0, 0.0, height).plane_axis_with(Direction::z());
     let neck_radius = thickness / 4.0;
     let neck_height = height / 10.0;
 

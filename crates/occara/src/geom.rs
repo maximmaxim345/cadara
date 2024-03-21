@@ -47,8 +47,8 @@ impl Point {
     }
 
     #[must_use]
-    pub fn axis2d_with(&self, direction: Direction) -> Axis2d {
-        Axis2d::new(self, &direction)
+    pub fn plane_axis_with(&self, direction: Direction) -> PlaneAxis {
+        PlaneAxis::new(self, &direction)
     }
 }
 
@@ -85,14 +85,16 @@ impl Axis {
     }
 }
 
-pub struct Axis2d(pub(crate) Pin<Box<ffi::occara::geom::Axis2d>>);
+pub struct PlaneAxis(pub(crate) Pin<Box<ffi::occara::geom::PlaneAxis>>);
 
-impl Axis2d {
+impl PlaneAxis {
     #[must_use]
     pub fn new(location: &Point, direction: &Direction) -> Self {
-        Self(ffi::occara::geom::Axis2d::new(&location.0, &direction.0).within_box())
+        Self(ffi::occara::geom::PlaneAxis::new(&location.0, &direction.0).within_box())
     }
 }
+
+// TODO: gp_Ax3 should be SpaceAxis
 
 pub struct TrimmedCurve(pub(crate) Pin<Box<ffi::occara::geom::TrimmedCurve>>);
 

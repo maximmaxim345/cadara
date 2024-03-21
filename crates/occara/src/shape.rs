@@ -202,6 +202,6 @@ impl AddableToWire for Wire {
     }
 }
 
-pub fn make_cylinder(axis: &geom::Axis2d, radius: f64, height: f64) -> Shape {
+pub fn make_cylinder(axis: &geom::PlaneAxis, radius: f64, height: f64) -> Shape {
     Shape(ffi::occara::shape::make_cylinder(&axis.0.as_ref(), radius, height).within_box())
 }

@@ -41,10 +41,10 @@ struct Axis {
   Axis(const Point &origin, const Direction &direction);
 };
 
-struct Axis2d {
+struct PlaneAxis {
   gp_Ax2 axis;
 
-  Axis2d(const Point &origin, const Direction &direction);
+  PlaneAxis(const Point &origin, const Direction &direction);
 };
 
 struct TrimmedCurve {
