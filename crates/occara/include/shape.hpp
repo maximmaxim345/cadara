@@ -67,10 +67,9 @@ struct Shape {
 
   FilletBuilder fillet() const;
   Shape fuse(const Shape &other) const;
+  static Shape cylinder(const occara::geom::PlaneAxis &axis,
+                        Standard_Real radius, Standard_Real height);
 };
-
-Shape cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
-               Standard_Real height);
 
 struct Edge {
   TopoDS_Edge edge;

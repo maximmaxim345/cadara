@@ -60,7 +60,7 @@ impl Shape {
 
     #[must_use]
     pub fn cylinder(axis: &geom::PlaneAxis, radius: f64, height: f64) -> Self {
-        Self(ffi_shape::cylinder(&axis.0.as_ref(), radius, height).within_box())
+        Self(ffi_shape::Shape::cylinder(&axis.0.as_ref(), radius, height).within_box())
     }
 }
 

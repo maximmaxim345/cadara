@@ -61,8 +61,8 @@ Shape Shape::fuse(const Shape &other) const {
   return Shape{BRepAlgoAPI_Fuse(shape, other.shape).Shape()};
 }
 
-Shape cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
-               Standard_Real height) {
+Shape Shape::cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
+                      Standard_Real height) {
   BRepPrimAPI_MakeCylinder cylinder(axis.axis, radius, height);
   return Shape(cylinder.Shape());
 }
