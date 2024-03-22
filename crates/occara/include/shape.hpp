@@ -119,8 +119,8 @@ struct WireBuilder {
   void add_wire(const occara::shape::Wire &wire);
 };
 
-Shape make_cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
-                    Standard_Real height);
+Shape cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
+               Standard_Real height);
 
 struct Loft {
   BRepOffsetAPI_ThruSections loft;

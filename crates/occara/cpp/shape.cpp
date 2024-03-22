@@ -119,8 +119,8 @@ void WireBuilder::add_wire(const occara::shape::Wire &wire) {
   make_wire.Add(wire.wire);
 }
 
-Shape make_cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
-                    Standard_Real height) {
+Shape cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
+               Standard_Real height) {
   BRepPrimAPI_MakeCylinder cylinder(axis.axis, radius, height);
   return Shape(cylinder.Shape());
 }

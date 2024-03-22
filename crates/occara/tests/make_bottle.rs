@@ -2,7 +2,7 @@ use occara::geom::{
     CylindricalSurface, Direction, Direction2D, Ellipse2D, Point, Point2D, Transformation,
     TrimmedCurve2D, Vector,
 };
-use occara::shape::{make_cylinder, Compound, Edge, Loft, Shape, Wire};
+use occara::shape::{Compound, Edge, Loft, Shape, Wire};
 use ordered_float::OrderedFloat;
 use std::f64::consts::PI;
 
@@ -55,7 +55,7 @@ fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
     let neck_radius = thickness / 4.0;
     let neck_height = height / 10.0;
 
-    let neck = make_cylinder(&neck_plane, neck_radius, neck_height);
+    let neck = Shape::cylinder(&neck_plane, neck_radius, neck_height);
 
     // Fuse the body and the neck
     let body = body.fuse(&neck);

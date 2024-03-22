@@ -57,6 +57,11 @@ impl Shape {
     pub fn make_shell(&self) -> ShellBuilder {
         ShellBuilder(ffi::occara::shape::ShellBuilder::new(&self.0).within_box())
     }
+
+    #[must_use]
+    pub fn cylinder(axis: &geom::PlaneAxis, radius: f64, height: f64) -> Self {
+        Self(ffi::occara::shape::cylinder(&axis.0.as_ref(), radius, height).within_box())
+    }
 }
 
 pub struct EdgeIterator(pub(crate) Pin<Box<ffi::occara::shape::EdgeIterator>>);
@@ -216,11 +221,6 @@ impl AddableToWire for Wire {
     fn add_to_wire(&self, mut maker: Pin<&mut ffi::occara::shape::WireBuilder>) {
         maker.as_mut().add_wire(&self.0);
     }
-}
-
-#[must_use]
-pub fn make_cylinder(axis: &geom::PlaneAxis, radius: f64, height: f64) -> Shape {
-    Shape(ffi::occara::shape::make_cylinder(&axis.0.as_ref(), radius, height).within_box())
 }
 
 pub struct Loft(pub(crate) Pin<Box<ffi::occara::shape::Loft>>);
