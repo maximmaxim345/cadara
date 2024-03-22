@@ -48,7 +48,7 @@ struct FilletBuilder {
 
 struct ShellBuilder {
   TopoDS_Shape shape;
-  TopTools_ListOfShape facesToRemove;
+  TopTools_ListOfShape faces_to_remove;
   Standard_Real tolerance = 1.e-3;
   Standard_Real offset = 0.0;
 

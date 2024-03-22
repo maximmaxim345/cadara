@@ -23,7 +23,7 @@ void Vertex::get_coordinates(double &x, double &y, double &z) const {
 ShellBuilder::ShellBuilder(const Shape &shape) : shape(shape.shape) {}
 
 void ShellBuilder::add_face_to_remove(const Face &face) {
-  facesToRemove.Append(face.face);
+  faces_to_remove.Append(face.face);
 }
 
 void ShellBuilder::set_offset(Standard_Real offset) { this->offset = offset; }
@@ -34,7 +34,7 @@ void ShellBuilder::set_tolerance(Standard_Real tolerance) {
 
 Shape ShellBuilder::build() {
   BRepOffsetAPI_MakeThickSolid make_thick_solid;
-  make_thick_solid.MakeThickSolidByJoin(shape, facesToRemove, offset,
+  make_thick_solid.MakeThickSolidByJoin(shape, faces_to_remove, offset,
                                         tolerance);
   return Shape{make_thick_solid.Shape()};
 }
