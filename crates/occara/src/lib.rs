@@ -12,6 +12,8 @@ pub mod shape;
 pub mod internal {
     use autocxx::prelude::*;
 
+    // This function is specifically for integration testing.
+    // It builds a bottle directly using OpenCASCADE's C++ API, to compare with the Rust implementation.
     #[doc(hidden)]
     #[must_use]
     pub fn make_bottle_cpp(width: f64, height: f64, thickness: f64) -> crate::shape::Shape {
