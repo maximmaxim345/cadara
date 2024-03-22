@@ -43,7 +43,7 @@ FilletBuilder Shape::make_fillet() const {
   return FilletBuilder{BRepFilletAPI_MakeFillet(shape)};
 }
 
-Shape Shape::fuse(const Shape &other) {
+Shape Shape::fuse(const Shape &other) const {
   return Shape{BRepAlgoAPI_Fuse(shape, other.shape).Shape()};
 }
 

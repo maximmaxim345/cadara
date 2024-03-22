@@ -41,7 +41,7 @@ fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
     };
 
     // Chamfer all edges of the bottle
-    let mut body = {
+    let body = {
         let fillet_radius = thickness / 12.0;
         let mut make_fillet = body.make_fillet();
         for edge in body.edges() {

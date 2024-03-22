@@ -49,8 +49,8 @@ impl Shape {
     }
 
     #[must_use]
-    pub fn fuse(&mut self, other: &Self) -> Self {
-        Self(self.0.as_mut().fuse(&other.0).within_box())
+    pub fn fuse(&self, other: &Self) -> Self {
+        Self(self.0.fuse(&other.0).within_box())
     }
 
     #[must_use]
