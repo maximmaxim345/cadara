@@ -10,12 +10,11 @@
 #include "BRepPrimAPI_MakePrism.hxx"
 #include "BRep_Tool.hxx"
 #include "TopExp_Explorer.hxx"
+#include "TopoDS.hxx"
 #include "TopoDS_Edge.hxx"
 #include "TopoDS_Vertex.hxx"
 #include "TopoDS_Wire.hxx"
 #include "geom.hpp"
-#include <TopoDS.hxx>
-#include <optional>
 
 namespace occara {
 namespace geom {
