@@ -24,6 +24,12 @@ impl Vertex {
     }
 }
 
+impl Clone for Vertex {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
+    }
+}
+
 impl Default for Vertex {
     fn default() -> Self {
         Self::new()
@@ -64,6 +70,12 @@ impl Shape {
     }
 }
 
+impl Clone for Shape {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
+    }
+}
+
 pub struct EdgeIterator(pub(crate) Pin<Box<ffi_shape::EdgeIterator>>);
 
 impl Iterator for EdgeIterator {
@@ -76,6 +88,12 @@ impl Iterator for EdgeIterator {
         } else {
             None
         }
+    }
+}
+
+impl Clone for EdgeIterator {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
     }
 }
 
@@ -94,6 +112,12 @@ impl Iterator for FaceIterator {
     }
 }
 
+impl Clone for FaceIterator {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
+    }
+}
+
 pub struct FilletBuilder(pub(crate) Pin<Box<ffi_shape::FilletBuilder>>);
 
 impl FilletBuilder {
@@ -103,6 +127,12 @@ impl FilletBuilder {
     #[must_use]
     pub fn build(&mut self) -> Shape {
         Shape(self.0.as_mut().build().within_box())
+    }
+}
+
+impl Clone for FilletBuilder {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
     }
 }
 
@@ -131,6 +161,12 @@ impl ShellBuilder {
     }
 }
 
+impl Clone for ShellBuilder {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
+    }
+}
+
 pub struct Edge(pub(crate) Pin<Box<ffi_shape::Edge>>);
 
 impl Edge {
@@ -155,6 +191,12 @@ impl Edge {
     }
 }
 
+impl Clone for Edge {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
+    }
+}
+
 impl From<geom::TrimmedCurve> for Edge {
     fn from(curve: geom::TrimmedCurve) -> Self {
         Self(ffi_shape::Edge::from_curve(&curve.0).within_box())
@@ -172,6 +214,12 @@ impl Face {
     #[must_use]
     pub fn surface(&self) -> geom::Surface {
         geom::Surface(self.0.surface().within_box())
+    }
+}
+
+impl Clone for Face {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
     }
 }
 
@@ -203,7 +251,7 @@ impl Wire {
 
 impl Clone for Wire {
     fn clone(&self) -> Self {
-        Self(ffi_shape::Wire::clone(&self.0).within_box())
+        Self(self.0.clone().within_box())
     }
 }
 
@@ -246,6 +294,12 @@ impl Loft {
 
     pub fn build(&mut self) -> Shape {
         Shape(self.0.as_mut().build().within_box())
+    }
+}
+
+impl Clone for Loft {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
     }
 }
 

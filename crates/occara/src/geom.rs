@@ -50,6 +50,12 @@ impl Point {
     }
 }
 
+impl Clone for Point {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
+    }
+}
+
 pub struct Direction(pub(crate) Pin<Box<ffi_geom::Direction>>);
 
 impl Direction {
@@ -74,12 +80,24 @@ impl Direction {
     }
 }
 
+impl Clone for Direction {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
+    }
+}
+
 pub struct Axis(pub(crate) Pin<Box<ffi_geom::Axis>>);
 
 impl Axis {
     #[must_use]
     pub fn new(location: &Point, direction: &Direction) -> Self {
         Self(ffi_geom::Axis::create(&location.0, &direction.0).within_box())
+    }
+}
+
+impl Clone for Axis {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
     }
 }
 
@@ -119,6 +137,12 @@ impl Point2D {
     }
 }
 
+impl Clone for Point2D {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
+    }
+}
+
 pub struct Direction2D(pub(crate) Pin<Box<ffi_geom::Direction2D>>);
 
 impl Direction2D {
@@ -138,6 +162,12 @@ impl Direction2D {
     }
 }
 
+impl Clone for Direction2D {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
+    }
+}
+
 pub struct Axis2D(pub(crate) Pin<Box<ffi_geom::Axis2D>>);
 
 impl Axis2D {
@@ -147,12 +177,24 @@ impl Axis2D {
     }
 }
 
+impl Clone for Axis2D {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
+    }
+}
+
 pub struct PlaneAxis(pub(crate) Pin<Box<ffi_geom::PlaneAxis>>);
 
 impl PlaneAxis {
     #[must_use]
     pub fn new(location: &Point, direction: &Direction) -> Self {
         Self(ffi_geom::PlaneAxis::create(&location.0, &direction.0).within_box())
+    }
+}
+
+impl Clone for PlaneAxis {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
     }
 }
 
@@ -172,12 +214,24 @@ impl TrimmedCurve {
     }
 }
 
+impl Clone for TrimmedCurve {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
+    }
+}
+
 pub struct TrimmedCurve2D(pub(crate) Pin<Box<ffi_geom::TrimmedCurve2D>>);
 
 impl TrimmedCurve2D {
     #[must_use]
     pub fn line(p1: &Point2D, p2: &Point2D) -> Self {
         Self(ffi_geom::TrimmedCurve2D::line(&p1.0, &p2.0).within_box())
+    }
+}
+
+impl Clone for TrimmedCurve2D {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
     }
 }
 
@@ -202,6 +256,12 @@ impl Ellipse2D {
     }
 }
 
+impl Clone for Ellipse2D {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
+    }
+}
+
 pub struct Plane(pub(crate) Pin<Box<ffi_geom::Plane>>);
 
 impl Plane {
@@ -209,6 +269,12 @@ impl Plane {
     pub fn location(&self) -> Point {
         let point = ffi_geom::Plane::location(&self.0).within_box();
         Point(point)
+    }
+}
+
+impl Clone for Plane {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
     }
 }
 
@@ -223,6 +289,12 @@ impl Surface {
         } else {
             None
         }
+    }
+}
+
+impl Clone for Surface {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
     }
 }
 
@@ -243,6 +315,12 @@ impl Transformation {
     }
 }
 
+impl Clone for Transformation {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
+    }
+}
+
 pub struct Vector(pub(crate) Pin<Box<ffi_geom::Vector>>);
 
 impl Vector {
@@ -252,11 +330,23 @@ impl Vector {
     }
 }
 
+impl Clone for Vector {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
+    }
+}
+
 pub struct CylindricalSurface(pub(crate) Pin<Box<ffi_geom::CylindricalSurface>>);
 
 impl CylindricalSurface {
     #[must_use]
     pub fn new(plane: &PlaneAxis, radius: f64) -> Self {
         Self(ffi_geom::CylindricalSurface::create(&plane.0, radius).within_box())
+    }
+}
+
+impl Clone for CylindricalSurface {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
     }
 }
