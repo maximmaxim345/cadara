@@ -13,3 +13,7 @@ occara consists of:
 - Error handling is not implemented yet. The C++ wrapper should catch all exceptions and pass them to Rust, since autocxx does not support C++ exceptions.
 - This library does not feature all OpenCASCADE functionality yet. It is being developed incrementally as needed by CADara.
 - in the future, this API could be made accessible to CADara plugins. This would enable plugins to implement custom CAD operations and functionality, while being sandboxed from the core CADara application for security and stability.
+
+## Development
+
+To get autocomplete to work on the C++ code, run `touch cpp` and `bear -- cargo build` in this crates directory. This will generate a compile_commands.json file. ('touch cpp' will ensure that the C++ code is recompiled)
