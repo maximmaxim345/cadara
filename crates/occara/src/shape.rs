@@ -1,14 +1,14 @@
-use super::ffi;
+use super::ffi::occara::shape as ffi_shape;
 use crate::geom;
 use autocxx::prelude::*;
 use std::pin::Pin;
 
-pub struct Vertex(pub(crate) Pin<Box<ffi::occara::shape::Vertex>>);
+pub struct Vertex(pub(crate) Pin<Box<ffi_shape::Vertex>>);
 
 impl Vertex {
     #[must_use]
     pub fn new() -> Self {
-        Self(ffi::occara::shape::Vertex::new(0.0, 0.0, 0.0).within_box())
+        Self(ffi_shape::Vertex::new(0.0, 0.0, 0.0).within_box())
     }
 
     pub fn set_coordinates(&mut self, x: f64, y: f64, z: f64) {
@@ -30,22 +30,22 @@ impl Default for Vertex {
     }
 }
 
-pub struct Shape(pub(crate) Pin<Box<ffi::occara::shape::Shape>>);
+pub struct Shape(pub(crate) Pin<Box<ffi_shape::Shape>>);
 
 impl Shape {
     #[must_use]
     pub fn fillet(&self) -> FilletBuilder {
-        FilletBuilder(ffi::occara::shape::Shape::fillet(&self.0).within_box())
+        FilletBuilder(ffi_shape::Shape::fillet(&self.0).within_box())
     }
 
     #[must_use]
     pub fn edges(&self) -> EdgeIterator {
-        EdgeIterator(ffi::occara::shape::EdgeIterator::new(&self.0).within_box())
+        EdgeIterator(ffi_shape::EdgeIterator::new(&self.0).within_box())
     }
 
     #[must_use]
     pub fn faces(&self) -> FaceIterator {
-        FaceIterator(ffi::occara::shape::FaceIterator::new(&self.0).within_box())
+        FaceIterator(ffi_shape::FaceIterator::new(&self.0).within_box())
     }
 
     #[must_use]
@@ -55,16 +55,16 @@ impl Shape {
 
     #[must_use]
     pub fn shell(&self) -> ShellBuilder {
-        ShellBuilder(ffi::occara::shape::ShellBuilder::new(&self.0).within_box())
+        ShellBuilder(ffi_shape::ShellBuilder::new(&self.0).within_box())
     }
 
     #[must_use]
     pub fn cylinder(axis: &geom::PlaneAxis, radius: f64, height: f64) -> Self {
-        Self(ffi::occara::shape::cylinder(&axis.0.as_ref(), radius, height).within_box())
+        Self(ffi_shape::cylinder(&axis.0.as_ref(), radius, height).within_box())
     }
 }
 
-pub struct EdgeIterator(pub(crate) Pin<Box<ffi::occara::shape::EdgeIterator>>);
+pub struct EdgeIterator(pub(crate) Pin<Box<ffi_shape::EdgeIterator>>);
 
 impl Iterator for EdgeIterator {
     type Item = Edge;
@@ -79,7 +79,7 @@ impl Iterator for EdgeIterator {
     }
 }
 
-pub struct FaceIterator(pub(crate) Pin<Box<ffi::occara::shape::FaceIterator>>);
+pub struct FaceIterator(pub(crate) Pin<Box<ffi_shape::FaceIterator>>);
 
 impl Iterator for FaceIterator {
     type Item = Face;
@@ -94,7 +94,7 @@ impl Iterator for FaceIterator {
     }
 }
 
-pub struct FilletBuilder(pub(crate) Pin<Box<ffi::occara::shape::FilletBuilder>>);
+pub struct FilletBuilder(pub(crate) Pin<Box<ffi_shape::FilletBuilder>>);
 
 impl FilletBuilder {
     pub fn add(&mut self, radius: f64, edge: &Edge) {
@@ -106,7 +106,7 @@ impl FilletBuilder {
     }
 }
 
-pub struct ShellBuilder(pub(crate) Pin<Box<ffi::occara::shape::ShellBuilder>>);
+pub struct ShellBuilder(pub(crate) Pin<Box<ffi_shape::ShellBuilder>>);
 
 impl ShellBuilder {
     pub fn faces_to_remove(&mut self, faces: &[&Face]) -> &mut Self {
@@ -131,7 +131,7 @@ impl ShellBuilder {
     }
 }
 
-pub struct Edge(pub(crate) Pin<Box<ffi::occara::shape::Edge>>);
+pub struct Edge(pub(crate) Pin<Box<ffi_shape::Edge>>);
 
 impl Edge {
     #[must_use]
@@ -151,17 +151,17 @@ impl Edge {
         curve: &geom::TrimmedCurve2D,
         surface: &geom::CylindricalSurface,
     ) -> Self {
-        Self(ffi::occara::shape::Edge::new2(&curve.0, &surface.0).within_box())
+        Self(ffi_shape::Edge::new2(&curve.0, &surface.0).within_box())
     }
 }
 
 impl From<geom::TrimmedCurve> for Edge {
     fn from(curve: geom::TrimmedCurve) -> Self {
-        Self(ffi::occara::shape::Edge::new(&curve.0).within_box())
+        Self(ffi_shape::Edge::new(&curve.0).within_box())
     }
 }
 
-pub struct Face(pub(crate) Pin<Box<ffi::occara::shape::Face>>);
+pub struct Face(pub(crate) Pin<Box<ffi_shape::Face>>);
 
 impl Face {
     #[must_use]
@@ -175,18 +175,18 @@ impl Face {
     }
 }
 
-pub struct Wire(pub(crate) Pin<Box<ffi::occara::shape::Wire>>);
+pub struct Wire(pub(crate) Pin<Box<ffi_shape::Wire>>);
 
 impl Wire {
     #[must_use]
     pub fn new(edges: &[&dyn AddableToWire]) -> Self {
         moveit! {
-            let mut w = ffi::occara::shape::WireBuilder::new();
+            let mut w = ffi_shape::WireBuilder::new();
         }
         for edge in edges {
             edge.add_to_wire(w.as_mut());
         }
-        Self(ffi::occara::shape::Wire::new(w.as_mut()).within_box())
+        Self(ffi_shape::Wire::new(w.as_mut()).within_box())
     }
 
     #[must_use]
@@ -196,39 +196,39 @@ impl Wire {
 
     #[must_use]
     pub fn build_curves_3d(mut self) -> Self {
-        ffi::occara::shape::Wire::build_curves_3d(self.0.as_mut());
+        ffi_shape::Wire::build_curves_3d(self.0.as_mut());
         self
     }
 }
 
 impl Clone for Wire {
     fn clone(&self) -> Self {
-        Self(ffi::occara::shape::Wire::clone(&self.0).within_box())
+        Self(ffi_shape::Wire::clone(&self.0).within_box())
     }
 }
 
 pub trait AddableToWire {
-    fn add_to_wire(&self, maker: Pin<&mut ffi::occara::shape::WireBuilder>);
+    fn add_to_wire(&self, maker: Pin<&mut ffi_shape::WireBuilder>);
 }
 
 impl AddableToWire for Edge {
-    fn add_to_wire(&self, mut maker: Pin<&mut ffi::occara::shape::WireBuilder>) {
+    fn add_to_wire(&self, mut maker: Pin<&mut ffi_shape::WireBuilder>) {
         maker.as_mut().add_edge(&self.0);
     }
 }
 
 impl AddableToWire for Wire {
-    fn add_to_wire(&self, mut maker: Pin<&mut ffi::occara::shape::WireBuilder>) {
+    fn add_to_wire(&self, mut maker: Pin<&mut ffi_shape::WireBuilder>) {
         maker.as_mut().add_wire(&self.0);
     }
 }
 
-pub struct Loft(pub(crate) Pin<Box<ffi::occara::shape::Loft>>);
+pub struct Loft(pub(crate) Pin<Box<ffi_shape::Loft>>);
 
 impl Loft {
     #[must_use]
     pub fn new_solid() -> Self {
-        let loft = ffi::occara::shape::Loft::new(true).within_box();
+        let loft = ffi_shape::Loft::new(true).within_box();
         Self(loft)
     }
 
@@ -249,7 +249,7 @@ impl Loft {
     }
 }
 
-pub struct Compound(pub(crate) Pin<Box<ffi::occara::shape::Compound>>);
+pub struct Compound(pub(crate) Pin<Box<ffi_shape::Compound>>);
 
 impl Default for Compound {
     fn default() -> Self {
@@ -260,7 +260,7 @@ impl Default for Compound {
 impl Compound {
     #[must_use]
     pub fn new() -> Self {
-        Self(ffi::occara::shape::Compound::new().within_box())
+        Self(ffi_shape::Compound::new().within_box())
     }
 
     pub fn add_shapes(&mut self, shape: &[&Shape]) -> &mut Self {

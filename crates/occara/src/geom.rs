@@ -1,16 +1,14 @@
+use crate::ffi::occara::geom as ffi_geom;
+use crate::shape::Wire;
+use autocxx::prelude::*;
 use std::pin::Pin;
 
-use crate::shape::Wire;
-
-use super::ffi;
-use autocxx::prelude::*;
-
-pub struct Point(pub(crate) Pin<Box<ffi::occara::geom::Point>>);
+pub struct Point(pub(crate) Pin<Box<ffi_geom::Point>>);
 
 impl Point {
     #[must_use]
     pub fn new(x: f64, y: f64, z: f64) -> Self {
-        Self(ffi::occara::geom::Point::new(x, y, z).within_box())
+        Self(ffi_geom::Point::new(x, y, z).within_box())
     }
 
     #[must_use]
@@ -52,12 +50,12 @@ impl Point {
     }
 }
 
-pub struct Direction(pub(crate) Pin<Box<ffi::occara::geom::Direction>>);
+pub struct Direction(pub(crate) Pin<Box<ffi_geom::Direction>>);
 
 impl Direction {
     #[must_use]
     pub fn new(x: f64, y: f64, z: f64) -> Self {
-        Self(ffi::occara::geom::Direction::new(x, y, z).within_box())
+        Self(ffi_geom::Direction::new(x, y, z).within_box())
     }
 
     #[must_use]
@@ -76,21 +74,21 @@ impl Direction {
     }
 }
 
-pub struct Axis(pub(crate) Pin<Box<ffi::occara::geom::Axis>>);
+pub struct Axis(pub(crate) Pin<Box<ffi_geom::Axis>>);
 
 impl Axis {
     #[must_use]
     pub fn new(location: &Point, direction: &Direction) -> Self {
-        Self(ffi::occara::geom::Axis::new(&location.0, &direction.0).within_box())
+        Self(ffi_geom::Axis::new(&location.0, &direction.0).within_box())
     }
 }
 
-pub struct Point2D(pub(crate) Pin<Box<ffi::occara::geom::Point2D>>);
+pub struct Point2D(pub(crate) Pin<Box<ffi_geom::Point2D>>);
 
 impl Point2D {
     #[must_use]
     pub fn new(x: f64, y: f64) -> Self {
-        Self(ffi::occara::geom::Point2D::new(x, y).within_box())
+        Self(ffi_geom::Point2D::new(x, y).within_box())
     }
 
     #[must_use]
@@ -121,12 +119,12 @@ impl Point2D {
     }
 }
 
-pub struct Direction2D(pub(crate) Pin<Box<ffi::occara::geom::Direction2D>>);
+pub struct Direction2D(pub(crate) Pin<Box<ffi_geom::Direction2D>>);
 
 impl Direction2D {
     #[must_use]
     pub fn new(x: f64, y: f64) -> Self {
-        Self(ffi::occara::geom::Direction2D::new(x, y).within_box())
+        Self(ffi_geom::Direction2D::new(x, y).within_box())
     }
 
     #[must_use]
@@ -140,87 +138,87 @@ impl Direction2D {
     }
 }
 
-pub struct Axis2D(pub(crate) Pin<Box<ffi::occara::geom::Axis2D>>);
+pub struct Axis2D(pub(crate) Pin<Box<ffi_geom::Axis2D>>);
 
 impl Axis2D {
     #[must_use]
     pub fn new(location: &Point2D, direction: &Direction2D) -> Self {
-        Self(ffi::occara::geom::Axis2D::new(&location.0, &direction.0).within_box())
+        Self(ffi_geom::Axis2D::new(&location.0, &direction.0).within_box())
     }
 }
 
-pub struct PlaneAxis(pub(crate) Pin<Box<ffi::occara::geom::PlaneAxis>>);
+pub struct PlaneAxis(pub(crate) Pin<Box<ffi_geom::PlaneAxis>>);
 
 impl PlaneAxis {
     #[must_use]
     pub fn new(location: &Point, direction: &Direction) -> Self {
-        Self(ffi::occara::geom::PlaneAxis::new(&location.0, &direction.0).within_box())
+        Self(ffi_geom::PlaneAxis::new(&location.0, &direction.0).within_box())
     }
 }
 
 // TODO: gp_Ax3 should be SpaceAxis
 
-pub struct TrimmedCurve(pub(crate) Pin<Box<ffi::occara::geom::TrimmedCurve>>);
+pub struct TrimmedCurve(pub(crate) Pin<Box<ffi_geom::TrimmedCurve>>);
 
 impl TrimmedCurve {
     #[must_use]
     pub fn arc_of_circle(p1: &Point, p2: &Point, p3: &Point) -> Self {
-        Self(ffi::occara::geom::TrimmedCurve::new(&p1.0, &p2.0, &p3.0).within_box())
+        Self(ffi_geom::TrimmedCurve::new(&p1.0, &p2.0, &p3.0).within_box())
     }
 
     #[must_use]
     pub fn line(p1: &Point, p2: &Point) -> Self {
-        Self(ffi::occara::geom::TrimmedCurve::new1(&p1.0, &p2.0).within_box())
+        Self(ffi_geom::TrimmedCurve::new1(&p1.0, &p2.0).within_box())
     }
 }
 
-pub struct TrimmedCurve2D(pub(crate) Pin<Box<ffi::occara::geom::TrimmedCurve2D>>);
+pub struct TrimmedCurve2D(pub(crate) Pin<Box<ffi_geom::TrimmedCurve2D>>);
 
 impl TrimmedCurve2D {
     #[must_use]
     pub fn line(p1: &Point2D, p2: &Point2D) -> Self {
-        Self(ffi::occara::geom::TrimmedCurve2D::new1(&p1.0, &p2.0).within_box())
+        Self(ffi_geom::TrimmedCurve2D::new1(&p1.0, &p2.0).within_box())
     }
 }
 
-pub struct Ellipse2D(pub(crate) Pin<Box<ffi::occara::geom::Ellipse2D>>);
+pub struct Ellipse2D(pub(crate) Pin<Box<ffi_geom::Ellipse2D>>);
 
 impl Ellipse2D {
     #[must_use]
     pub fn new(axis: &Axis2D, major_radius: f64, minor_radius: f64) -> Self {
-        Self(ffi::occara::geom::Ellipse2D::new(&axis.0, major_radius, minor_radius).within_box())
+        Self(ffi_geom::Ellipse2D::new(&axis.0, major_radius, minor_radius).within_box())
     }
 
     #[must_use]
     pub fn trim(&self, u1: f64, u2: f64) -> TrimmedCurve2D {
-        let trimmed_curve = ffi::occara::geom::Ellipse2D::trim(&self.0, u1, u2).within_box();
+        let trimmed_curve = ffi_geom::Ellipse2D::trim(&self.0, u1, u2).within_box();
         TrimmedCurve2D(trimmed_curve)
     }
 
     #[must_use]
     pub fn value(&self, u: f64) -> Point2D {
-        let point = ffi::occara::geom::Ellipse2D::value(&self.0, u).within_box();
+        let point = ffi_geom::Ellipse2D::value(&self.0, u).within_box();
         Point2D(point)
     }
 }
 
-pub struct Plane(pub(crate) Pin<Box<ffi::occara::geom::Plane>>);
+pub struct Plane(pub(crate) Pin<Box<ffi_geom::Plane>>);
 
 impl Plane {
     #[must_use]
     pub fn location(&self) -> Point {
-        let point = ffi::occara::geom::Plane::location(&self.0).within_box();
+        let point = ffi_geom::Plane::location(&self.0).within_box();
         Point(point)
     }
 }
 
-pub struct Surface(pub(crate) Pin<Box<ffi::occara::geom::Surface>>);
+pub struct Surface(pub(crate) Pin<Box<ffi_geom::Surface>>);
 
 impl Surface {
     #[must_use]
     pub fn as_plane(&self) -> Option<Plane> {
-        if ffi::occara::geom::Surface::is_plane(&self.0) {
-            let plane = ffi::occara::geom::Surface::as_plane(&self.0).within_box();
+        if ffi_geom::Surface::is_plane(&self.0) {
+            let plane = ffi_geom::Surface::as_plane(&self.0).within_box();
             Some(Plane(plane))
         } else {
             None
@@ -228,12 +226,12 @@ impl Surface {
     }
 }
 
-pub struct Transformation(pub(crate) Pin<Box<ffi::occara::geom::Transformation>>);
+pub struct Transformation(pub(crate) Pin<Box<ffi_geom::Transformation>>);
 
 impl Transformation {
     #[must_use]
     pub fn mirror(axis: &Axis) -> Self {
-        let mut transformation = ffi::occara::geom::Transformation::new().within_box();
+        let mut transformation = ffi_geom::Transformation::new().within_box();
         transformation.as_mut().mirror(&axis.0);
         Self(transformation)
     }
@@ -245,20 +243,20 @@ impl Transformation {
     }
 }
 
-pub struct Vector(pub(crate) Pin<Box<ffi::occara::geom::Vector>>);
+pub struct Vector(pub(crate) Pin<Box<ffi_geom::Vector>>);
 
 impl Vector {
     #[must_use]
     pub fn new(x: f64, y: f64, z: f64) -> Self {
-        Self(ffi::occara::geom::Vector::new(x, y, z).within_box())
+        Self(ffi_geom::Vector::new(x, y, z).within_box())
     }
 }
 
-pub struct CylindricalSurface(pub(crate) Pin<Box<ffi::occara::geom::CylindricalSurface>>);
+pub struct CylindricalSurface(pub(crate) Pin<Box<ffi_geom::CylindricalSurface>>);
 
 impl CylindricalSurface {
     #[must_use]
     pub fn new(plane: &PlaneAxis, radius: f64) -> Self {
-        Self(ffi::occara::geom::CylindricalSurface::new(&plane.0, radius).within_box())
+        Self(ffi_geom::CylindricalSurface::new(&plane.0, radius).within_box())
     }
 }
