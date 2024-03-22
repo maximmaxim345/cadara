@@ -68,12 +68,10 @@ EdgeIterator::EdgeIterator(const Shape &shape)
 bool EdgeIterator::more() const { return explorer.More(); }
 
 Edge EdgeIterator::next() {
-  if (explorer.More()) {
-    Edge edge{TopoDS::Edge(explorer.Current())};
-    explorer.Next();
-    return edge;
-  }
-  throw std::out_of_range("No more edges");
+  Edge edge{TopoDS::Edge(explorer.Current())};
+  // We ensure in rust that the next element exists before calling next
+  explorer.Next();
+  return edge;
 }
 
 FaceIterator::FaceIterator(const Shape &shape)
@@ -82,12 +80,10 @@ FaceIterator::FaceIterator(const Shape &shape)
 bool FaceIterator::more() const { return explorer.More(); }
 
 Face FaceIterator::next() {
-  if (explorer.More()) {
-    Face face{TopoDS::Face(explorer.Current())};
-    explorer.Next();
-    return face;
-  }
-  throw std::out_of_range("No more faces");
+  Face face{TopoDS::Face(explorer.Current())};
+  // We ensure in rust that the next element exists before calling next
+  explorer.Next();
+  return face;
 }
 
 Shape Face::extrude(const occara::geom::Vector &vector) const {
