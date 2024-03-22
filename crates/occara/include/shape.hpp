@@ -61,7 +61,7 @@ struct ShellBuilder {
 struct Shape {
   TopoDS_Shape shape;
 
-  FilletBuilder make_fillet() const;
+  FilletBuilder fillet() const;
   Shape fuse(const Shape &other) const;
 };
 
@@ -108,7 +108,7 @@ struct Wire {
   static Wire clone(const Wire &other);
 
   Wire transform(const occara::geom::Transformation &transformation) const;
-  Face make_face() const;
+  Face face() const;
   void build_curves_3d();
 };
 

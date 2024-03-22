@@ -34,8 +34,8 @@ pub struct Shape(pub(crate) Pin<Box<ffi::occara::shape::Shape>>);
 
 impl Shape {
     #[must_use]
-    pub fn make_fillet(&self) -> FilletBuilder {
-        FilletBuilder(ffi::occara::shape::Shape::make_fillet(&self.0).within_box())
+    pub fn fillet(&self) -> FilletBuilder {
+        FilletBuilder(ffi::occara::shape::Shape::fillet(&self.0).within_box())
     }
 
     #[must_use]
@@ -54,7 +54,7 @@ impl Shape {
     }
 
     #[must_use]
-    pub fn make_shell(&self) -> ShellBuilder {
+    pub fn shell(&self) -> ShellBuilder {
         ShellBuilder(ffi::occara::shape::ShellBuilder::new(&self.0).within_box())
     }
 
@@ -190,8 +190,8 @@ impl Wire {
     }
 
     #[must_use]
-    pub fn make_face(&self) -> Face {
-        Face(self.0.make_face().within_box())
+    pub fn face(&self) -> Face {
+        Face(self.0.face().within_box())
     }
 
     #[must_use]

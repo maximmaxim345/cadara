@@ -34,7 +34,7 @@ fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
 
     // Extrude the profile to get the body of the bottle
     let body = {
-        let face_profile = bottle_profile.make_face();
+        let face_profile = bottle_profile.face();
         let extrude_vec = Vector::new(0.0, 0.0, height);
 
         face_profile.extrude(&extrude_vec)
@@ -43,11 +43,11 @@ fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
     // Chamfer all edges of the bottle
     let body = {
         let fillet_radius = thickness / 12.0;
-        let mut make_fillet = body.make_fillet();
+        let mut fillet_builder = body.fillet();
         for edge in body.edges() {
-            make_fillet.add(fillet_radius, &edge);
+            fillet_builder.add(fillet_radius, &edge);
         }
-        make_fillet.build()
+        fillet_builder.build()
     };
 
     // Create the neck from a cylinder
@@ -73,7 +73,7 @@ fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
             })
             .unwrap();
 
-        body.make_shell()
+        body.shell()
             .faces_to_remove(&[&face_to_remove])
             .offset(-thickness / 50.0)
             .tolerance(1.0e-3)

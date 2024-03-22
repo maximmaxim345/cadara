@@ -39,7 +39,7 @@ Shape ShellBuilder::build() {
   return Shape{make_thick_solid.Shape()};
 }
 
-FilletBuilder Shape::make_fillet() const {
+FilletBuilder Shape::fillet() const {
   return FilletBuilder{BRepFilletAPI_MakeFillet(shape)};
 }
 
@@ -107,7 +107,7 @@ Wire Wire::transform(const occara::geom::Transformation &transformation) const {
   return Wire(TopoDS::Wire(transform.Shape()));
 }
 
-Face Wire::make_face() const { return Face{BRepBuilderAPI_MakeFace(wire)}; }
+Face Wire::face() const { return Face{BRepBuilderAPI_MakeFace(wire)}; }
 
 void Wire::build_curves_3d() { BRepLib::BuildCurves3d(wire); }
 
