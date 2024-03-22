@@ -15,6 +15,23 @@
 
 namespace occara::geom {
 
+// Forward declarations
+struct Point;
+struct Point2D;
+struct Vector;
+struct Direction;
+struct Direction2D;
+struct Axis;
+struct Axis2D;
+struct PlaneAxis;
+struct TrimmedCurve;
+struct TrimmedCurve2D;
+struct Ellipse2D;
+struct Plane;
+struct Surface;
+struct Transformation;
+struct CylindricalSurface;
+
 struct Point {
   gp_Pnt point;
 
@@ -79,7 +96,6 @@ struct TrimmedCurve {
   Handle(Geom_TrimmedCurve) curve;
 
   TrimmedCurve(const Point &p1, const Point &p2, const Point &p3);
-
   TrimmedCurve(const Point &p1, const Point &p2);
 };
 
@@ -95,6 +111,7 @@ struct Ellipse2D {
 
   Ellipse2D(const Axis2D &axis, Standard_Real major_radius,
             Standard_Real minor_radius);
+
   TrimmedCurve2D trim(Standard_Real u1, Standard_Real u2) const;
   Point2D value(Standard_Real u) const;
 };
@@ -114,6 +131,7 @@ struct Surface {
 
 struct Transformation {
   gp_Trsf transformation;
+
   Transformation();
 
   void mirror(const Axis &axis);

@@ -16,27 +16,30 @@
 #include "TopoDS_Wire.hxx"
 #include "geom.hpp"
 
-namespace occara {
-namespace geom {
-struct TrimmedCurve;
-struct Vector;
-struct Transformation;
-} // namespace geom
-} // namespace occara
-
 namespace occara::shape {
+
+// Forward declarations
+struct Vertex;
+struct FilletBuilder;
+struct ShellBuilder;
+struct Shape;
+struct Edge;
+struct EdgeIterator;
+struct Face;
+struct FaceIterator;
+struct Wire;
+struct WireBuilder;
+struct Loft;
+struct Compound;
 
 struct Vertex {
   TopoDS_Vertex vertex;
 
   Vertex(Standard_Real x, Standard_Real y, Standard_Real z);
+
   void set_coordinates(Standard_Real x, Standard_Real y, Standard_Real z);
   void get_coordinates(double &x, double &y, double &z) const;
 };
-
-struct Edge;
-struct Shape;
-struct Face;
 
 struct FilletBuilder {
   BRepFilletAPI_MakeFillet make_fillet;
@@ -52,6 +55,7 @@ struct ShellBuilder {
   Standard_Real offset = 0.0;
 
   ShellBuilder(const Shape &shape);
+
   void add_face_to_remove(const Face &face);
   void set_offset(Standard_Real offset);
   void set_tolerance(Standard_Real tolerance);
@@ -65,6 +69,9 @@ struct Shape {
   Shape fuse(const Shape &other) const;
 };
 
+Shape cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
+               Standard_Real height);
+
 struct Edge {
   TopoDS_Edge edge;
 
@@ -76,6 +83,7 @@ struct Edge {
 
 struct EdgeIterator {
   TopExp_Explorer explorer;
+
   EdgeIterator(const Shape &shape);
 
   bool more() const;
@@ -93,11 +101,10 @@ struct FaceIterator {
   TopExp_Explorer explorer;
 
   FaceIterator(const Shape &shape);
+
   bool more() const;
   Face next();
 };
-
-struct WireBuilder;
 
 struct Wire {
   TopoDS_Wire wire;
@@ -105,8 +112,8 @@ struct Wire {
   Wire(WireBuilder &make_wire);
   Wire(const TopoDS_Wire &wire);
   Wire(const Wire &other);
-  static Wire clone(const Wire &other);
 
+  static Wire clone(const Wire &other);
   Wire transform(const occara::geom::Transformation &transformation) const;
   Face face() const;
   void build_curves_3d();
@@ -119,13 +126,11 @@ struct WireBuilder {
   void add_wire(const occara::shape::Wire &wire);
 };
 
-Shape cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
-               Standard_Real height);
-
 struct Loft {
   BRepOffsetAPI_ThruSections loft;
 
   Loft(Standard_Boolean solid);
+
   void add_wire(const Wire &wire);
   void ensure_wire_compatibility(Standard_Boolean check);
   Shape build();
@@ -134,7 +139,9 @@ struct Loft {
 struct Compound {
   TopoDS_Compound compound;
   BRep_Builder builder;
+
   Compound();
+
   void add_shape(const Shape &shape);
   Shape build();
 };

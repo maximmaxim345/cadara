@@ -3,6 +3,8 @@
 
 namespace occara::geom {
 
+// Point
+
 Point::Point(Standard_Real x, Standard_Real y, Standard_Real z)
     : point(x, y, z) {}
 
@@ -19,6 +21,8 @@ double Point::x() const { return point.X(); }
 double Point::y() const { return point.Y(); }
 double Point::z() const { return point.Z(); }
 
+// Point2D
+
 Point2D::Point2D(Standard_Real x, Standard_Real y) : point(x, y) {}
 
 Point2D::Point2D(const gp_Pnt2d &point) : point(point) {}
@@ -31,22 +35,36 @@ void Point2D::get_coordinates(Standard_Real &x, Standard_Real &y) const {
 double Point2D::x() const { return point.X(); }
 double Point2D::y() const { return point.Y(); }
 
+// Vector
+
 Vector::Vector(Standard_Real x, Standard_Real y, Standard_Real z)
     : vector(x, y, z) {}
+
+// Direction
 
 Direction::Direction(Standard_Real x, Standard_Real y, Standard_Real z)
     : direction(x, y, z) {}
 
+// Direction2D
+
 Direction2D::Direction2D(Standard_Real x, Standard_Real y) : direction(x, y) {}
+
+// Axis
 
 Axis::Axis(const Point &origin, const Direction &direction)
     : axis(origin.point, direction.direction) {}
 
+// Axis2D
+
 Axis2D::Axis2D(const Point2D &origin, const Direction2D &direction)
     : axis(origin.point, direction.direction) {}
 
+// PlaneAxis
+
 PlaneAxis::PlaneAxis(const Point &origin, const Direction &direction)
     : axis(origin.point, direction.direction) {}
+
+// TrimmedCurve
 
 TrimmedCurve::TrimmedCurve(const Point &p1, const Point &p2, const Point &p3)
     : curve(GC_MakeArcOfCircle(p1.point, p2.point, p3.point)) {}
@@ -54,11 +72,15 @@ TrimmedCurve::TrimmedCurve(const Point &p1, const Point &p2, const Point &p3)
 TrimmedCurve::TrimmedCurve(const Point &p1, const Point &p2)
     : curve(GC_MakeSegment(p1.point, p2.point)) {}
 
+// TrimmedCurve2D
+
 TrimmedCurve2D::TrimmedCurve2D(const Geom2d_TrimmedCurve &curve)
     : curve(new Geom2d_TrimmedCurve(curve)) {}
 
 TrimmedCurve2D::TrimmedCurve2D(const Point2D &p1, const Point2D &p2)
     : curve(GCE2d_MakeSegment(p1.point, p2.point)) {}
+
+// Ellipse2D
 
 Ellipse2D::Ellipse2D(const Axis2D &axis, Standard_Real major_radius,
                      Standard_Real minor_radius)
@@ -72,7 +94,11 @@ Point2D Ellipse2D::value(Standard_Real u) const {
   return Point2D(ellipse->Value(u));
 }
 
+// Plane
+
 Point Plane::location() const { return Point(plane->Location()); }
+
+// Surface
 
 bool Surface::is_plane() const {
   return surface->DynamicType() == STANDARD_TYPE(Geom_Plane);
@@ -82,11 +108,15 @@ Plane Surface::as_plane() const {
   return Plane(Handle(Geom_Plane)::DownCast(surface));
 }
 
+// Transformation
+
 Transformation::Transformation() : transformation() {}
 
 void Transformation::mirror(const Axis &axis) {
   transformation.SetMirror(axis.axis);
 }
+
+// CylindricalSurface
 
 CylindricalSurface::CylindricalSurface(const PlaneAxis &axis,
                                        Standard_Real radius)

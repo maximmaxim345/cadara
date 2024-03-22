@@ -5,6 +5,8 @@
 
 namespace occara::shape {
 
+// Vertex
+
 Vertex::Vertex(Standard_Real x, Standard_Real y, Standard_Real z)
     : vertex(BRepBuilderAPI_MakeVertex(gp_Pnt(x, y, z))) {}
 
@@ -19,6 +21,16 @@ void Vertex::get_coordinates(double &x, double &y, double &z) const {
   y = point.Y();
   z = point.Z();
 }
+
+// FilletBuilder
+
+void FilletBuilder::add_edge(Standard_Real radius, const Edge &edge) {
+  make_fillet.Add(radius, edge.edge);
+}
+
+Shape FilletBuilder::build() { return Shape{make_fillet.Shape()}; }
+
+// ShellBuilder
 
 ShellBuilder::ShellBuilder(const Shape &shape) : shape(shape.shape) {}
 
@@ -39,6 +51,8 @@ Shape ShellBuilder::build() {
   return Shape{make_thick_solid.Shape()};
 }
 
+// Shape
+
 FilletBuilder Shape::fillet() const {
   return FilletBuilder{BRepFilletAPI_MakeFillet(shape)};
 }
@@ -46,6 +60,14 @@ FilletBuilder Shape::fillet() const {
 Shape Shape::fuse(const Shape &other) const {
   return Shape{BRepAlgoAPI_Fuse(shape, other.shape).Shape()};
 }
+
+Shape cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
+               Standard_Real height) {
+  BRepPrimAPI_MakeCylinder cylinder(axis.axis, radius, height);
+  return Shape(cylinder.Shape());
+}
+
+// Edge
 
 Edge::Edge(const occara::geom::TrimmedCurve &curve)
     : edge(BRepBuilderAPI_MakeEdge(curve.curve)) {}
@@ -56,11 +78,7 @@ Edge::Edge(const occara::geom::TrimmedCurve2D &curve,
            const occara::geom::CylindricalSurface &surface)
     : edge(BRepBuilderAPI_MakeEdge(curve.curve, surface.surface)) {}
 
-void FilletBuilder::add_edge(Standard_Real radius, const Edge &edge) {
-  make_fillet.Add(radius, edge.edge);
-}
-
-Shape FilletBuilder::build() { return Shape{make_fillet.Shape()}; }
+// EdgeIterator
 
 EdgeIterator::EdgeIterator(const Shape &shape)
     : explorer(shape.shape, TopAbs_EDGE) {}
@@ -74,6 +92,18 @@ Edge EdgeIterator::next() {
   return edge;
 }
 
+// Face
+
+Shape Face::extrude(const occara::geom::Vector &vector) const {
+  return Shape{BRepPrimAPI_MakePrism(face, vector.vector).Shape()};
+}
+
+geom::Surface Face::surface() const {
+  return geom::Surface{BRep_Tool::Surface(face)};
+}
+
+// FaceIterator
+
 FaceIterator::FaceIterator(const Shape &shape)
     : explorer(shape.shape, TopAbs_FACE) {}
 
@@ -86,13 +116,7 @@ Face FaceIterator::next() {
   return face;
 }
 
-Shape Face::extrude(const occara::geom::Vector &vector) const {
-  return Shape{BRepPrimAPI_MakePrism(face, vector.vector).Shape()};
-}
-
-geom::Surface Face::surface() const {
-  return geom::Surface{BRep_Tool::Surface(face)};
-}
+// Wire
 
 Wire::Wire(WireBuilder &make_wire) : wire(make_wire.make_wire.Wire()) {}
 
@@ -111,6 +135,8 @@ Face Wire::face() const { return Face{BRepBuilderAPI_MakeFace(wire)}; }
 
 void Wire::build_curves_3d() { BRepLib::BuildCurves3d(wire); }
 
+// WireBuilder
+
 void WireBuilder::add_edge(const occara::shape::Edge &edge) {
   make_wire.Add(edge.edge);
 }
@@ -119,11 +145,7 @@ void WireBuilder::add_wire(const occara::shape::Wire &wire) {
   make_wire.Add(wire.wire);
 }
 
-Shape cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
-               Standard_Real height) {
-  BRepPrimAPI_MakeCylinder cylinder(axis.axis, radius, height);
-  return Shape(cylinder.Shape());
-}
+// Loft
 
 Loft::Loft(Standard_Boolean solid) : loft(solid) {}
 
@@ -134,6 +156,8 @@ void Loft::ensure_wire_compatibility(Standard_Boolean check) {
 }
 
 Shape Loft::build() { return Shape(loft.Shape()); }
+
+// Compound
 
 Compound::Compound() { builder.MakeCompound(compound); }
 
