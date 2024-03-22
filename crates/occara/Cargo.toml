@@ -1,6 +1,6 @@
 [package]
 name = "occara"
-description = "High-level Rust bindings to OpenCASCADE CAD library"
+description = "High-level Rust bindings to the OpenCASCADE B-Rep library"
 version = "0.1.0"
 edition = "2021"
 

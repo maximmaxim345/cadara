@@ -1,6 +1,6 @@
 # occara
 
-occara provides high-level Rust bindings for the OpenCASCADE CAD library. It is an internally used library for CADara.
+occara provides high-level Rust bindings for the OpenCASCADE B-Rep library. It is internally used by CADara to manipulate 3D models.
 
 ## Structure
 
@@ -10,6 +10,6 @@ occara consists of:
 - A thin Rust library layer to provide a safe, idiomatic Rust API
 
 ## Status & Todos
-- Error handling is not complete yet. The C++ wrapper should catch all exceptions and pass them to Rust, since autocxx does not support C++ exceptions directly.
+- Error handling is not implemented yet. The C++ wrapper should catch all exceptions and pass them to Rust, since autocxx does not support C++ exceptions.
 - This library does not feature all OpenCASCADE functionality yet. It is being developed incrementally as needed by CADara.
 - in the future, this API could be made accessible to CADara plugins. This would enable plugins to implement custom CAD operations and functionality, while being sandboxed from the core CADara application for security and stability.
