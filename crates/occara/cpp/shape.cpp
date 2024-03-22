@@ -7,8 +7,11 @@ namespace occara::shape {
 
 // Vertex
 
-Vertex::Vertex(Standard_Real x, Standard_Real y, Standard_Real z)
-    : vertex(BRepBuilderAPI_MakeVertex(gp_Pnt(x, y, z))) {}
+Vertex Vertex::create(Standard_Real x, Standard_Real y, Standard_Real z) {
+  return Vertex{BRepBuilderAPI_MakeVertex(gp_Pnt(x, y, z))};
+}
+
+Vertex Vertex::clone() const { return *this; }
 
 void Vertex::set_coordinates(Standard_Real x, Standard_Real y,
                              Standard_Real z) {
@@ -24,6 +27,8 @@ void Vertex::get_coordinates(double &x, double &y, double &z) const {
 
 // FilletBuilder
 
+FilletBuilder FilletBuilder::clone() const { return *this; }
+
 void FilletBuilder::add_edge(Standard_Real radius, const Edge &edge) {
   make_fillet.Add(radius, edge.edge);
 }
@@ -32,7 +37,11 @@ Shape FilletBuilder::build() { return Shape{make_fillet.Shape()}; }
 
 // ShellBuilder
 
-ShellBuilder::ShellBuilder(const Shape &shape) : shape(shape.shape) {}
+ShellBuilder ShellBuilder::create(const Shape &shape) {
+  return ShellBuilder{shape.shape};
+}
+
+ShellBuilder ShellBuilder::clone() const { return *this; }
 
 void ShellBuilder::add_face_to_remove(const Face &face) {
   faces_to_remove.Append(face.face);
@@ -53,6 +62,8 @@ Shape ShellBuilder::build() {
 
 // Shape
 
+Shape Shape::clone() const { return *this; }
+
 FilletBuilder Shape::fillet() const {
   return FilletBuilder{BRepFilletAPI_MakeFillet(shape)};
 }
@@ -64,24 +75,29 @@ Shape Shape::fuse(const Shape &other) const {
 Shape Shape::cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
                       Standard_Real height) {
   BRepPrimAPI_MakeCylinder cylinder(axis.axis, radius, height);
-  return Shape(cylinder.Shape());
+  return Shape{cylinder.Shape()};
 }
 
 // Edge
 
-Edge::Edge(const occara::geom::TrimmedCurve &curve)
-    : edge(BRepBuilderAPI_MakeEdge(curve.curve)) {}
+Edge Edge::from_curve(const occara::geom::TrimmedCurve &curve) {
+  return Edge{BRepBuilderAPI_MakeEdge(curve.curve)};
+}
 
-Edge::Edge(const TopoDS_Edge &edge) : edge(edge) {}
+Edge Edge::from_2d_curve(const occara::geom::TrimmedCurve2D &curve,
+                         const occara::geom::CylindricalSurface &surface) {
+  return Edge{BRepBuilderAPI_MakeEdge(curve.curve, surface.surface)};
+}
 
-Edge::Edge(const occara::geom::TrimmedCurve2D &curve,
-           const occara::geom::CylindricalSurface &surface)
-    : edge(BRepBuilderAPI_MakeEdge(curve.curve, surface.surface)) {}
+Edge Edge::clone() const { return *this; }
 
 // EdgeIterator
 
-EdgeIterator::EdgeIterator(const Shape &shape)
-    : explorer(shape.shape, TopAbs_EDGE) {}
+EdgeIterator EdgeIterator::create(const Shape &shape) {
+  return EdgeIterator{TopExp_Explorer(shape.shape, TopAbs_EDGE)};
+}
+
+EdgeIterator EdgeIterator::clone() const { return *this; }
 
 bool EdgeIterator::more() const { return explorer.More(); }
 
@@ -94,6 +110,8 @@ Edge EdgeIterator::next() {
 
 // Face
 
+Face Face::clone() const { return *this; }
+
 Shape Face::extrude(const occara::geom::Vector &vector) const {
   return Shape{BRepPrimAPI_MakePrism(face, vector.vector).Shape()};
 }
@@ -104,8 +122,11 @@ geom::Surface Face::surface() const {
 
 // FaceIterator
 
-FaceIterator::FaceIterator(const Shape &shape)
-    : explorer(shape.shape, TopAbs_FACE) {}
+FaceIterator FaceIterator::create(const Shape &shape) {
+  return FaceIterator{TopExp_Explorer(shape.shape, TopAbs_FACE)};
+}
+
+FaceIterator FaceIterator::clone() const { return *this; }
 
 bool FaceIterator::more() const { return explorer.More(); }
 
@@ -118,17 +139,15 @@ Face FaceIterator::next() {
 
 // Wire
 
-Wire::Wire(WireBuilder &make_wire) : wire(make_wire.make_wire.Wire()) {}
+Wire Wire::create(WireBuilder &make_wire) {
+  return Wire{make_wire.make_wire.Wire()};
+}
 
-Wire::Wire(const TopoDS_Wire &wire) : wire(wire) {}
-
-Wire::Wire(const Wire &other) : wire(other.wire) {}
-
-Wire Wire::clone(const Wire &other) { return Wire(other.wire); }
+Wire Wire::clone() const { return *this; }
 
 Wire Wire::transform(const occara::geom::Transformation &transformation) const {
   BRepBuilderAPI_Transform transform(wire, transformation.transformation);
-  return Wire(TopoDS::Wire(transform.Shape()));
+  return Wire{TopoDS::Wire(transform.Shape())};
 }
 
 Face Wire::face() const { return Face{BRepBuilderAPI_MakeFace(wire)}; }
@@ -136,6 +155,8 @@ Face Wire::face() const { return Face{BRepBuilderAPI_MakeFace(wire)}; }
 void Wire::build_curves_3d() { BRepLib::BuildCurves3d(wire); }
 
 // WireBuilder
+
+WireBuilder WireBuilder::clone() const { return *this; }
 
 void WireBuilder::add_edge(const occara::shape::Edge &edge) {
   make_wire.Add(edge.edge);
@@ -147,7 +168,11 @@ void WireBuilder::add_wire(const occara::shape::Wire &wire) {
 
 // Loft
 
-Loft::Loft(Standard_Boolean solid) : loft(solid) {}
+Loft Loft::create_solid() {
+  return Loft{BRepOffsetAPI_ThruSections(Standard_True)};
+}
+
+Loft Loft::clone() const { return *this; }
 
 void Loft::add_wire(const Wire &wire) { loft.AddWire(wire.wire); }
 
@@ -155,16 +180,20 @@ void Loft::ensure_wire_compatibility(Standard_Boolean check) {
   loft.CheckCompatibility(check);
 }
 
-Shape Loft::build() { return Shape(loft.Shape()); }
+Shape Loft::build() { return Shape{loft.Shape()}; }
 
 // Compound
 
+// Since Compound is self-referential, a factory method alone causes a
+// segfault.
 Compound::Compound() { builder.MakeCompound(compound); }
+
+Compound Compound::create() { return Compound(); }
 
 void Compound::add_shape(const Shape &shape) {
   builder.Add(compound, shape.shape);
 }
 
-Shape Compound::build() { return Shape(compound); }
+Shape Compound::build() { return Shape{compound}; }
 
 } // namespace occara::shape

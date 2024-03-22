@@ -35,7 +35,8 @@ struct Compound;
 struct Vertex {
   TopoDS_Vertex vertex;
 
-  Vertex(Standard_Real x, Standard_Real y, Standard_Real z);
+  static Vertex create(Standard_Real x, Standard_Real y, Standard_Real z);
+  Vertex clone() const;
 
   void set_coordinates(Standard_Real x, Standard_Real y, Standard_Real z);
   void get_coordinates(double &x, double &y, double &z) const;
@@ -44,17 +45,20 @@ struct Vertex {
 struct FilletBuilder {
   BRepFilletAPI_MakeFillet make_fillet;
 
+  FilletBuilder clone() const;
+
   void add_edge(Standard_Real radius, const Edge &edge);
   Shape build();
 };
 
 struct ShellBuilder {
   TopoDS_Shape shape;
-  TopTools_ListOfShape faces_to_remove;
+  TopTools_ListOfShape faces_to_remove = TopTools_ListOfShape();
   Standard_Real tolerance = 1.e-3;
   Standard_Real offset = 0.0;
 
-  ShellBuilder(const Shape &shape);
+  static ShellBuilder create(const Shape &shape);
+  ShellBuilder clone() const;
 
   void add_face_to_remove(const Face &face);
   void set_offset(Standard_Real offset);
@@ -65,6 +69,8 @@ struct ShellBuilder {
 struct Shape {
   TopoDS_Shape shape;
 
+  Shape clone() const;
+
   FilletBuilder fillet() const;
   Shape fuse(const Shape &other) const;
   static Shape cylinder(const occara::geom::PlaneAxis &axis,
@@ -74,16 +80,17 @@ struct Shape {
 struct Edge {
   TopoDS_Edge edge;
 
-  Edge(const occara::geom::TrimmedCurve &curve);
-  Edge(const TopoDS_Edge &edge);
-  Edge(const occara::geom::TrimmedCurve2D &curve,
-       const occara::geom::CylindricalSurface &surface);
+  static Edge from_curve(const occara::geom::TrimmedCurve &curve);
+  Edge clone() const;
+  static Edge from_2d_curve(const occara::geom::TrimmedCurve2D &curve,
+                            const occara::geom::CylindricalSurface &surface);
 };
 
 struct EdgeIterator {
   TopExp_Explorer explorer;
 
-  EdgeIterator(const Shape &shape);
+  static EdgeIterator create(const Shape &shape);
+  EdgeIterator clone() const;
 
   bool more() const;
   Edge next();
@@ -92,6 +99,8 @@ struct EdgeIterator {
 struct Face {
   TopoDS_Face face;
 
+  Face clone() const;
+
   Shape extrude(const occara::geom::Vector &vector) const;
   geom::Surface surface() const;
 };
@@ -99,7 +108,8 @@ struct Face {
 struct FaceIterator {
   TopExp_Explorer explorer;
 
-  FaceIterator(const Shape &shape);
+  static FaceIterator create(const Shape &shape);
+  FaceIterator clone() const;
 
   bool more() const;
   Face next();
@@ -108,11 +118,9 @@ struct FaceIterator {
 struct Wire {
   TopoDS_Wire wire;
 
-  Wire(WireBuilder &make_wire);
-  Wire(const TopoDS_Wire &wire);
-  Wire(const Wire &other);
+  static Wire create(WireBuilder &make_wire);
+  Wire clone() const;
 
-  static Wire clone(const Wire &other);
   Wire transform(const occara::geom::Transformation &transformation) const;
   Face face() const;
   void build_curves_3d();
@@ -121,6 +129,8 @@ struct Wire {
 struct WireBuilder {
   BRepBuilderAPI_MakeWire make_wire;
 
+  WireBuilder clone() const;
+
   void add_edge(const occara::shape::Edge &edge);
   void add_wire(const occara::shape::Wire &wire);
 };
@@ -128,7 +138,8 @@ struct WireBuilder {
 struct Loft {
   BRepOffsetAPI_ThruSections loft;
 
-  Loft(Standard_Boolean solid);
+  static Loft create_solid();
+  Loft clone() const;
 
   void add_wire(const Wire &wire);
   void ensure_wire_compatibility(Standard_Boolean check);
@@ -140,6 +151,12 @@ struct Compound {
   BRep_Builder builder;
 
   Compound();
+  static Compound create();
+  // Disable copy and move, since we are self-referential
+  Compound(const Compound &) = delete;
+  Compound &operator=(const Compound &) = delete;
+  Compound(Compound &&) = delete;
+  Compound &operator=(Compound &&) = delete;
 
   void add_shape(const Shape &shape);
   Shape build();

@@ -8,7 +8,7 @@ pub struct Vertex(pub(crate) Pin<Box<ffi_shape::Vertex>>);
 impl Vertex {
     #[must_use]
     pub fn new() -> Self {
-        Self(ffi_shape::Vertex::new(0.0, 0.0, 0.0).within_box())
+        Self(ffi_shape::Vertex::create(0.0, 0.0, 0.0).within_box())
     }
 
     pub fn set_coordinates(&mut self, x: f64, y: f64, z: f64) {
@@ -40,12 +40,12 @@ impl Shape {
 
     #[must_use]
     pub fn edges(&self) -> EdgeIterator {
-        EdgeIterator(ffi_shape::EdgeIterator::new(&self.0).within_box())
+        EdgeIterator(ffi_shape::EdgeIterator::create(&self.0).within_box())
     }
 
     #[must_use]
     pub fn faces(&self) -> FaceIterator {
-        FaceIterator(ffi_shape::FaceIterator::new(&self.0).within_box())
+        FaceIterator(ffi_shape::FaceIterator::create(&self.0).within_box())
     }
 
     #[must_use]
@@ -55,7 +55,7 @@ impl Shape {
 
     #[must_use]
     pub fn shell(&self) -> ShellBuilder {
-        ShellBuilder(ffi_shape::ShellBuilder::new(&self.0).within_box())
+        ShellBuilder(ffi_shape::ShellBuilder::create(&self.0).within_box())
     }
 
     #[must_use]
@@ -151,13 +151,13 @@ impl Edge {
         curve: &geom::TrimmedCurve2D,
         surface: &geom::CylindricalSurface,
     ) -> Self {
-        Self(ffi_shape::Edge::new2(&curve.0, &surface.0).within_box())
+        Self(ffi_shape::Edge::from_2d_curve(&curve.0, &surface.0).within_box())
     }
 }
 
 impl From<geom::TrimmedCurve> for Edge {
     fn from(curve: geom::TrimmedCurve) -> Self {
-        Self(ffi_shape::Edge::new(&curve.0).within_box())
+        Self(ffi_shape::Edge::from_curve(&curve.0).within_box())
     }
 }
 
@@ -186,7 +186,7 @@ impl Wire {
         for edge in edges {
             edge.add_to_wire(w.as_mut());
         }
-        Self(ffi_shape::Wire::new(w.as_mut()).within_box())
+        Self(ffi_shape::Wire::create(w.as_mut()).within_box())
     }
 
     #[must_use]
@@ -228,7 +228,7 @@ pub struct Loft(pub(crate) Pin<Box<ffi_shape::Loft>>);
 impl Loft {
     #[must_use]
     pub fn new_solid() -> Self {
-        let loft = ffi_shape::Loft::new(true).within_box();
+        let loft = ffi_shape::Loft::create_solid().within_box();
         Self(loft)
     }
 

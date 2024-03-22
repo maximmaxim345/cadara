@@ -35,8 +35,8 @@ struct CylindricalSurface;
 struct Point {
   gp_Pnt point;
 
-  Point(Standard_Real x, Standard_Real y, Standard_Real z);
-  Point(const gp_Pnt &point);
+  static Point create(Standard_Real x, Standard_Real y, Standard_Real z);
+  Point clone() const;
 
   void get_coordinates(Standard_Real &x, Standard_Real &y,
                        Standard_Real &z) const;
@@ -48,8 +48,8 @@ struct Point {
 struct Point2D {
   gp_Pnt2d point;
 
-  Point2D(Standard_Real x, Standard_Real y);
-  Point2D(const gp_Pnt2d &point);
+  static Point2D create(Standard_Real x, Standard_Real y);
+  Point2D clone() const;
 
   void get_coordinates(Standard_Real &x, Standard_Real &y) const;
   Standard_Real x() const;
@@ -59,58 +59,67 @@ struct Point2D {
 struct Vector {
   gp_Vec vector;
 
-  Vector(Standard_Real x, Standard_Real y, Standard_Real z);
+  static Vector create(Standard_Real x, Standard_Real y, Standard_Real z);
+  Vector clone() const;
 };
 
 struct Direction {
   gp_Dir direction;
 
-  Direction(Standard_Real x, Standard_Real y, Standard_Real z);
+  static Direction create(Standard_Real x, Standard_Real y, Standard_Real z);
+  Direction clone() const;
 };
 
 struct Direction2D {
   gp_Dir2d direction;
 
-  Direction2D(Standard_Real x, Standard_Real y);
+  static Direction2D create(Standard_Real x, Standard_Real y);
+  Direction2D clone() const;
 };
 
 struct Axis {
   gp_Ax1 axis;
 
-  Axis(const Point &origin, const Direction &direction);
+  static Axis create(const Point &origin, const Direction &direction);
+  Axis clone() const;
 };
 
 struct Axis2D {
   gp_Ax2d axis;
 
-  Axis2D(const Point2D &origin, const Direction2D &direction);
+  static Axis2D create(const Point2D &origin, const Direction2D &direction);
+  Axis2D clone() const;
 };
 
 struct PlaneAxis {
   gp_Ax2 axis;
 
-  PlaneAxis(const Point &origin, const Direction &direction);
+  static PlaneAxis create(const Point &origin, const Direction &direction);
+  PlaneAxis clone() const;
 };
 
 struct TrimmedCurve {
   Handle(Geom_TrimmedCurve) curve;
 
-  TrimmedCurve(const Point &p1, const Point &p2, const Point &p3);
-  TrimmedCurve(const Point &p1, const Point &p2);
+  static TrimmedCurve arc_of_circle(const Point &p1, const Point &p2,
+                                    const Point &p3);
+  static TrimmedCurve line(const Point &p1, const Point &p2);
+  TrimmedCurve clone() const;
 };
 
 struct TrimmedCurve2D {
   Handle(Geom2d_TrimmedCurve) curve;
 
-  TrimmedCurve2D(const Geom2d_TrimmedCurve &curve);
-  TrimmedCurve2D(const Point2D &p1, const Point2D &p2);
+  static TrimmedCurve2D line(const Point2D &p1, const Point2D &p2);
+  TrimmedCurve2D clone() const;
 };
 
 struct Ellipse2D {
   Handle(Geom2d_Ellipse) ellipse;
 
-  Ellipse2D(const Axis2D &axis, Standard_Real major_radius,
-            Standard_Real minor_radius);
+  static Ellipse2D create(const Axis2D &axis, Standard_Real major_radius,
+                          Standard_Real minor_radius);
+  Ellipse2D clone() const;
 
   TrimmedCurve2D trim(Standard_Real u1, Standard_Real u2) const;
   Point2D value(Standard_Real u) const;
@@ -119,11 +128,15 @@ struct Ellipse2D {
 struct Plane {
   Handle(Geom_Plane) plane;
 
+  Plane clone() const;
+
   Point location() const;
 };
 
 struct Surface {
   Handle(Geom_Surface) surface;
+
+  Surface clone() const;
 
   bool is_plane() const;
   Plane as_plane() const;
@@ -132,7 +145,7 @@ struct Surface {
 struct Transformation {
   gp_Trsf transformation;
 
-  Transformation();
+  Transformation clone() const;
 
   void mirror(const Axis &axis);
 };
@@ -140,7 +153,8 @@ struct Transformation {
 struct CylindricalSurface {
   Handle(Geom_CylindricalSurface) surface;
 
-  CylindricalSurface(const PlaneAxis &axis, Standard_Real radius);
+  static CylindricalSurface create(const PlaneAxis &axis, Standard_Real radius);
+  CylindricalSurface clone() const;
 };
 
 } // namespace occara::geom

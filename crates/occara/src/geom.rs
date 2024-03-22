@@ -8,7 +8,7 @@ pub struct Point(pub(crate) Pin<Box<ffi_geom::Point>>);
 impl Point {
     #[must_use]
     pub fn new(x: f64, y: f64, z: f64) -> Self {
-        Self(ffi_geom::Point::new(x, y, z).within_box())
+        Self(ffi_geom::Point::create(x, y, z).within_box())
     }
 
     #[must_use]
@@ -55,7 +55,7 @@ pub struct Direction(pub(crate) Pin<Box<ffi_geom::Direction>>);
 impl Direction {
     #[must_use]
     pub fn new(x: f64, y: f64, z: f64) -> Self {
-        Self(ffi_geom::Direction::new(x, y, z).within_box())
+        Self(ffi_geom::Direction::create(x, y, z).within_box())
     }
 
     #[must_use]
@@ -79,7 +79,7 @@ pub struct Axis(pub(crate) Pin<Box<ffi_geom::Axis>>);
 impl Axis {
     #[must_use]
     pub fn new(location: &Point, direction: &Direction) -> Self {
-        Self(ffi_geom::Axis::new(&location.0, &direction.0).within_box())
+        Self(ffi_geom::Axis::create(&location.0, &direction.0).within_box())
     }
 }
 
@@ -88,7 +88,7 @@ pub struct Point2D(pub(crate) Pin<Box<ffi_geom::Point2D>>);
 impl Point2D {
     #[must_use]
     pub fn new(x: f64, y: f64) -> Self {
-        Self(ffi_geom::Point2D::new(x, y).within_box())
+        Self(ffi_geom::Point2D::create(x, y).within_box())
     }
 
     #[must_use]
@@ -124,7 +124,7 @@ pub struct Direction2D(pub(crate) Pin<Box<ffi_geom::Direction2D>>);
 impl Direction2D {
     #[must_use]
     pub fn new(x: f64, y: f64) -> Self {
-        Self(ffi_geom::Direction2D::new(x, y).within_box())
+        Self(ffi_geom::Direction2D::create(x, y).within_box())
     }
 
     #[must_use]
@@ -143,7 +143,7 @@ pub struct Axis2D(pub(crate) Pin<Box<ffi_geom::Axis2D>>);
 impl Axis2D {
     #[must_use]
     pub fn new(location: &Point2D, direction: &Direction2D) -> Self {
-        Self(ffi_geom::Axis2D::new(&location.0, &direction.0).within_box())
+        Self(ffi_geom::Axis2D::create(&location.0, &direction.0).within_box())
     }
 }
 
@@ -152,7 +152,7 @@ pub struct PlaneAxis(pub(crate) Pin<Box<ffi_geom::PlaneAxis>>);
 impl PlaneAxis {
     #[must_use]
     pub fn new(location: &Point, direction: &Direction) -> Self {
-        Self(ffi_geom::PlaneAxis::new(&location.0, &direction.0).within_box())
+        Self(ffi_geom::PlaneAxis::create(&location.0, &direction.0).within_box())
     }
 }
 
@@ -163,12 +163,12 @@ pub struct TrimmedCurve(pub(crate) Pin<Box<ffi_geom::TrimmedCurve>>);
 impl TrimmedCurve {
     #[must_use]
     pub fn arc_of_circle(p1: &Point, p2: &Point, p3: &Point) -> Self {
-        Self(ffi_geom::TrimmedCurve::new(&p1.0, &p2.0, &p3.0).within_box())
+        Self(ffi_geom::TrimmedCurve::arc_of_circle(&p1.0, &p2.0, &p3.0).within_box())
     }
 
     #[must_use]
     pub fn line(p1: &Point, p2: &Point) -> Self {
-        Self(ffi_geom::TrimmedCurve::new1(&p1.0, &p2.0).within_box())
+        Self(ffi_geom::TrimmedCurve::line(&p1.0, &p2.0).within_box())
     }
 }
 
@@ -177,7 +177,7 @@ pub struct TrimmedCurve2D(pub(crate) Pin<Box<ffi_geom::TrimmedCurve2D>>);
 impl TrimmedCurve2D {
     #[must_use]
     pub fn line(p1: &Point2D, p2: &Point2D) -> Self {
-        Self(ffi_geom::TrimmedCurve2D::new1(&p1.0, &p2.0).within_box())
+        Self(ffi_geom::TrimmedCurve2D::line(&p1.0, &p2.0).within_box())
     }
 }
 
@@ -186,7 +186,7 @@ pub struct Ellipse2D(pub(crate) Pin<Box<ffi_geom::Ellipse2D>>);
 impl Ellipse2D {
     #[must_use]
     pub fn new(axis: &Axis2D, major_radius: f64, minor_radius: f64) -> Self {
-        Self(ffi_geom::Ellipse2D::new(&axis.0, major_radius, minor_radius).within_box())
+        Self(ffi_geom::Ellipse2D::create(&axis.0, major_radius, minor_radius).within_box())
     }
 
     #[must_use]
@@ -248,7 +248,7 @@ pub struct Vector(pub(crate) Pin<Box<ffi_geom::Vector>>);
 impl Vector {
     #[must_use]
     pub fn new(x: f64, y: f64, z: f64) -> Self {
-        Self(ffi_geom::Vector::new(x, y, z).within_box())
+        Self(ffi_geom::Vector::create(x, y, z).within_box())
     }
 }
 
@@ -257,6 +257,6 @@ pub struct CylindricalSurface(pub(crate) Pin<Box<ffi_geom::CylindricalSurface>>)
 impl CylindricalSurface {
     #[must_use]
     pub fn new(plane: &PlaneAxis, radius: f64) -> Self {
-        Self(ffi_geom::CylindricalSurface::new(&plane.0, radius).within_box())
+        Self(ffi_geom::CylindricalSurface::create(&plane.0, radius).within_box())
     }
 }
