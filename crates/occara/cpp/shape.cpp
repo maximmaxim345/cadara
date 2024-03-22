@@ -133,7 +133,7 @@ Loft::Loft(Standard_Boolean solid) : loft(solid) {}
 
 void Loft::add_wire(const Wire &wire) { loft.AddWire(wire.wire); }
 
-void Loft::check_compatibility(Standard_Boolean check) {
+void Loft::ensure_wire_compatibility(Standard_Boolean check) {
   loft.CheckCompatibility(check);
 }
 

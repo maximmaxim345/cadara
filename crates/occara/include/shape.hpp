@@ -128,7 +128,7 @@ struct Loft {
 
   Loft(Standard_Boolean solid);
   void add_wire(const Wire &wire);
-  void check_compatibility(Standard_Boolean check);
+  void ensure_wire_compatibility(Standard_Boolean check);
   Shape build();
 };
 

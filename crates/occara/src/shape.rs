@@ -239,8 +239,8 @@ impl Loft {
         self
     }
 
-    pub fn check_compatibility(&mut self, check: bool) -> &mut Self {
-        self.0.as_mut().check_compatibility(check);
+    pub fn ensure_wire_compatibility(&mut self, check: bool) -> &mut Self {
+        self.0.as_mut().ensure_wire_compatibility(check);
         self
     }
 

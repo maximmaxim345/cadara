@@ -111,7 +111,7 @@ fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
 
         Loft::new_solid()
             .add_wires(&[&threading_wire1, &threading_wire2])
-            .check_compatibility(false)
+            .ensure_wire_compatibility(false)
             .build()
     };
 
