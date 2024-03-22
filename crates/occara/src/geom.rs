@@ -239,8 +239,8 @@ impl Transformation {
     }
 
     #[must_use]
-    pub fn apply(&self, mut wire: Wire) -> Wire {
-        let wire = wire.0.as_mut().transform(&self.0).within_box();
+    pub fn apply(&self, wire: &Wire) -> Wire {
+        let wire = wire.0.transform(&self.0).within_box();
         Wire(wire)
     }
 }

@@ -26,7 +26,7 @@ fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
     let mirrored_wire = {
         let axis = Point::origin().axis_with(&Direction::x());
         let transformation = Transformation::mirror(&axis);
-        transformation.apply(wire.clone())
+        transformation.apply(&wire)
     };
 
     // Combine the two for the full profile of the bottle
