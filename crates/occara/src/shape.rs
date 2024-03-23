@@ -180,13 +180,8 @@ impl Edge {
         geom::TrimmedCurve::line(p1, p2).into()
     }
 
-    // TODO: this should be a geom::Curve2D
-    // TODO: this should be a geom::Surface
     #[must_use]
-    pub fn new_with_surface(
-        curve: &geom::TrimmedCurve2D,
-        surface: &geom::CylindricalSurface,
-    ) -> Self {
+    pub fn new_with_surface(curve: &geom::Curve2D, surface: &geom::Surface) -> Self {
         Self(ffi_shape::Edge::from_2d_curve(&curve.0, &surface.0).within_box())
     }
 }

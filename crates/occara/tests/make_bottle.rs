@@ -99,13 +99,13 @@ fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
         let segment = TrimmedCurve2D::line(&ellipse1.value(0.0), &ellipse1.value(PI));
 
         let threading_wire1 = Wire::new(&[
-            &Edge::new_with_surface(&arc1, &cylinder1),
-            &Edge::new_with_surface(&segment, &cylinder1),
+            &Edge::new_with_surface(&(&arc1).into(), &(&cylinder1).into()),
+            &Edge::new_with_surface(&(&segment).into(), &(&cylinder1).into()),
         ])
         .build_curves_3d();
         let threading_wire2 = Wire::new(&[
-            &Edge::new_with_surface(&arc2, &cylinder2),
-            &Edge::new_with_surface(&segment, &cylinder2),
+            &Edge::new_with_surface(&(&arc2).into(), &(&cylinder2).into()),
+            &Edge::new_with_surface(&(&segment).into(), &(&cylinder2).into()),
         ])
         .build_curves_3d();
 

@@ -84,8 +84,8 @@ Edge Edge::from_curve(const occara::geom::TrimmedCurve &curve) {
   return Edge{BRepBuilderAPI_MakeEdge(curve.curve)};
 }
 
-Edge Edge::from_2d_curve(const occara::geom::TrimmedCurve2D &curve,
-                         const occara::geom::CylindricalSurface &surface) {
+Edge Edge::from_2d_curve(const occara::geom::Curve2D &curve,
+                         const occara::geom::Surface &surface) {
   return Edge{BRepBuilderAPI_MakeEdge(curve.curve, surface.surface)};
 }
 

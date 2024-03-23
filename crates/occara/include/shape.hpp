@@ -82,8 +82,8 @@ struct Edge {
 
   static Edge from_curve(const occara::geom::TrimmedCurve &curve);
   Edge clone() const;
-  static Edge from_2d_curve(const occara::geom::TrimmedCurve2D &curve,
-                            const occara::geom::CylindricalSurface &surface);
+  static Edge from_2d_curve(const occara::geom::Curve2D &curve,
+                            const occara::geom::Surface &surface);
 };
 
 struct EdgeIterator {
