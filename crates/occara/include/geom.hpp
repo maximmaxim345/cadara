@@ -126,6 +126,8 @@ struct Curve2D {
 
   static Curve2D from_trimmed_curve2d(const TrimmedCurve2D &curve);
   Curve2D clone() const;
+
+  TrimmedCurve2D trim(Standard_Real u1, Standard_Real u2) const;
 };
 
 struct Ellipse2D {
@@ -135,8 +137,8 @@ struct Ellipse2D {
                           Standard_Real minor_radius);
   Ellipse2D clone() const;
 
-  TrimmedCurve2D trim(Standard_Real u1, Standard_Real u2) const;
   Point2D value(Standard_Real u) const;
+  Curve2D curve() const;
 };
 
 struct Plane {

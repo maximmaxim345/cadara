@@ -249,6 +249,14 @@ impl Clone for TrimmedCurve2D {
 
 pub struct Curve2D(pub(crate) Pin<Box<ffi_geom::Curve2D>>);
 
+impl Curve2D {
+    #[must_use]
+    pub fn trim(&self, u1: f64, u2: f64) -> TrimmedCurve2D {
+        let trimmed_curve = ffi_geom::Curve2D::trim(&self.0, u1, u2).within_box();
+        TrimmedCurve2D(trimmed_curve)
+    }
+}
+
 impl From<&TrimmedCurve2D> for Curve2D {
     fn from(curve: &TrimmedCurve2D) -> Self {
         Self(ffi_geom::Curve2D::from_trimmed_curve2d(&curve.0).within_box())
@@ -270,15 +278,14 @@ impl Ellipse2D {
     }
 
     #[must_use]
-    pub fn trim(&self, u1: f64, u2: f64) -> TrimmedCurve2D {
-        let trimmed_curve = ffi_geom::Ellipse2D::trim(&self.0, u1, u2).within_box();
-        TrimmedCurve2D(trimmed_curve)
-    }
-
-    #[must_use]
     pub fn value(&self, u: f64) -> Point2D {
         let point = ffi_geom::Ellipse2D::value(&self.0, u).within_box();
         Point2D(point)
+    }
+
+    #[must_use]
+    pub fn curve(&self) -> Curve2D {
+        Curve2D(self.0.curve().within_box())
     }
 }
 

@@ -122,6 +122,10 @@ Curve2D Curve2D::from_trimmed_curve2d(const TrimmedCurve2D &curve) {
 
 Curve2D Curve2D::clone() const { return *this; }
 
+TrimmedCurve2D Curve2D::trim(Standard_Real u1, Standard_Real u2) const {
+  return TrimmedCurve2D{new Geom2d_TrimmedCurve(curve, u1, u2)};
+}
+
 // Ellipse2D
 
 Ellipse2D Ellipse2D::create(const Axis2D &axis, Standard_Real major_radius,
@@ -131,12 +135,12 @@ Ellipse2D Ellipse2D::create(const Axis2D &axis, Standard_Real major_radius,
 
 Ellipse2D Ellipse2D::clone() const { return *this; }
 
-TrimmedCurve2D Ellipse2D::trim(Standard_Real u1, Standard_Real u2) const {
-  return TrimmedCurve2D{new Geom2d_TrimmedCurve(ellipse, u1, u2)};
-}
-
 Point2D Ellipse2D::value(Standard_Real u) const {
   return Point2D{ellipse->Value(u)};
+}
+
+Curve2D Ellipse2D::curve() const {
+  return Curve2D{const_cast<Ellipse2D &>(*this).ellipse};
 }
 
 // Plane

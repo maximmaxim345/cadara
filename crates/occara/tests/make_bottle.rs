@@ -93,8 +93,8 @@ fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
 
         let ellipse1 = Ellipse2D::new(&axis2d, major, minor);
         let ellipse2 = Ellipse2D::new(&axis2d, major, minor / 4.0);
-        let arc1 = ellipse1.trim(0.0, PI);
-        let arc2 = ellipse2.trim(0.0, PI);
+        let arc1 = ellipse1.curve().trim(0.0, PI);
+        let arc2 = ellipse2.curve().trim(0.0, PI);
 
         let segment = TrimmedCurve2D::line(&ellipse1.value(0.0), &ellipse1.value(PI));
 
