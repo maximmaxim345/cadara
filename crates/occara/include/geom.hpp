@@ -98,6 +98,13 @@ struct PlaneAxis {
   PlaneAxis clone() const;
 };
 
+struct SpaceAxis {
+  gp_Ax3 axis;
+
+  static SpaceAxis create(const Point &origin, const Direction &direction);
+  SpaceAxis clone() const;
+};
+
 struct TrimmedCurve {
   Handle(Geom_TrimmedCurve) curve;
 

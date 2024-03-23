@@ -198,7 +198,20 @@ impl Clone for PlaneAxis {
     }
 }
 
-// TODO: gp_Ax3 should be SpaceAxis
+pub struct SpaceAxis(pub(crate) Pin<Box<ffi_geom::SpaceAxis>>);
+
+impl SpaceAxis {
+    #[must_use]
+    pub fn new(location: &Point, direction: &Direction) -> Self {
+        Self(ffi_geom::SpaceAxis::create(&location.0, &direction.0).within_box())
+    }
+}
+
+impl Clone for SpaceAxis {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
+    }
+}
 
 pub struct TrimmedCurve(pub(crate) Pin<Box<ffi_geom::TrimmedCurve>>);
 

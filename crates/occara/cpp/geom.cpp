@@ -86,6 +86,14 @@ PlaneAxis PlaneAxis::create(const Point &origin, const Direction &direction) {
 
 PlaneAxis PlaneAxis::clone() const { return *this; }
 
+// SpaceAxis
+
+SpaceAxis SpaceAxis::create(const Point &origin, const Direction &direction) {
+  return SpaceAxis{gp_Ax3(origin.point, direction.direction)};
+}
+
+SpaceAxis SpaceAxis::clone() const { return *this; }
+
 // TrimmedCurve
 
 TrimmedCurve TrimmedCurve::arc_of_circle(const Point &p1, const Point &p2,
