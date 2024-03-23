@@ -7,22 +7,14 @@ namespace occara::shape {
 
 // Vertex
 
-Vertex Vertex::create(Standard_Real x, Standard_Real y, Standard_Real z) {
-  return Vertex{BRepBuilderAPI_MakeVertex(gp_Pnt(x, y, z))};
+Vertex Vertex::create(const geom::Point &point) {
+  return Vertex{BRepBuilderAPI_MakeVertex(point.point)};
 }
 
 Vertex Vertex::clone() const { return *this; }
 
-void Vertex::set_coordinates(Standard_Real x, Standard_Real y,
-                             Standard_Real z) {
-  vertex = BRepBuilderAPI_MakeVertex(gp_Pnt(x, y, z));
-}
-
-void Vertex::get_coordinates(double &x, double &y, double &z) const {
-  gp_Pnt point = BRep_Tool::Pnt(vertex);
-  x = point.X();
-  y = point.Y();
-  z = point.Z();
+geom::Point Vertex::point() const {
+  return geom::Point{BRep_Tool::Pnt(vertex)};
 }
 
 // FilletBuilder

@@ -35,11 +35,10 @@ struct Compound;
 struct Vertex {
   TopoDS_Vertex vertex;
 
-  static Vertex create(Standard_Real x, Standard_Real y, Standard_Real z);
+  static Vertex create(const geom::Point &point);
   Vertex clone() const;
 
-  void set_coordinates(Standard_Real x, Standard_Real y, Standard_Real z);
-  void get_coordinates(double &x, double &y, double &z) const;
+  geom::Point point() const;
 };
 
 struct FilletBuilder {

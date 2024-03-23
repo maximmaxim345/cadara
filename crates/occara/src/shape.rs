@@ -7,32 +7,39 @@ pub struct Vertex(pub(crate) Pin<Box<ffi_shape::Vertex>>);
 
 impl Vertex {
     #[must_use]
-    pub fn new() -> Self {
-        Self(ffi_shape::Vertex::create(0.0, 0.0, 0.0).within_box())
+    pub fn from_point(point: &geom::Point) -> Self {
+        Self(ffi_shape::Vertex::create(&point.0.as_ref()).within_box())
     }
 
-    pub fn set_coordinates(&mut self, x: f64, y: f64, z: f64) {
-        self.0.as_mut().set_coordinates(x, y, z);
+    #[must_use]
+    pub fn point(&self) -> geom::Point {
+        geom::Point(self.0.point().within_box())
     }
 
     #[must_use]
     pub fn get_coordinates(&self) -> (f64, f64, f64) {
-        let (mut x, mut y, mut z) = (0.0, 0.0, 0.0);
-        self.0
-            .get_coordinates(Pin::new(&mut x), Pin::new(&mut y), Pin::new(&mut z));
-        (x, y, z)
+        self.point().get_coordinates()
+    }
+
+    #[must_use]
+    pub fn x(&self) -> f64 {
+        self.point().x()
+    }
+
+    #[must_use]
+    pub fn y(&self) -> f64 {
+        self.point().y()
+    }
+
+    #[must_use]
+    pub fn z(&self) -> f64 {
+        self.point().z()
     }
 }
 
 impl Clone for Vertex {
     fn clone(&self) -> Self {
         Self(self.0.clone().within_box())
-    }
-}
-
-impl Default for Vertex {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
