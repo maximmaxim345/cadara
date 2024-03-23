@@ -316,20 +316,18 @@ pub struct Compound(pub(crate) Pin<Box<ffi_shape::Compound>>);
 
 impl Default for Compound {
     fn default() -> Self {
-        Self::new()
+        Self::builder()
     }
 }
 
 impl Compound {
     #[must_use]
-    pub fn new() -> Self {
+    pub fn builder() -> Self {
         Self(ffi_shape::Compound::new().within_box())
     }
 
-    pub fn add_shapes(&mut self, shape: &[&Shape]) -> &mut Self {
-        for s in shape {
-            self.0.as_mut().add_shape(&s.0);
-        }
+    pub fn add(&mut self, shape: &Shape) -> &mut Self {
+        self.0.as_mut().add_shape(&shape.0);
         self
     }
 

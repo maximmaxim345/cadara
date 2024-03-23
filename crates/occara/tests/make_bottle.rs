@@ -115,7 +115,7 @@ fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
             .build()
     };
 
-    Compound::new().add_shapes(&[&body, &threading]).build()
+    Compound::builder().add(&body).add(&threading).build()
 }
 
 #[test]
