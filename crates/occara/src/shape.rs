@@ -250,6 +250,13 @@ impl Clone for Wire {
     }
 }
 
+impl geom::Transformable for Wire {
+    fn transform(&self, transformation: &geom::Transformation) -> Self {
+        let transformed_wire = self.0.transform(&transformation.0).within_box();
+        Self(transformed_wire)
+    }
+}
+
 pub trait AddableToWire {
     fn add_to_wire(&self, maker: Pin<&mut ffi_shape::WireBuilder>);
 }

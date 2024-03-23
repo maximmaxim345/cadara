@@ -1,5 +1,4 @@
 use crate::ffi::occara::geom as ffi_geom;
-use crate::shape::Wire;
 use autocxx::prelude::*;
 use std::pin::Pin;
 
@@ -331,6 +330,11 @@ impl Clone for Surface {
     }
 }
 
+pub trait Transformable {
+    #[must_use]
+    fn transform(&self, transformation: &Transformation) -> Self;
+}
+
 pub struct Transformation(pub(crate) Pin<Box<ffi_geom::Transformation>>);
 
 impl Transformation {
@@ -342,9 +346,8 @@ impl Transformation {
     }
 
     #[must_use]
-    pub fn apply(&self, wire: &Wire) -> Wire {
-        let wire = wire.0.transform(&self.0).within_box();
-        Wire(wire)
+    pub fn apply<T: Transformable>(&self, object: &T) -> T {
+        object.transform(self)
     }
 }
 
