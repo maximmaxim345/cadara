@@ -115,6 +115,13 @@ TrimmedCurve2D TrimmedCurve2D::line(const Point2D &p1, const Point2D &p2) {
 
 TrimmedCurve2D TrimmedCurve2D::clone() const { return *this; }
 
+// Curve2D
+Curve2D Curve2D::from_trimmed_curve2d(const TrimmedCurve2D &curve) {
+  return Curve2D{const_cast<TrimmedCurve2D &>(curve).curve};
+}
+
+Curve2D Curve2D::clone() const { return *this; }
+
 // Ellipse2D
 
 Ellipse2D Ellipse2D::create(const Axis2D &axis, Standard_Real major_radius,
@@ -139,6 +146,10 @@ Plane Plane::clone() const { return *this; }
 Point Plane::location() const { return Point{plane->Location()}; }
 
 // Surface
+
+Surface Surface::from_cylindrical_surface(const CylindricalSurface &surface) {
+  return Surface{const_cast<CylindricalSurface &>(surface).surface};
+}
 
 Surface Surface::clone() const { return *this; }
 

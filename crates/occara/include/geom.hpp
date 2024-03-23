@@ -121,6 +121,13 @@ struct TrimmedCurve2D {
   TrimmedCurve2D clone() const;
 };
 
+struct Curve2D {
+  Handle(Geom2d_Curve) curve;
+
+  static Curve2D from_trimmed_curve2d(const TrimmedCurve2D &curve);
+  Curve2D clone() const;
+};
+
 struct Ellipse2D {
   Handle(Geom2d_Ellipse) ellipse;
 
@@ -143,6 +150,7 @@ struct Plane {
 struct Surface {
   Handle(Geom_Surface) surface;
 
+  static Surface from_cylindrical_surface(const CylindricalSurface &surface);
   Surface clone() const;
 
   bool is_plane() const;

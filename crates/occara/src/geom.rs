@@ -248,6 +248,20 @@ impl Clone for TrimmedCurve2D {
     }
 }
 
+pub struct Curve2D(pub(crate) Pin<Box<ffi_geom::Curve2D>>);
+
+impl From<&TrimmedCurve2D> for Curve2D {
+    fn from(curve: &TrimmedCurve2D) -> Self {
+        Self(ffi_geom::Curve2D::from_trimmed_curve2d(&curve.0).within_box())
+    }
+}
+
+impl Clone for Curve2D {
+    fn clone(&self) -> Self {
+        Self(self.0.clone().within_box())
+    }
+}
+
 pub struct Ellipse2D(pub(crate) Pin<Box<ffi_geom::Ellipse2D>>);
 
 impl Ellipse2D {
@@ -292,6 +306,12 @@ impl Clone for Plane {
 }
 
 pub struct Surface(pub(crate) Pin<Box<ffi_geom::Surface>>);
+
+impl From<&CylindricalSurface> for Surface {
+    fn from(cylindrical_surface: &CylindricalSurface) -> Self {
+        Self(ffi_geom::Surface::from_cylindrical_surface(&cylindrical_surface.0).within_box())
+    }
+}
 
 impl Surface {
     #[must_use]
