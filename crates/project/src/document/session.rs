@@ -108,6 +108,10 @@ impl<M: Module> Session<M> {
     /// * The vector contains descriptions of all transactions (that can be undone or were undone) in the order they were applied.
     /// * The index indicates the position of the next transaction to be redone in the transaction history.
     ///   If the index points outside the list, all transactions have been applied.
+    ///
+    /// # Panics
+    ///
+    /// This function is not expected to panic under normal circumstances.
     #[must_use]
     pub fn undo_redo_list(&self) -> (Vec<String>, usize) {
         let session_uuid = self.session.borrow().session_uuid;
@@ -157,6 +161,10 @@ impl<M: Module> Session<M> {
     /// # Arguments
     ///
     /// * `n` - The number of transactions to undo.
+    ///
+    /// # Panics
+    ///
+    /// This function is not expected to panic under normal circumstances.
     #[allow(clippy::too_many_lines)]
     pub fn undo(&mut self, n: usize) {
         enum UndoData<D: ReversibleDocumentTransaction, U: ReversibleDocumentTransaction> {
@@ -521,6 +529,10 @@ impl<M: Module> Session<M> {
     /// # Arguments
     ///
     /// * `n` - The number of transactions to redo. If `n` is greater than the number of transactions that can be redone, all possible transactions are redone.
+    ///
+    /// # Panics
+    ///
+    /// This function is not expected to panic under normal circumstances.
     #[allow(clippy::too_many_lines)]
     pub fn redo(&mut self, n: usize) {
         // enum RedoData<D: ReversibleDocumentTransaction, U: ReversibleDocumentTransaction> {

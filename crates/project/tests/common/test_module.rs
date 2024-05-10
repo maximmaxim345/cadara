@@ -113,7 +113,7 @@ impl ReversibleDocumentTransaction for TestDataSection {
                 } else {
                     let old_word = self.single_word.clone();
                     let message = format!("changed word from {old_word} to {word}");
-                    self.single_word = word.clone();
+                    self.single_word.clone_from(&word);
                     Result::Ok((
                         message,
                         TestTransactionUndoData::SetWord {

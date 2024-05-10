@@ -75,6 +75,7 @@ pub struct ProjectManager {
 
 impl ProjectManager {
     /// Creates a new `ProjectManager`.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -110,7 +111,7 @@ impl ProjectManager {
     /// # Errors
     ///
     /// If the user lacks permission to create a project at the specified location or if the project already exists, an error is returned.
-    pub fn create(user: User) -> Result<ProjectLocation, ManagerError> {
+    pub fn create(_user: User) -> Result<ProjectLocation, ManagerError> {
         todo!()
     }
 }
