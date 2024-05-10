@@ -60,7 +60,7 @@ struct SharedDocumentModel<M: Module>(Rc<RefCell<InternalDocumentModel<M>>>);
 // automatically derived implementations of `Deserialize`. Alternatively, we could
 // replace each step of the deserialization process with a custom implementation with a seed
 // that contains the registry, but this would be more complex and less maintainable.
-// TODO: look into alterantives to thread local storage
+// TODO: look into alternatives to thread local storage
 thread_local! {
     static MODULE_REGISTRY: RefCell<Option<*const ModuleRegistry>> = RefCell::new(None);
 }
@@ -98,7 +98,7 @@ impl<'de> Deserialize<'de> for ErasedDocumentModel {
     where
         D: serde::Deserializer<'de>,
     {
-        // Retrive the registry from thread local storage
+        // Retrieve the registry from thread local storage
         // And use it to deserialize the model using the seed
         MODULE_REGISTRY.with(|r| {
             let registry = r.borrow();

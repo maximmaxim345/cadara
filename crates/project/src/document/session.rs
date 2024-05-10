@@ -178,7 +178,7 @@ impl<M: Module> Session<M> {
         // This algorithm is a bit tricky, since multi user editing is allowed.
         // Here is an explanation of how it works:
         // - we can keep all transactions before the earliest transaction to undo
-        // - remember the index, where the earlies undo needs to be perfomed to each data section
+        // - remember the index, where the earliest undo needs to be performed to each data section
         //   (a separate data section is for example document data (for all users), user data of user 1, user data of user 2, ...)
         //   (if the section is not touched, set the index to the end of the list)
         // - update all transactions until the earliest to undo as follows, in reverse order:
@@ -189,7 +189,7 @@ impl<M: Module> Session<M> {
         //   - if it is undone and marked for later redo or was Failed:
         //     - try to redo it
         //     - if that fails: mark it as Failed
-        //   - if it is allready applied: keep it as is
+        //   - if it is already applied: keep it as is
 
         // This is an example of how the history might look like:
         // In this example, session 2 wants to undo 2 transactions
@@ -491,7 +491,7 @@ impl<M: Module> Session<M> {
                             }
                         }
                         TransactionState::Undone(_transaction) => {
-                            // This shuld never happen, since this method should not explicitly redo transactions
+                            // This should never happen, since this method should not explicitly redo transactions
                             panic!("Found undone transaction marked for redo");
                         }
                     };
@@ -586,7 +586,7 @@ impl<M: Module> Session<M> {
         // - Session 1: Applied - some doc  transaction <(3) undo and mark <(7) try redo
         // - Session 1: Applied - some usr1 transaction <(2) undo and mark <(8) try redo
         // - Session 2: Undone  - some usr2 transaction    <(9) redo, increase redone count
-        // - Session 2: Undone  - some usr2 transaction    <(10) do nothing, since redone count is allready 2
+        // - Session 2: Undone  - some usr2 transaction    <(10) do nothing, since redone count is already 2
         // - Session 1: Failed  - some doc  transaction <(1) mark for redo <(11) try redo
 
         // |                 after  redo               |
@@ -626,7 +626,7 @@ impl<M: Module> Session<M> {
                     });
                 }
                 TransactionState::Undone(_) => {
-                    // Undone transctions should be ignored in this step
+                    // Undone transactions should be ignored in this step
                 }
             }
         }
@@ -721,7 +721,7 @@ impl<M: Module> Session<M> {
                                 panic!("Found undone transaction marked for redo");
                             }
                             TransactionState::Failed(transaction) => {
-                                // Failed transactions are allready not applied, just mark them as undone
+                                // Failed transactions are already not applied, just mark them as undone
                                 TransactionState::Undone(transaction)
                             }
                         }
@@ -834,7 +834,7 @@ impl<M: Module> Transaction for Session<M> {
                     .map_or_else(Result::Err, |output| {
                         Ok(transaction::TransactionOutput::Shared(output))
                     }),
-                // We allready handled this case above
+                // We already handled this case above
                 Self::Args::Session(_) => unreachable!(),
             }
         }
