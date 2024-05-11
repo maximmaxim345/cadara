@@ -1,14 +1,12 @@
-# CADara
+# CADara (Work In Progress)
+
+🚧 **IMPORTANT: CADara is currently in the very early stages of development and is not yet usable. It will likely remain in this state for a considerable time.** 🚧
 
 CADara is an upcoming next-generation open-source parametric CAD software, designed from the ground up with a focus on simplicity and user experience. Leveraging the powerful [OpenCASCADE](https://dev.opencascade.org/) B-Rep kernel and modern technologies like [Rust](https://www.rust-lang.org/), [iced](https://iced.rs/), and [wgpu](https://wgpu.rs/), CADara aims to be the most user-friendly open-source CAD solution available, while still not compromising on power and flexibility.
 
-## 🚧 Current Status
-
-CADara is in the initial stages of development and has not yet reached its functional stage. Keep an eye out for forthcoming updates and release announcements.
-
 ## 🎯 Project Goals
 
-My vision for CADara is clear and ambitious. Here's what I'm building towards:
+The vision for CADara is clear and ambitious. Here's what this project aims to achieve:
 
 - **👥 User-Friendly**: Redefining ease of use in open-source CAD.
 - **🚀 Modern Tech**: Built with modern technologies like Rust, iced, and wgpu.
@@ -20,29 +18,26 @@ My vision for CADara is clear and ambitious. Here's what I'm building towards:
 - **📜 Version History**: Navigate through your entire project's evolution with a comprehensive history of every change.
 - **🔓 Open-Source**: Your designs remain yours, forever accessible and free from proprietary constraints.
 
-This is a very ambitious set of goals, and it will take time to achieve. I'm excited to bring this vision to life, and I hope you are too!
+Please note that this is a very ambitious set of goals, and it will take a significant amount of time and effort to achieve. The project will take a considerable amount of time to even reach a basic level of functionality, so please be patient.
 
 ## 🆚 Comparison to Other CAD Software
 
-The landscape of CAD (Computer-Aided Design) software is currently marked by a stark contrast between proprietary and open-source solutions. Proprietary software like SolidWorks, Fusion 360, and Onshape lead the market with their advanced features and intuitive user interfaces but come with ever-increasing subscription costs and ecosystem lock-in due to proprietary file formats. Additionally, many proprietary tools are not available on all platforms, such as Linux, limiting the user's choice and flexibility.
+The landscape of Computer-Aided Design (CAD) software is currently divided between proprietary and open-source solutions. Proprietary software like SolidWorks, Fusion 360, and Onshape dominate the market with their advanced features and intuitive user interfaces. However, they come with ever-increasing subscription costs and ecosystem lock-in due to proprietary file formats. Additionally, many proprietary tools are not available on all platforms, such as Linux, limiting users' choice and flexibility.
 
-On the open-source front of 3D CAD, there are a couple of notable options: FreeCAD, BRL-CAD, CAD Sketcher, CadQuery, and OpenSCAD.
-Most of these options are not as capable due to the use of CSG (Constructive Solid Geometry) or are entirely script-based, making them less accessible to new users or those seeking a more intuitive user experience.
-FreeCAD stands out as the most powerful alternative, offering a wide range of capabilities that approach those of its proprietary counterparts. However, despite its large feature set, capable of replacing proprietary software (especially on realthunder's branch), FreeCAD's steep learning curve, unintuitive user interface, and dated architecture make it less accessible than it could be.
-Being experienced in FreeCAD, I can say that it is technically great. But the meaning of experience in the realm of FreeCAD is that you have to learn a large number of workarounds and tricks to get the software to do what you want.
-Navigating the workflow in FreeCAD often feels more akin to solving a complex puzzle than engaging in a direct design process. The task of recalling which features function as intended, identifying those that do not, and locating specific operations among a sea of buttons with cryptic icons presents a considerable challenge. Achieving the desired outcome intuitively in FreeCAD often feels nearly impossible without turning to external resources such as Google searches or community forums.
-This is not only a problem for beginners, but also for experienced users who want to work efficiently without constantly fighting the software.
+In the open-source 3D CAD realm, notable options include FreeCAD, BRL-CAD, CAD Sketcher, CadQuery, and OpenSCAD. Most of these alternatives are less capable due to their reliance on Constructive Solid Geometry (CSG) or are entirely script-based, making them less accessible to new users or those seeking a more intuitive user experience.
+
+FreeCAD stands out as the most powerful open-source alternative, offering a wide range of capabilities that approach those of its proprietary counterparts. However, despite its extensive feature set, FreeCAD's steep learning curve, unintuitive user interface, and dated architecture make it less accessible than it could be. As an experienced FreeCAD user, I can attest to its technical prowess, but mastering FreeCAD requires learning numerous workarounds and tricks to achieve desired results.
+
+Navigating FreeCAD's workflow often feels like solving a complex puzzle rather than engaging in a straightforward design process. Users must remember which features function as intended, identify those that don't, and locate specific operations among a sea of buttons with cryptic icons. Achieving the desired outcome intuitively in FreeCAD often feels nearly impossible without resorting to external resources like online searches or community forums. This challenge affects not only beginners but also experienced users who want to work efficiently without constantly fighting the software.
 
 ### Redefining Open-Source CAD
-While there are many efforts to improve the user experience in FreeCAD, CADara takes a different approach.
-Instead of building upon the existing FreeCAD codebase, CADara is being developed from the ground up, focusing on delivering a modern and user-friendly experience that users deserve. Rather than implementing every possible feature, CADara will first prioritize the most critical features and ensure they are as intuitive as possible.
-By adjusting the underlying architecture, CADara will make sure the simplest way to implement a feature is also the most user-friendly way.
 
-By starting from scratch, CADara will not just be another CAD software; it's a reimagining of what open-source CAD can be. This clean-slate approach allows for a reevaluation of the underlying data format, ensuring that CADara is built for the modern era of design.
-CADara will redefine collaboration and version control in CAD software, harnessing the full power of version control previously only available to software developers.
-Whether you're working alone or in a team, online or offline, with CADara, you can forget about the fear of losing your work – the software will always have your back.
-The focus on delivering a user-friendly experience and state-of-the-art collaboration tools will make CADara the most accessible and powerful open-source CAD software available.
+While there are many efforts to improve the user experience in FreeCAD, CADara takes a different approach. Instead of building upon the existing FreeCAD codebase, CADara is being developed from the ground up, focusing on delivering a modern and user-friendly experience that users deserve. Rather than implementing every possible feature, CADara will prioritize the most critical features and ensure they are as intuitive as possible. By optimizing the underlying architecture, CADara will ensure that the simplest way to implement a feature is also the most user-friendly way.
 
-To achieve maximal user-friendliness, CADara will aim to be workflow compatible with most popular CAD software. Instead of forcing users to relearn everything, CADara's user interface will guide users through the design process, making it easy to transition from other CAD software.
-Learning software is hard, learning parametric CAD software is even harder. For this reason, the most important goal of CADara is to make the learning curve as shallow as possible.
-All important actions should be easily discoverable, and the software should guide the user through the design process.
+Starting from scratch allows CADara to reimagine what open-source CAD can be. This clean-slate approach enables a reevaluation of the underlying data format, ensuring that CADara is built for the modern era of design. CADara will revolutionize collaboration and version control in CAD software, harnessing the full power of version control previously only available to software developers. Whether working alone or in a team, online or offline, CADara users can forget about the fear of losing their work – the software will always have their back. The focus on delivering a user-friendly experience and cutting-edge collaboration tools will make CADara the most accessible and powerful open-source CAD software available.
+
+To achieve maximum user-friendliness, CADara will aim to be workflow compatible with many popular CAD applications. Instead of forcing users to relearn everything, CADara's intuitive user interface will guide users through the design process, making it easy to transition from other CAD software. Learning software is challenging, and learning parametric CAD software is even more demanding. For this reason, CADara's primary goal is to make the learning curve as gentle as possible. All essential actions should be easily discoverable, and the software should provide clear guidance to users throughout the design process, ensuring a smooth and enjoyable experience for both novice and experienced designers alike.
+
+## 📝 Notes
+
+For more detailed notes on the planned implementation and architecture of CADara, please refer to the [notes document](docs/Notes.md). Please keep in mind that these notes may or may not reflect the current state of the project.
