@@ -62,7 +62,7 @@ struct SharedDocumentModel<M: Module>(Rc<RefCell<InternalDocumentModel<M>>>);
 // that contains the registry, but this would be more complex and less maintainable.
 // TODO: look into alternatives to thread local storage
 thread_local! {
-    static MODULE_REGISTRY: RefCell<Option<*const ModuleRegistry>> = RefCell::new(None);
+    static MODULE_REGISTRY: RefCell<Option<*const ModuleRegistry>> = const { RefCell::new(None) };
 }
 
 /// A struct representing a type-erased `SharedDocumentModel`.
@@ -264,7 +264,7 @@ where
             }
 
             #[inline]
-            fn visit_seq<V>(self, mut seq: V) -> Result<ErasedDocumentModel, V::Error>
+            fn visit_seq<V>(self, mut _seq: V) -> Result<ErasedDocumentModel, V::Error>
             where
                 V: serde::de::SeqAccess<'de>,
             {
@@ -352,7 +352,7 @@ struct InternalProject {
     /// The file system path to the project's saved location, if it has been persisted to disk.
     // TODO: implement this
     #[serde(skip)]
-    path: Option<PathBuf>,
+    _path: Option<PathBuf>,
 }
 
 /// Represents a project within the `CADara` application.
@@ -385,7 +385,7 @@ impl Project {
                 documents: HashMap::new(),
                 name,
                 tags: vec![],
-                path: None,
+                _path: None,
             })),
             user: User::local(),
         }
@@ -400,7 +400,7 @@ impl Project {
                 documents: HashMap::new(),
                 name,
                 tags: vec![],
-                path: Some(path),
+                _path: Some(path),
             })),
             user,
         }

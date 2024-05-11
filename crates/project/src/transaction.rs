@@ -54,10 +54,8 @@ pub trait DocumentTransaction {
     ///   by previously calling apply with the same arguments (on a equivalent object).
     /// - This function should otherwise behave the same as apply.
     fn apply_unchecked(&mut self, args: Self::Args) -> Self::Output {
-        self.apply(args).map_or_else(
-            |_| panic!("Unchecked transaction failed with error"),
-            |output| output,
-        )
+        self.apply(args)
+            .unwrap_or_else(|_| panic!("Unchecked transaction failed with error"))
     }
 
     /// Returns the name of the transaction for the undo history.
@@ -107,10 +105,8 @@ pub trait ReversibleDocumentTransaction: DocumentTransaction {
     ///   by previously calling apply with the same arguments (on a equivalent object).
     /// - This function should otherwise behave the same as apply.
     fn apply_unchecked(&mut self, args: Self::Args) -> (Self::Output, Self::UndoData) {
-        ReversibleDocumentTransaction::apply(self, args).map_or_else(
-            |_| panic!("Unchecked transaction failed with error"),
-            |output| output,
-        )
+        ReversibleDocumentTransaction::apply(self, args)
+            .unwrap_or_else(|_| panic!("Unchecked transaction failed with error"))
     }
 
     /// Undoes the transaction using the provided undo data.
