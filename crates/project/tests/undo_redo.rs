@@ -52,7 +52,7 @@ fn create_undo_redo_test_setup() -> (
         assert!(session.apply(transaction.clone()).is_ok());
     }
 
-    // Now we cast away unneded information from the transactions list
+    // Now we cast away unneeded information from the transactions list
     let transactions = transactions
         .into_iter()
         .map(|(_, transaction)| match transaction {
@@ -296,7 +296,7 @@ fn test_redo_document_one_user() {
     let loc = session2.undo_redo_list().1;
     assert_eq!(loc, 0);
 
-    // We allready tested undo, so we can assume that this log is correct
+    // We already tested undo, so we can assume that this log is correct
     get_doc_log_and_clear();
     get_user_log_and_clear();
 
@@ -515,7 +515,7 @@ fn test_undo_redo_on_failed_transactions() {
         assert!(session.apply(transaction.clone()).is_ok());
     }
 
-    // Now we cast away unneded information from the transactions list
+    // Now we cast away unneeded information from the transactions list
     let transactions: Vec<TestTransaction> = transactions
         .into_iter()
         .map(|(_, transaction)| match transaction {
@@ -533,7 +533,7 @@ fn test_undo_redo_on_failed_transactions() {
     // TODO: Remove this when undo/redo doesn't copy
     session2.redo(1);
 
-    // We allready tested the undo_redo_list in the previous tests
+    // We already tested the undo_redo_list in the previous tests
 
     let session_doc_closure = project.open_document::<TestModule>(doc_uuid).unwrap();
     let session_user_closure = project.open_document::<TestModule>(doc_uuid).unwrap();

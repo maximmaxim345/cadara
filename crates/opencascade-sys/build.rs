@@ -140,8 +140,8 @@ fn main() {
         fs::write(&build_marker, "").expect("Failed to update build marker");
     }
 
-    // Opencascade is now sucessfully built, export enviroment variables,
-    // so lib.rs can be used to link againts the library
+    // Opencascade is now successfully built, export environment variables,
+    // so lib.rs can be used to link against the library
     println!("cargo:rustc-env=OPENCASCADE_LIB_DIR={}", lib_dir.display());
     println!(
         "cargo:rustc-env=OPENCASCADE_INCLUDE_DIR={}",

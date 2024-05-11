@@ -93,7 +93,7 @@ impl ProjectManager {
     /// If the user lacks permission to open the project or if the project does not exist, an error is returned.
     pub fn open(&self, location: ProjectLocation, user: User) -> Result<Project, ManagerError> {
         let mut manager = self.manager.borrow_mut();
-        // TODO: this is a temparary hack until serialization is implemented
+        // TODO: this is a temporary hack until serialization is implemented
         let project = manager
             .projects
             .entry(location)

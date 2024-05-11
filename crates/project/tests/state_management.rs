@@ -58,7 +58,7 @@ fn test_shared_state() {
         let snapshot = session2.snapshot();
         assert_eq!(
             snapshot.shared.single_word, "Test",
-            "Shared state should be applied to all allready open sessions"
+            "Shared state should be applied to all already open sessions"
         );
     }
     {
