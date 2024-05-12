@@ -70,6 +70,63 @@ Shape Shape::cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
   return Shape{cylinder.Shape()};
 }
 
+Mesh Shape::mesh() const {
+  // FIXME: this implementation is a proof of concept and needs improvements
+  // For a better implementation, see
+  // crates/opencascade-sys/occt_source/samples/mfc/standard/01_Geometry/src/GeometryDoc.cpp
+  // Mesh parameters
+  IMeshTools_Parameters meshParams;
+  meshParams.Deflection = 0.01;
+  meshParams.Angle = 0.5;
+  meshParams.Relative = Standard_False;
+  meshParams.InParallel = Standard_True;
+  meshParams.MinSize = Precision::Confusion();
+  meshParams.InternalVerticesMode = Standard_True;
+  meshParams.ControlSurfaceDeflection = Standard_True;
+
+  // Perform meshing
+  BRepMesh_IncrementalMesh mesher(shape, meshParams);
+  std::cout << "Mesh called\n";
+
+  // Collect vertices and indices
+  std::vector<geom::Point> vertices;
+  std::vector<size_t> indices;
+
+  TopExp_Explorer faceExplorer(shape, TopAbs_FACE);
+  for (; faceExplorer.More(); faceExplorer.Next()) {
+    TopoDS_Face face = TopoDS::Face(faceExplorer.Current());
+    std::cerr << "Face\n";
+    TopLoc_Location loc;
+    Handle(Poly_Triangulation) triangulation =
+        BRep_Tool::Triangulation(face, loc);
+
+    if (triangulation.IsNull()) {
+      std::cerr << "Triangulation is null for face\n";
+      continue;
+    }
+
+    // Collect triangle indices
+    for (int i = 1; i <= triangulation->NbTriangles(); ++i) {
+      int n1, n2, n3;
+      triangulation->Triangle(i).Get(n1, n2, n3);
+      auto p1 = triangulation->Node(n1).Transformed(loc.Transformation());
+      auto p2 = triangulation->Node(n2).Transformed(loc.Transformation());
+      auto p3 = triangulation->Node(n3).Transformed(loc.Transformation());
+      vertices.push_back(geom::Point::create(p1.X(), p1.Y(), p1.Z()));
+      indices.push_back(vertices.size() - 1);
+      vertices.push_back(geom::Point::create(p2.X(), p2.Y(), p2.Z()));
+      indices.push_back(vertices.size() - 1);
+      vertices.push_back(geom::Point::create(p3.X(), p3.Y(), p3.Z()));
+      indices.push_back(vertices.size() - 1);
+    }
+  }
+
+  return Mesh{
+      indices,
+      vertices,
+  };
+}
+
 // Edge
 
 Edge Edge::from_curve(const occara::geom::TrimmedCurve &curve) {

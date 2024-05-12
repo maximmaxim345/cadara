@@ -5,10 +5,13 @@
 #include "BRepBuilderAPI_MakeWire.hxx"
 #include "BRepBuilderAPI_Transform.hxx"
 #include "BRepFilletAPI_MakeFillet.hxx"
+#include "BRepMesh_IncrementalMesh.hxx"
 #include "BRepOffsetAPI_MakeThickSolid.hxx"
 #include "BRepOffsetAPI_ThruSections.hxx"
 #include "BRepPrimAPI_MakePrism.hxx"
 #include "BRep_Tool.hxx"
+#include "IMeshData_Status.hxx"
+#include "IMeshTools_Parameters.hxx"
 #include "TopExp_Explorer.hxx"
 #include "TopoDS.hxx"
 #include "TopoDS_Edge.hxx"
@@ -31,6 +34,7 @@ struct Wire;
 struct WireBuilder;
 struct Loft;
 struct Compound;
+struct Mesh;
 
 struct Vertex {
   TopoDS_Vertex vertex;
@@ -74,6 +78,7 @@ struct Shape {
   Shape fuse(const Shape &other) const;
   static Shape cylinder(const occara::geom::PlaneAxis &axis,
                         Standard_Real radius, Standard_Real height);
+  Mesh mesh() const;
 };
 
 struct Edge {
@@ -159,6 +164,23 @@ struct Compound {
 
   void add_shape(const Shape &shape);
   Shape build();
+};
+
+struct Mesh {
+  // FIXME: This is quite inefficient but works while using autocxx.
+  // Later we should solve this by manually creating a binding for this class
+  // (and dependencies like geom::Point) using cxx. So rust code can directly
+  // use the data without copying it.
+  std::vector<size_t> indices;
+  std::vector<geom::Point> vertices;
+
+  size_t indices_size() const { return indices.size(); }
+
+  size_t vertices_size() const { return vertices.size(); }
+
+  size_t indices_at(size_t index) const { return indices[index]; }
+
+  geom::Point vertices_at(size_t index) const { return vertices[index]; }
 };
 
 } // namespace occara::shape

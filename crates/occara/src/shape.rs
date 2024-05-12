@@ -1,7 +1,8 @@
 use super::ffi::occara::shape as ffi_shape;
 use crate::geom;
 use autocxx::prelude::*;
-use std::pin::Pin;
+use std::io::Write;
+use std::{fs::File, path::Path, pin::Pin};
 
 pub struct Vertex(pub(crate) Pin<Box<ffi_shape::Vertex>>);
 
@@ -75,11 +76,76 @@ impl Shape {
     pub fn cylinder(axis: &geom::PlaneAxis, radius: f64, height: f64) -> Self {
         Self(ffi_shape::Shape::cylinder(&axis.0.as_ref(), radius, height).within_box())
     }
+
+    #[must_use]
+    pub fn mesh(&self) -> Mesh {
+        Mesh(ffi_shape::Shape::mesh(&self.0).within_box())
+    }
 }
 
 impl Clone for Shape {
     fn clone(&self) -> Self {
         Self(self.0.clone().within_box())
+    }
+}
+
+pub struct Mesh(pub(crate) Pin<Box<ffi_shape::Mesh>>);
+
+impl Mesh {
+    #[must_use]
+    pub fn indices(&self) -> Vec<usize> {
+        let mesh = self.0.as_ref();
+        let mut indices = Vec::new();
+        for i in 0..mesh.indices_size() {
+            indices.push(mesh.indices_at(i));
+        }
+        indices
+    }
+
+    #[must_use]
+    pub fn vertices(&self) -> Vec<geom::Point> {
+        // FIXME: This is a temporary solution, this will be optimized soon
+        let mesh = self.0.as_ref();
+        let mut vertices = Vec::new();
+        for i in 0..mesh.vertices_size() {
+            vertices.push(geom::Point(mesh.vertices_at(i).within_box()));
+        }
+        vertices
+    }
+
+    /// Export the mesh to an OBJ file
+    ///
+    /// This function will write the mesh to a file in the Wavefront OBJ format.
+    ///
+    /// # Arguments
+    /// * `path` - The path to the file to write to
+    ///
+    /// # Errors
+    /// This function will return an error if the file cannot be created or written to.
+    pub fn export_obj(&self, path: impl AsRef<Path>) -> Result<(), std::io::Error> {
+        let indices = self.indices();
+        let vertices = self.vertices();
+
+        let path = path.as_ref();
+        let mut file = File::create(path)?;
+
+        // Write vertices
+        for vertex in vertices {
+            writeln!(file, "v {} {} {}", vertex.x(), vertex.y(), vertex.z()).unwrap();
+        }
+
+        // Write faces (indices)
+        for i in (0..indices.len()).step_by(3) {
+            writeln!(
+                file,
+                "f {} {} {}",
+                indices[i] + 1,
+                indices[i + 1] + 1,
+                indices[i + 2] + 1
+            )
+            .unwrap();
+        }
+        Ok(())
     }
 }
 
