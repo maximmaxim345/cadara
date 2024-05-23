@@ -38,7 +38,7 @@ fn main() -> miette::Result<()> {
     .build()?;
 
     autocxx_build
-        .flag_if_supported("-std=c++20")
+        .std("c++20")
         .files(files)
         .compile("occara-autocxx-bridge");
     println!("cargo:rerun-if-changed=src/ffi.rs");
