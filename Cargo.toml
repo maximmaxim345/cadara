@@ -4,6 +4,7 @@ members = [
   "crates/project",
   "crates/opencascade-sys",
   "crates/occara",
+  "crates/viewport",
   "crates/computegraph",
   "crates/computegraph_macros",
   "crates/cadara",
