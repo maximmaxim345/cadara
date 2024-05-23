@@ -1,0 +1,15 @@
+[package]
+name = "icara"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bytemuck = "1.15.0"
+glam = { version = "0.27.0", features = ["bytemuck"] }
+iced = { version = "0.12.1", features = ["advanced", "canvas", "image", "svg"] }
+image = "0.25.1"
+rand = "0.8.5"
+wgpu = "0.19.4"
