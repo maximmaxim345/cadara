@@ -2,26 +2,41 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::cognitive_complexity)]
+#![allow(clippy::cast_precision_loss)]
+
+mod workspace;
 
 use iced::Sandbox;
+use viewport::ViewportPlugin;
 
-struct App {}
+struct App {
+    viewport: viewport::Viewport,
+}
 
 impl iced::Sandbox for App {
     type Message = ();
 
     fn new() -> Self {
-        Self {}
+        let mut viewport = viewport::Viewport::default();
+        viewport
+            .pipeline
+            .add_plugin(ViewportPlugin::new(workspace::DemoViewportPlugin::default()).unwrap())
+            .unwrap();
+        Self { viewport }
     }
 
     fn title(&self) -> String {
-        "Hello".to_string()
+        "CADara".to_string()
     }
 
     fn update(&mut self, _message: Self::Message) {}
 
     fn view(&self) -> iced::Element<'_, Self::Message> {
-        iced::widget::button("Hello").into()
+        let viewport_shader = iced::widget::shader(&self.viewport)
+            .width(iced::Length::Fill)
+            .height(iced::Length::Fill);
+
+        iced::widget::column!(iced::widget::text("Viewport:"), viewport_shader).into()
     }
 }
 
