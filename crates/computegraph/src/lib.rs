@@ -613,6 +613,7 @@ pub trait NodeFactory: ExecutableNode {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::{anyhow, Result};
     use std::any::TypeId;
 
     use super::*;
@@ -785,49 +786,38 @@ mod tests {
     }
 
     #[test]
-    fn test_basic_graph() {
+    fn test_basic_graph() -> Result<()> {
         let mut graph = ComputeGraph::new();
-        let value1 = graph
-            .add_node(TestNodeConstant::new(9), "value1".to_string())
-            .unwrap();
-        let value2 = graph
-            .add_node(TestNodeConstant::new(10), "value2".to_string())
-            .unwrap();
+        let value1 = graph.add_node(TestNodeConstant::new(9), "value1".to_string())?;
+        let value2 = graph.add_node(TestNodeConstant::new(10), "value2".to_string())?;
 
-        let addition = graph
-            .add_node(TestNodeAddition::new(), "addition".to_string())
-            .unwrap();
+        let addition = graph.add_node(TestNodeAddition::new(), "addition".to_string())?;
 
-        graph
-            .connect(value1.port_output(), addition.port_input_a())
-            .unwrap();
-        graph
-            .connect(value2.port_output(), addition.port_input_b())
-            .unwrap();
+        graph.connect(value1.port_output(), addition.port_input_a())?;
+        graph.connect(value2.port_output(), addition.port_input_b())?;
 
         let value1_result = graph
-            .compute(value1.port_output())
-            .unwrap()
+            .compute(value1.port_output())?
             .downcast::<usize>()
-            .unwrap();
+            .or(Err(anyhow!("result is not of type usize")))?;
         let value2_result = graph
-            .compute(value2.port_output())
-            .unwrap()
+            .compute(value2.port_output())?
             .downcast::<usize>()
-            .unwrap();
+            .or(Err(anyhow!("result is not of type usize")))?;
         let addition_result = graph
-            .compute(addition.port_output())
-            .unwrap()
+            .compute(addition.port_output())?
             .downcast::<usize>()
-            .unwrap();
+            .or(Err(anyhow!("result is not of type usize")))?;
 
         assert_eq!(*value1_result, 9);
         assert_eq!(*value2_result, 10);
         assert_eq!(*addition_result, 19);
+
+        Ok(())
     }
 
     #[test]
-    fn test_diamond_dependencies() {
+    fn test_diamond_dependencies() -> Result<()> {
         // Here we will test a more complex graph with two diamond dependencies between nodes.
         // The graph will look like this:
         //
@@ -846,75 +836,40 @@ mod tests {
         let function = |v1: usize, v2: usize, v3: usize| v1 + v2 + 2 * (v2 + v3);
 
         let mut graph = ComputeGraph::new();
-        let value1 = graph
-            .add_node(TestNodeConstant::new(5), "value1".to_string())
-            .unwrap();
-        let value2 = graph
-            .add_node(TestNodeConstant::new(7), "value2".to_string())
-            .unwrap();
-        let value3 = graph
-            .add_node(TestNodeConstant::new(3), "value3".to_string())
-            .unwrap();
+        let value1 = graph.add_node(TestNodeConstant::new(5), "value1".to_string())?;
+        let value2 = graph.add_node(TestNodeConstant::new(7), "value2".to_string())?;
+        let value3 = graph.add_node(TestNodeConstant::new(3), "value3".to_string())?;
 
-        let addition1 = graph
-            .add_node(TestNodeAddition::new(), "addition1".to_string())
-            .unwrap();
-        let addition2 = graph
-            .add_node(TestNodeAddition::new(), "addition2".to_string())
-            .unwrap();
-        let addition3 = graph
-            .add_node(TestNodeAddition::new(), "addition3".to_string())
-            .unwrap();
-        let addition4 = graph
-            .add_node(TestNodeAddition::new(), "addition4".to_string())
-            .unwrap();
+        let addition1 = graph.add_node(TestNodeAddition::new(), "addition1".to_string())?;
+        let addition2 = graph.add_node(TestNodeAddition::new(), "addition2".to_string())?;
+        let addition3 = graph.add_node(TestNodeAddition::new(), "addition3".to_string())?;
+        let addition4 = graph.add_node(TestNodeAddition::new(), "addition4".to_string())?;
 
-        graph
-            .connect(value1.port_output(), addition1.port_input_a())
-            .unwrap();
-        graph
-            .connect(value2.port_output(), addition1.port_input_b())
-            .unwrap();
-        graph
-            .connect(value2.port_output(), addition2.port_input_a())
-            .unwrap();
-        graph
-            .connect(value3.port_output(), addition2.port_input_b())
-            .unwrap();
-        graph
-            .connect(addition2.port_output(), addition3.port_input_a())
-            .unwrap();
-        graph
-            .connect(addition2.port_output(), addition3.port_input_b())
-            .unwrap();
-        graph
-            .connect(addition1.port_output(), addition4.port_input_a())
-            .unwrap();
-        graph
-            .connect(addition3.port_output(), addition4.port_input_b())
-            .unwrap();
+        graph.connect(value1.port_output(), addition1.port_input_a())?;
+        graph.connect(value2.port_output(), addition1.port_input_b())?;
+        graph.connect(value2.port_output(), addition2.port_input_a())?;
+        graph.connect(value3.port_output(), addition2.port_input_b())?;
+        graph.connect(addition2.port_output(), addition3.port_input_a())?;
+        graph.connect(addition2.port_output(), addition3.port_input_b())?;
+        graph.connect(addition1.port_output(), addition4.port_input_a())?;
+        graph.connect(addition3.port_output(), addition4.port_input_b())?;
 
         let result = graph
-            .compute(addition4.port_output())
-            .unwrap()
+            .compute(addition4.port_output())?
             .downcast::<usize>()
-            .unwrap();
+            .or(Err(anyhow!("result is not of type usize")))?;
         assert_eq!(*result, function(5, 7, 3));
+
+        Ok(())
     }
 
     #[test]
-    fn test_invalid_graph_missing_input() {
+    fn test_invalid_graph_missing_input() -> Result<()> {
         let mut graph = ComputeGraph::new();
-        let value = graph
-            .add_node(TestNodeConstant::new(5), "value".to_string())
-            .unwrap();
-        let addition = graph
-            .add_node(TestNodeAddition::new(), "addition".to_string())
-            .unwrap();
+        let value = graph.add_node(TestNodeConstant::new(5), "value".to_string())?;
+        let addition = graph.add_node(TestNodeAddition::new(), "addition".to_string())?;
 
-        graph
-            .connect(value.port_output(), addition.port_input_a())
-            .unwrap();
+        graph.connect(value.port_output(), addition.port_input_a())?;
 
         match graph.compute(addition.port_output()) {
             Err(ComputeError::InputPortNotConnected(err)) => {
@@ -923,27 +878,19 @@ mod tests {
             }
             _ => panic!("Expected ComputeError::InputPortNotConnected"),
         }
+
+        Ok(())
     }
 
     #[test]
-    fn test_invalid_graph_type_mismatch() {
+    fn test_invalid_graph_type_mismatch() -> Result<()> {
         let mut graph = ComputeGraph::new();
-        let value = graph
-            .add_node(TestNodeConstant::new(5), "value".to_string())
-            .unwrap();
-        let to_string = graph
-            .add_node(TestNodeNumToString::new(), "to_string".to_string())
-            .unwrap();
-        let addition = graph
-            .add_node(TestNodeAddition::new(), "addition".to_string())
-            .unwrap();
+        let value = graph.add_node(TestNodeConstant::new(5), "value".to_string())?;
+        let to_string = graph.add_node(TestNodeNumToString::new(), "to_string".to_string())?;
+        let addition = graph.add_node(TestNodeAddition::new(), "addition".to_string())?;
 
-        graph
-            .connect(value.port_output(), to_string.port_input())
-            .unwrap();
-        graph
-            .connect(value.port_output(), addition.port_input_a())
-            .unwrap();
+        graph.connect(value.port_output(), to_string.port_input())?;
+        graph.connect(value.port_output(), addition.port_input_a())?;
         let res = graph.connect(to_string.port_output(), addition.port_input_b());
         match res {
             Err(ConnectError::TypeMismatch { expected, found }) => {
@@ -952,85 +899,54 @@ mod tests {
             }
             _ => panic!("Expected ConnectError::TypeMismatch"),
         }
+
+        Ok(())
     }
 
     #[test]
-    fn test_cycle_detection() {
+    fn test_cycle_detection() -> Result<()> {
         let mut graph = ComputeGraph::new();
-        let value = graph
-            .add_node(TestNodeConstant::new(5), "value".to_string())
-            .unwrap();
-        let node1 = graph
-            .add_node(TestNodeAddition::new(), "node1".to_string())
-            .unwrap();
-        let node2 = graph
-            .add_node(TestNodeAddition::new(), "node2".to_string())
-            .unwrap();
-        let node3 = graph
-            .add_node(TestNodeAddition::new(), "node3".to_string())
-            .unwrap();
+        let value = graph.add_node(TestNodeConstant::new(5), "value".to_string())?;
+        let node1 = graph.add_node(TestNodeAddition::new(), "node1".to_string())?;
+        let node2 = graph.add_node(TestNodeAddition::new(), "node2".to_string())?;
+        let node3 = graph.add_node(TestNodeAddition::new(), "node3".to_string())?;
 
-        graph
-            .connect(node1.port_output(), node2.port_input_a())
-            .unwrap();
-        graph
-            .connect(node2.port_output(), node3.port_input_a())
-            .unwrap();
-        graph
-            .connect(node3.port_output(), node1.port_input_a())
-            .unwrap();
+        graph.connect(node1.port_output(), node2.port_input_a())?;
+        graph.connect(node2.port_output(), node3.port_input_a())?;
+        graph.connect(node3.port_output(), node1.port_input_a())?;
 
-        graph
-            .connect(value.port_output(), node2.port_input_b())
-            .unwrap();
-        graph
-            .connect(value.port_output(), node3.port_input_b())
-            .unwrap();
-        graph
-            .connect(value.port_output(), node1.port_input_b())
-            .unwrap();
+        graph.connect(value.port_output(), node2.port_input_b())?;
+        graph.connect(value.port_output(), node3.port_input_b())?;
+        graph.connect(value.port_output(), node1.port_input_b())?;
 
         // The graph contains a cycle: node1 -> node2 -> node3 -> node1 -> ...
         let result = graph.compute(node1.port_output());
         assert!(result.is_err());
+
+        Ok(())
     }
 
     #[test]
-    fn test_edge_disconnection() {
+    fn test_edge_disconnection() -> Result<()> {
         let mut graph = ComputeGraph::new();
-        let value = graph
-            .add_node(TestNodeConstant::new(5), "value".to_string())
-            .unwrap();
-        let one = graph
-            .add_node(TestNodeConstant::new(1), "one".to_string())
-            .unwrap();
-        let addition = graph
-            .add_node(TestNodeAddition::new(), "addition".to_string())
-            .unwrap();
-        let to_string = graph
-            .add_node(TestNodeNumToString::new(), "to_string".to_string())
-            .unwrap();
+        let value = graph.add_node(TestNodeConstant::new(5), "value".to_string())?;
+        let one = graph.add_node(TestNodeConstant::new(1), "one".to_string())?;
+        let addition = graph.add_node(TestNodeAddition::new(), "addition".to_string())?;
+        let to_string = graph.add_node(TestNodeNumToString::new(), "to_string".to_string())?;
 
-        let value_to_addition = graph
-            .connect(value.port_output(), addition.port_input_a())
-            .unwrap();
-        graph
-            .connect(one.port_output(), addition.port_input_b())
-            .unwrap();
-        graph
-            .connect(addition.port_output(), to_string.port_input())
-            .unwrap();
+        let value_to_addition = graph.connect(value.port_output(), addition.port_input_a())?;
+        graph.connect(one.port_output(), addition.port_input_b())?;
+        graph.connect(addition.port_output(), to_string.port_input())?;
 
         // Test that the graph works before disconnecting the edge
         let result = graph
-            .compute(to_string.port_output())
-            .unwrap()
+            .compute(to_string.port_output())?
             .downcast::<String>()
-            .unwrap();
+            .or(Err(anyhow!("result is not of type String")))?;
         assert_eq!(*result, "6".to_string());
 
         // Disconnect the edge between value and addition nodes
-        graph.disconnect(&value_to_addition).unwrap();
+        graph.disconnect(&value_to_addition)?;
 
         // Test that the graph fails after disconnecting the edge with the expected error
         match graph.compute(to_string.port_output()) {
@@ -1042,101 +958,69 @@ mod tests {
         }
 
         // Now reconnect the edge and test that the graph works again
-        graph
-            .connect(value.port_output(), addition.port_input_a())
-            .unwrap();
+        graph.connect(value.port_output(), addition.port_input_a())?;
         let result = graph
-            .compute(to_string.port_output())
-            .unwrap()
+            .compute(to_string.port_output())?
             .downcast::<String>()
-            .unwrap();
+            .or(Err(anyhow!("result is not of type String")))?;
         assert_eq!(*result, "6".to_string());
+
+        Ok(())
     }
 
     #[test]
-    fn test_disconnected_subgraphs() {
+    fn test_disconnected_subgraphs() -> Result<()> {
         let mut graph = ComputeGraph::new();
 
         // Subgraph 1: Addition
-        let value1 = graph
-            .add_node(TestNodeConstant::new(5), "value1".to_string())
-            .unwrap();
-        let value2 = graph
-            .add_node(TestNodeConstant::new(7), "value2".to_string())
-            .unwrap();
-        let addition1 = graph
-            .add_node(TestNodeAddition::new(), "addition1".to_string())
-            .unwrap();
-        graph
-            .connect(value1.port_output(), addition1.port_input_a())
-            .unwrap();
-        graph
-            .connect(value2.port_output(), addition1.port_input_b())
-            .unwrap();
+        let value1 = graph.add_node(TestNodeConstant::new(5), "value1".to_string())?;
+        let value2 = graph.add_node(TestNodeConstant::new(7), "value2".to_string())?;
+        let addition1 = graph.add_node(TestNodeAddition::new(), "addition1".to_string())?;
+        graph.connect(value1.port_output(), addition1.port_input_a())?;
+        graph.connect(value2.port_output(), addition1.port_input_b())?;
 
         // Subgraph 2: Addition
-        let value3 = graph
-            .add_node(TestNodeConstant::new(3), "value3".to_string())
-            .unwrap();
-        let value4 = graph
-            .add_node(TestNodeConstant::new(4), "value4".to_string())
-            .unwrap();
-        let addition2 = graph
-            .add_node(TestNodeAddition::new(), "addition2".to_string())
-            .unwrap();
-        graph
-            .connect(value3.port_output(), addition2.port_input_a())
-            .unwrap();
-        graph
-            .connect(value4.port_output(), addition2.port_input_b())
-            .unwrap();
+        let value3 = graph.add_node(TestNodeConstant::new(3), "value3".to_string())?;
+        let value4 = graph.add_node(TestNodeConstant::new(4), "value4".to_string())?;
+        let addition2 = graph.add_node(TestNodeAddition::new(), "addition2".to_string())?;
+        graph.connect(value3.port_output(), addition2.port_input_a())?;
+        graph.connect(value4.port_output(), addition2.port_input_b())?;
 
         // Compute the results of the disconnected subgraphs independently
         let addition1_result = graph
-            .compute(addition1.port_output())
-            .unwrap()
+            .compute(addition1.port_output())?
             .downcast::<usize>()
-            .unwrap();
+            .or(Err(anyhow!("result is not of type usize")))?;
         assert_eq!(*addition1_result, 12);
 
         let addition2_result = graph
-            .compute(addition2.port_output())
-            .unwrap()
+            .compute(addition2.port_output())?
             .downcast::<usize>()
-            .unwrap();
+            .or(Err(anyhow!("result is not of type usize")))?;
         assert_eq!(*addition2_result, 7);
+
+        Ok(())
     }
 
     #[test]
-    fn test_node_removal() {
+    fn test_node_removal() -> Result<()> {
         let mut graph = ComputeGraph::new();
-        let value1 = graph
-            .add_node(TestNodeConstant::new(5), "value1".to_string())
-            .unwrap();
-        let value2 = graph
-            .add_node(TestNodeConstant::new(7), "value2".to_string())
-            .unwrap();
-        let addition = graph
-            .add_node(TestNodeAddition::new(), "addition".to_string())
-            .unwrap();
+        let value1 = graph.add_node(TestNodeConstant::new(5), "value1".to_string())?;
+        let value2 = graph.add_node(TestNodeConstant::new(7), "value2".to_string())?;
+        let addition = graph.add_node(TestNodeAddition::new(), "addition".to_string())?;
 
-        graph
-            .connect(value1.port_output(), addition.port_input_a())
-            .unwrap();
-        graph
-            .connect(value2.port_output(), addition.port_input_b())
-            .unwrap();
+        graph.connect(value1.port_output(), addition.port_input_a())?;
+        graph.connect(value2.port_output(), addition.port_input_b())?;
 
         // Compute the result before removing a node
         let result_before_removal = graph
-            .compute(addition.port_output())
-            .unwrap()
+            .compute(addition.port_output())?
             .downcast::<usize>()
-            .unwrap();
+            .or(Err(anyhow!("result is not of type usize")))?;
         assert_eq!(*result_before_removal, 12);
 
         // Remove the 'value2' node from the graph
-        graph.remove_node(value2.handle).unwrap();
+        graph.remove_node(value2.handle)?;
 
         // After removing 'value2', the 'addition' node should have a missing input
         match graph.compute(addition.port_output()) {
@@ -1149,43 +1033,33 @@ mod tests {
 
         // Ensure that the 'value1' node can still be computed
         let value1_result = graph
-            .compute(value1.port_output())
-            .unwrap()
+            .compute(value1.port_output())?
             .downcast::<usize>()
-            .unwrap();
+            .or(Err(anyhow!("result is not of type usize")))?;
         assert_eq!(*value1_result, 5);
 
         // Now connect value1 to both inputs of the addition node
-        graph
-            .connect(value1.port_output(), addition.port_input_b())
-            .unwrap();
+        graph.connect(value1.port_output(), addition.port_input_b())?;
 
         // Compute the result after reconnecting the edge
         let result = graph
-            .compute(addition.port_output())
-            .unwrap()
+            .compute(addition.port_output())?
             .downcast::<usize>()
-            .unwrap();
+            .or(Err(anyhow!("result is not of type usize")))?;
         assert_eq!(*result, 10);
+
+        Ok(())
     }
 
     #[test]
-    fn test_connect_already_connected() {
+    fn test_connect_already_connected() -> Result<()> {
         let mut graph = ComputeGraph::new();
 
-        let value1 = graph
-            .add_node(TestNodeConstant::new(5), "value1".to_string())
-            .unwrap();
-        let value2 = graph
-            .add_node(TestNodeConstant::new(7), "value2".to_string())
-            .unwrap();
-        let to_string = graph
-            .add_node(TestNodeNumToString::new(), "to_string".to_string())
-            .unwrap();
+        let value1 = graph.add_node(TestNodeConstant::new(5), "value1".to_string())?;
+        let value2 = graph.add_node(TestNodeConstant::new(7), "value2".to_string())?;
+        let to_string = graph.add_node(TestNodeNumToString::new(), "to_string".to_string())?;
 
-        graph
-            .connect(value1.port_output(), to_string.port_input())
-            .unwrap();
+        graph.connect(value1.port_output(), to_string.port_input())?;
         let res = graph.connect(value2.port_output(), to_string.port_input());
         match res {
             Err(ConnectError::InputPortAlreadyConnected { from, to }) => {
@@ -1194,35 +1068,37 @@ mod tests {
             }
             _ => panic!("Expected ConnectError::InputPortAlreadyConnected"),
         }
+
+        Ok(())
     }
 
     #[test]
-    fn test_duplicate_node_names() {
+    fn test_duplicate_node_names() -> Result<()> {
         let mut graph = ComputeGraph::new();
 
-        graph
-            .add_node(TestNodeConstant::new(5), "value".to_string())
-            .unwrap();
+        graph.add_node(TestNodeConstant::new(5), "value".to_string())?;
         match graph.add_node(TestNodeConstant::new(7), "value".to_string()) {
             Err(AddError::DuplicateName(name)) => {
                 assert_eq!(name, "value");
             }
             _ => panic!("Expected AddError::DuplicateName"),
         }
+
+        Ok(())
     }
 
     #[test]
-    fn test_metadata() {
+    fn test_metadata() -> Result<()> {
         #[derive(Debug, PartialEq)]
         struct SomeMetadata;
         #[derive(Debug, PartialEq)]
         struct OtherMetadata(usize);
 
         let mut graph = ComputeGraph::new();
-        let value = graph
-            .add_node(TestNodeConstant::new(5), "value".to_string())
-            .unwrap();
-        let value_node = graph.get_node_mut(&value.handle).unwrap();
+        let value = graph.add_node(TestNodeConstant::new(5), "value".to_string())?;
+        let value_node = graph
+            .get_node_mut(&value.handle)
+            .ok_or_else(|| anyhow!("value node not found"))?;
 
         assert_eq!(value_node.metadata.get::<SomeMetadata>(), None);
         value_node.metadata.insert(SomeMetadata);
@@ -1233,8 +1109,11 @@ mod tests {
         value_node.metadata.remove::<SomeMetadata>();
         value_node.metadata.insert(OtherMetadata(42));
 
-        let value_node = graph.get_node(&value.handle).unwrap();
+        let value_node = graph
+            .get_node(&value.handle)
+            .ok_or_else(|| anyhow!("value node not found"))?;
         assert_eq!(value_node.metadata.get::<SomeMetadata>(), None);
         assert_eq!(value_node.metadata.get(), Some(&OtherMetadata(42)));
+        Ok(())
     }
 }
