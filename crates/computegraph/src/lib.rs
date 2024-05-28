@@ -44,11 +44,14 @@ pub struct ComputeGraph {
 #[derive(thiserror::Error, Debug)]
 pub enum ComputeError {
     #[error("Input port {0} not connected")]
-    InputPortNotConnected(InputPort),
+    InputPortNotConnected(InputPortUntyped),
     #[error("Node {0} not found")]
     NodeNotFound(NodeHandle),
     #[error("Output port {port:?} not found in node {node:?}")]
-    PortNotFound { node: NodeHandle, port: OutputPort },
+    PortNotFound {
+        node: NodeHandle,
+        port: OutputPortUntyped,
+    },
     #[error("Cycle detected in the computation graph")]
     CycleDetected,
     #[error("Output type mismatch when computing node {node:?}")]
@@ -61,13 +64,16 @@ pub enum ConnectError {
     #[error("Type mismatch for output: expected {expected:?}, found {found:?}")]
     TypeMismatch { expected: TypeId, found: TypeId },
     #[error("Connection already exists from {from:?} to {to:?}")]
-    InputPortAlreadyConnected { from: OutputPort, to: InputPort },
+    InputPortAlreadyConnected {
+        from: OutputPortUntyped,
+        to: InputPortUntyped,
+    },
     #[error("Node {0} not found")]
     NodeNotFound(NodeHandle),
     #[error("Input port {0} not found")]
-    InputPortNotFound(InputPort),
+    InputPortNotFound(InputPortUntyped),
     #[error("Output port {0} not found")]
-    OutputPortNotFound(OutputPort),
+    OutputPortNotFound(OutputPortUntyped),
 }
 
 /// Errors that can occur during node removal through [`ComputeGraph::remove_node`].
@@ -210,7 +216,10 @@ impl ComputeGraph {
         Ok(instance)
     }
 
-    /// Connects an output port to an input port.
+    /// Connects an output port to an input port with runtime type checking.
+    ///
+    /// This function connects an output port to an input port in the graph.
+    /// When possible use the typed version of this function, [`ComputeGraph::connect`] that performs type checking at compile time.
     ///
     /// # Arguments
     ///
@@ -227,7 +236,11 @@ impl ComputeGraph {
     /// - The input port is already connected.
     /// - The nodes or ports do not exist.
     /// - The types of the two ports do not match.
-    pub fn connect(&mut self, from: OutputPort, to: InputPort) -> Result<Connection, ConnectError> {
+    pub fn connect_untyped(
+        &mut self,
+        from: OutputPortUntyped,
+        to: InputPortUntyped,
+    ) -> Result<Connection, ConnectError> {
         // Check if the input port is already connected
         if self.edges.iter().any(|e| e.to == to) {
             return Err(ConnectError::InputPortAlreadyConnected { to, from });
@@ -270,6 +283,33 @@ impl ComputeGraph {
         self.edges.push(connection.clone());
 
         Ok(connection)
+    }
+
+    /// Connects an output port to an input port.
+    ///
+    /// This function connects an output port to an input port in the graph.
+    /// When the type is not known at compile time, use the untyped version of this function, [`ComputeGraph::connect_untyped`].
+    ///
+    /// # Arguments
+    ///
+    /// * `from` - The output port.
+    /// * `to` - The input port.
+    ///
+    /// # Returns
+    ///
+    /// A result containing the connection or an error.
+    ///
+    /// # Errors
+    ///
+    /// An error is returned if:
+    /// - The input port is already connected.
+    /// - The nodes or ports do not exist.
+    pub fn connect<T>(
+        &mut self,
+        from: OutputPort<T>,
+        to: InputPort<T>,
+    ) -> Result<Connection, ConnectError> {
+        self.connect_untyped(from.port, to.port)
     }
 
     /// Removes a node from the graph.
@@ -324,7 +364,9 @@ impl ComputeGraph {
         Ok(())
     }
 
-    /// Computes the result for a given output port.
+    /// Computes the result for a given output port, returning a boxed value.
+    ///
+    /// This function is the untyped version of [`ComputeGraph::compute`].
     ///
     /// # Arguments
     ///
@@ -332,7 +374,7 @@ impl ComputeGraph {
     ///
     /// # Returns
     ///
-    /// A result containing the computed value or an error.
+    /// A result containing the computed boxed value or an error.
     ///
     /// # Errors
     ///
@@ -341,14 +383,43 @@ impl ComputeGraph {
     /// - An input port of the node ar a dependency of the node are not connected.
     /// - A cycle is detected in the graph.
     /// - A error occurs during computation (e.g. type returned by the node does not match the expected type).
-    pub fn compute(&self, output: OutputPort) -> Result<Box<dyn Any>, ComputeError> {
+    pub fn compute_untyped(&self, output: OutputPortUntyped) -> Result<Box<dyn Any>, ComputeError> {
         let mut visited = HashSet::new();
         self.compute_recursive(output, &mut visited)
     }
 
+    /// Computes the result for a given output port.
+    ///
+    /// # Arguments
+    ///
+    /// * `output` - The output port to compute.
+    ///
+    /// # Returns
+    ///
+    /// A result containing the computed boxed value or an error.
+    ///
+    /// # Errors
+    ///
+    /// An error is returned if:
+    /// - The node is not found.
+    /// - An input port of the node ar a dependency of the node are not connected.
+    /// - A cycle is detected in the graph.
+    ///
+    /// # Panics
+    ///
+    /// This function may panic if:
+    /// - The downcast operation fails, indicating an internal inconsistency in the graph's type system.
+    pub fn compute<T: 'static>(&self, output: OutputPort<T>) -> Result<T, ComputeError> {
+        let res = self.compute_untyped(output.port)?;
+        let res = res
+            .downcast::<T>()
+            .expect("this should not happen, since we checked the type before");
+        Ok(*res)
+    }
+
     fn compute_recursive(
         &self,
-        output: OutputPort,
+        output: OutputPortUntyped,
         visited: &mut HashSet<NodeHandle>,
     ) -> Result<Box<dyn Any>, ComputeError> {
         // For now we use a simple, but more inefficient approach for computing the result:
@@ -403,7 +474,7 @@ impl ComputeGraph {
                 .iter()
                 .find(|c| c.to.node == output_handle && c.to.input_name == input.0)
                 .ok_or_else(|| {
-                    ComputeError::InputPortNotConnected(InputPort {
+                    ComputeError::InputPortNotConnected(InputPortUntyped {
                         node: output_handle.clone(),
                         input_name: input.0,
                     })
@@ -479,20 +550,68 @@ impl ComputeGraph {
     }
 }
 
+/// Represents an input port of a node, without carrying type information.
+///
+/// See [`InputPort`] for the typed version, to use this, use untyped versions of functions like [`ComputeGraph::connect_untyped`].
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct InputPortUntyped {
+    pub node: NodeHandle,
+    pub input_name: &'static str,
+}
+
+impl<T> From<InputPort<T>> for InputPortUntyped {
+    fn from(value: InputPort<T>) -> Self {
+        value.port
+    }
+}
+
+impl fmt::Display for InputPortUntyped {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}.{}", self.node.node_name, self.input_name)
+    }
+}
+
 /// Represents an input port of a node.
 ///
 /// A port is a connection point for data flow between nodes.
 /// The input port is the point where data enters the node.
 /// It is connected to an [`OutputPort`] of another node through a [`ComputeGraph::connect`] call.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct InputPort {
-    pub node: NodeHandle,
-    pub input_name: &'static str,
+pub struct InputPort<T> {
+    pub port_type: std::marker::PhantomData<T>,
+    pub port: InputPortUntyped,
 }
 
-impl fmt::Display for InputPort {
+impl<T> fmt::Display for InputPort<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}.{}", self.node.node_name, self.input_name)
+        write!(
+            f,
+            "{}.{}<{}>",
+            self.port.node,
+            self.port.input_name,
+            std::any::type_name::<T>()
+        )
+    }
+}
+
+/// Represents an output port of a node, without carrying type information.
+///
+/// See [`OutputPort`] for the typed version, to use this, use untyped versions of functions like [`ComputeGraph::connect_untyped`].
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct OutputPortUntyped {
+    pub node: NodeHandle,
+    pub output_name: &'static str,
+}
+
+impl fmt::Display for OutputPortUntyped {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}.{}", self.node.node_name, self.output_name)
+    }
+}
+
+impl<T> From<OutputPort<T>> for OutputPortUntyped {
+    fn from(value: OutputPort<T>) -> Self {
+        value.port
     }
 }
 
@@ -502,14 +621,20 @@ impl fmt::Display for InputPort {
 /// The output port is the point where data exits the node.
 /// It is connected to an [`InputPort`] of another node through a [`ComputeGraph::connect`] call.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct OutputPort {
-    pub node: NodeHandle,
-    pub output_name: &'static str,
+pub struct OutputPort<T> {
+    pub port_type: std::marker::PhantomData<T>,
+    pub port: OutputPortUntyped,
 }
 
-impl fmt::Display for OutputPort {
+impl<T> fmt::Display for OutputPort<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}.{}", self.node.node_name, self.output_name)
+        write!(
+            f,
+            "{}.{}<{}>",
+            self.port.node,
+            self.port.output_name,
+            std::any::type_name::<T>()
+        )
     }
 }
 
@@ -531,8 +656,8 @@ impl fmt::Display for NodeHandle {
 /// node, as specified through the [`ComputeGraph::connect`] method.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Connection {
-    from: OutputPort,
-    to: InputPort,
+    from: OutputPortUntyped,
+    to: InputPortUntyped,
 }
 
 /// Represents a node in the graph.
@@ -563,13 +688,38 @@ impl GraphNode {
 }
 
 /// Trait for executing a node's computation logic.
+///
+/// This trait defines the interface for nodes that can perform computation
+/// within a compute graph. Implementors of this trait are responsible for
+/// defining the logic that processes input data and produces output data.
+///
+/// Implementors of this trait should always also implement the [`NodeFactory`] trait.
 pub trait ExecutableNode: std::fmt::Debug {
+    /// Executes the node's computation logic.
+    ///
+    /// This method takes boxed input data, processes it, and returns boxed output data.
+    /// Input and output data are exactly as specified by the [`NodeFactory`] trait with
+    /// [`NodeFactory::inputs`] and [`NodeFactory::outputs`].
+    ///
+    /// # Parameters
+    ///
+    /// - `input`: A slice of boxed dynamic values representing the input data.
+    ///
+    /// # Returns
+    ///
+    /// A vector of boxed dynamic values representing the output data.
+    // TODO: add error handling
     fn run(&self, input: &[Box<dyn Any>]) -> Vec<Box<dyn Any>>;
 }
 
 /// Trait for building a node.
-/// TODO: this should be reworked for better type safety.
+///
+/// This trait defines the interface for creating nodes within a compute graph.
+/// Implementors of this trait are responsible for specifying the input and output ports
+/// exactly as they are used by the [`ExecutableNode::run`] method.
+// TODO: describe the handle, add example usage
 pub trait NodeFactory: ExecutableNode {
+    /// The type of handle used to interact with the node, returned by [`ComputeGraph::add_node`].
     type Handle;
 
     /// Returns a vector of tuples representing the input ports of the node.
@@ -629,10 +779,13 @@ mod tests {
     }
 
     impl TestNodeConstantHandle {
-        pub fn port_output(&self) -> OutputPort {
+        pub fn port_output(&self) -> OutputPort<usize> {
             OutputPort {
-                node: self.handle.clone(),
-                output_name: "output",
+                port_type: std::marker::PhantomData,
+                port: OutputPortUntyped {
+                    node: self.handle.clone(),
+                    output_name: "output",
+                },
             }
         }
     }
@@ -676,22 +829,31 @@ mod tests {
     }
 
     impl TestNodeAdditionHandle {
-        pub fn port_input_a(&self) -> InputPort {
+        pub fn port_input_a(&self) -> InputPort<usize> {
             InputPort {
-                node: self.handle.clone(),
-                input_name: "a",
+                port_type: std::marker::PhantomData,
+                port: InputPortUntyped {
+                    node: self.handle.clone(),
+                    input_name: "a",
+                },
             }
         }
-        pub fn port_input_b(&self) -> InputPort {
+        pub fn port_input_b(&self) -> InputPort<usize> {
             InputPort {
-                node: self.handle.clone(),
-                input_name: "b", // TODO: multiple ports with the same name should error out
+                port_type: std::marker::PhantomData,
+                port: InputPortUntyped {
+                    node: self.handle.clone(),
+                    input_name: "b", // TODO: multiple ports with the same name should error out
+                },
             }
         }
-        pub fn port_output(&self) -> OutputPort {
+        pub fn port_output(&self) -> OutputPort<usize> {
             OutputPort {
-                node: self.handle.clone(),
-                output_name: "result",
+                port_type: std::marker::PhantomData,
+                port: OutputPortUntyped {
+                    node: self.handle.clone(),
+                    output_name: "result",
+                },
             }
         }
     }
@@ -741,16 +903,22 @@ mod tests {
     }
 
     impl TestNodeNumToStringHandle {
-        pub fn port_input(&self) -> InputPort {
+        pub fn port_input(&self) -> InputPort<usize> {
             InputPort {
-                node: self.handle.clone(),
-                input_name: "input",
+                port_type: std::marker::PhantomData,
+                port: InputPortUntyped {
+                    node: self.handle.clone(),
+                    input_name: "input",
+                },
             }
         }
-        pub fn port_output(&self) -> OutputPort {
+        pub fn port_output(&self) -> OutputPort<String> {
             OutputPort {
-                node: self.handle.clone(),
-                output_name: "result",
+                port_type: std::marker::PhantomData,
+                port: OutputPortUntyped {
+                    node: self.handle.clone(),
+                    output_name: "result",
+                },
             }
         }
     }
@@ -796,22 +964,9 @@ mod tests {
         graph.connect(value1.port_output(), addition.port_input_a())?;
         graph.connect(value2.port_output(), addition.port_input_b())?;
 
-        let value1_result = graph
-            .compute(value1.port_output())?
-            .downcast::<usize>()
-            .or(Err(anyhow!("result is not of type usize")))?;
-        let value2_result = graph
-            .compute(value2.port_output())?
-            .downcast::<usize>()
-            .or(Err(anyhow!("result is not of type usize")))?;
-        let addition_result = graph
-            .compute(addition.port_output())?
-            .downcast::<usize>()
-            .or(Err(anyhow!("result is not of type usize")))?;
-
-        assert_eq!(*value1_result, 9);
-        assert_eq!(*value2_result, 10);
-        assert_eq!(*addition_result, 19);
+        assert_eq!(graph.compute(value1.port_output())?, 9);
+        assert_eq!(graph.compute(value2.port_output())?, 10);
+        assert_eq!(graph.compute(addition.port_output())?, 19);
 
         Ok(())
     }
@@ -854,11 +1009,7 @@ mod tests {
         graph.connect(addition1.port_output(), addition4.port_input_a())?;
         graph.connect(addition3.port_output(), addition4.port_input_b())?;
 
-        let result = graph
-            .compute(addition4.port_output())?
-            .downcast::<usize>()
-            .or(Err(anyhow!("result is not of type usize")))?;
-        assert_eq!(*result, function(5, 7, 3));
+        assert_eq!(graph.compute(addition4.port_output())?, function(5, 7, 3));
 
         Ok(())
     }
@@ -891,7 +1042,10 @@ mod tests {
 
         graph.connect(value.port_output(), to_string.port_input())?;
         graph.connect(value.port_output(), addition.port_input_a())?;
-        let res = graph.connect(to_string.port_output(), addition.port_input_b());
+        let res = graph.connect_untyped(
+            to_string.port_output().into(),
+            addition.port_input_b().into(),
+        );
         match res {
             Err(ConnectError::TypeMismatch { expected, found }) => {
                 assert_eq!(expected, TypeId::of::<usize>());
@@ -939,11 +1093,7 @@ mod tests {
         graph.connect(addition.port_output(), to_string.port_input())?;
 
         // Test that the graph works before disconnecting the edge
-        let result = graph
-            .compute(to_string.port_output())?
-            .downcast::<String>()
-            .or(Err(anyhow!("result is not of type String")))?;
-        assert_eq!(*result, "6".to_string());
+        assert_eq!(graph.compute(to_string.port_output())?, "6".to_string());
 
         // Disconnect the edge between value and addition nodes
         graph.disconnect(&value_to_addition)?;
@@ -959,11 +1109,7 @@ mod tests {
 
         // Now reconnect the edge and test that the graph works again
         graph.connect(value.port_output(), addition.port_input_a())?;
-        let result = graph
-            .compute(to_string.port_output())?
-            .downcast::<String>()
-            .or(Err(anyhow!("result is not of type String")))?;
-        assert_eq!(*result, "6".to_string());
+        assert_eq!(graph.compute(to_string.port_output())?, "6".to_string());
 
         Ok(())
     }
@@ -987,17 +1133,9 @@ mod tests {
         graph.connect(value4.port_output(), addition2.port_input_b())?;
 
         // Compute the results of the disconnected subgraphs independently
-        let addition1_result = graph
-            .compute(addition1.port_output())?
-            .downcast::<usize>()
-            .or(Err(anyhow!("result is not of type usize")))?;
-        assert_eq!(*addition1_result, 12);
+        assert_eq!(graph.compute(addition1.port_output())?, 12);
 
-        let addition2_result = graph
-            .compute(addition2.port_output())?
-            .downcast::<usize>()
-            .or(Err(anyhow!("result is not of type usize")))?;
-        assert_eq!(*addition2_result, 7);
+        assert_eq!(graph.compute(addition2.port_output())?, 7);
 
         Ok(())
     }
@@ -1013,11 +1151,7 @@ mod tests {
         graph.connect(value2.port_output(), addition.port_input_b())?;
 
         // Compute the result before removing a node
-        let result_before_removal = graph
-            .compute(addition.port_output())?
-            .downcast::<usize>()
-            .or(Err(anyhow!("result is not of type usize")))?;
-        assert_eq!(*result_before_removal, 12);
+        assert_eq!(graph.compute(addition.port_output())?, 12);
 
         // Remove the 'value2' node from the graph
         graph.remove_node(value2.handle)?;
@@ -1032,21 +1166,13 @@ mod tests {
         }
 
         // Ensure that the 'value1' node can still be computed
-        let value1_result = graph
-            .compute(value1.port_output())?
-            .downcast::<usize>()
-            .or(Err(anyhow!("result is not of type usize")))?;
-        assert_eq!(*value1_result, 5);
+        assert_eq!(graph.compute(value1.port_output())?, 5);
 
         // Now connect value1 to both inputs of the addition node
         graph.connect(value1.port_output(), addition.port_input_b())?;
 
         // Compute the result after reconnecting the edge
-        let result = graph
-            .compute(addition.port_output())?
-            .downcast::<usize>()
-            .or(Err(anyhow!("result is not of type usize")))?;
-        assert_eq!(*result, 10);
+        assert_eq!(graph.compute(addition.port_output())?, 10);
 
         Ok(())
     }
