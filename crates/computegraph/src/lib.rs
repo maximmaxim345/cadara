@@ -7,7 +7,7 @@
 //! ## Features
 //!
 //! - **Dynamic Graph Construction**: Nodes and connections can be added, removed, or modified at runtime, providing great flexibility.
-//! - **Custom Node Implementation**: Users can define their own nodes with custom computation logic by implementing the [`NodeFactory`] trait.
+//! - **Custom Node Implementation**: Users can define their own nodes with custom computation logic by using the [`node`] macro.
 //! - **Concurrency Support**: Nodes that can be computed independently are executed in parallel, enhancing performance.
 //! - **Cache Optimization**: The graph automatically caches intermediate results to avoid redundant computations.
 //!
@@ -23,6 +23,122 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::cognitive_complexity)]
+
+/// Define custom nodes for a [`ComputeGraph`]
+///
+/// This macro simplifies the creation of custom nodes by generating the necessary boilerplate code.
+/// The names of the input parameters are automatically derived from the function parameters.
+/// By default, the output parameter is named 'output'.
+/// You can specify custom output names by using the `->` symbol followed by the desired output names.
+/// If the node has multiple outputs, use a tuple like `(output_name_1, output_name_2)`.
+///
+/// For type safe usage, the handle returned when calling [`ComputeGraph::add_node`] will allow you to access the node's inputs and outputs.
+/// The names of the functions will be `input_{name}` and `output_{name}`, except if the output name is `output`, in which case the function will be `output`.
+/// Similarly, if the input name is `input`, the function will be `input`.
+///
+///
+/// ## Examples
+///
+/// ### Single Output
+///
+/// If the output name is not specified, the macro will default to naming the output as "output".
+///
+/// ```rust
+/// # use computegraph::{node, NodeFactory, ComputeGraph};
+/// #[derive(Debug)]
+/// struct Node {}
+///
+/// #[node(Node)]
+/// fn run(&self) -> usize {
+///     42
+/// }
+///
+/// let mut graph = ComputeGraph::new();
+/// let node = graph.add_node(Node {}, "node".to_string()).unwrap();
+/// let result = graph.compute(node.output()).unwrap();
+/// assert_eq!(result, 42);
+/// # assert_eq!(<Node as NodeFactory>::outputs()[0].0, "output");
+/// ```
+///
+/// ### Custom Output Name
+///
+/// You can specify a custom name for a single output.
+///
+/// ```rust
+/// # use computegraph::{node, NodeFactory, ComputeGraph};
+/// #[derive(Debug)]
+/// struct Node {}
+///
+/// #[node(Node -> result)]
+/// fn run(&self) -> String {
+///     "Hello, world!".to_string()
+/// }
+///
+/// let mut graph = ComputeGraph::new();
+/// let node = graph.add_node(Node {}, "node".to_string()).unwrap();
+/// let result = graph.compute(node.output_result()).unwrap();
+/// assert_eq!(result, "Hello, world!");
+/// # assert_eq!(<Node as NodeFactory>::outputs()[0].0, "result");
+/// ```
+///
+/// ### Multiple Outputs
+///
+/// For nodes with multiple outputs, specify a tuple for the output parameter.
+/// Each element of the tuple will be treated as a separate output.
+///
+/// ```rust
+/// # use computegraph::{node, NodeFactory, ComputeGraph};
+/// #[derive(Debug)]
+/// struct Node {}
+///
+/// #[node(Node -> (greeting, target))]
+/// fn run(&self) -> (String, String) {
+///     ("Hello".to_string(), "world".to_string())
+/// }
+///
+/// let mut graph = ComputeGraph::new();
+/// let node = graph.add_node(Node {}, "node".to_string()).unwrap();
+///
+/// let greeting = graph.compute(node.output_greeting()).unwrap();
+/// let target = graph.compute(node.output_target()).unwrap();
+///
+/// assert_eq!(greeting, "Hello");
+/// assert_eq!(target, "world");
+/// # assert_eq!(<Node as NodeFactory>::outputs()[0].0, "greeting");
+/// # assert_eq!(<Node as NodeFactory>::outputs()[1].0, "target");
+/// ```
+///
+/// ### Input parameters
+///
+/// Names for input parameters are derived from the function signature.
+/// All input parameters should be references to the desired type. This macro
+/// will then accept the underlying type without the reference as input.
+///
+/// ```rust
+/// # use computegraph::{node, NodeFactory, ComputeGraph, InputPort};
+/// # use std::any::TypeId;
+/// # fn typeid<T: std::any::Any>(_: &T) -> TypeId {
+/// #     std::any::TypeId::of::<T>()
+/// # }
+/// #[derive(Debug)]
+/// struct Node {}
+///
+/// #[node(Node)]
+/// fn run(&self, name: &String, age: &usize) -> String {
+///    format!("{} is {} years old", name, age)
+/// }
+///
+/// let mut graph = ComputeGraph::new();
+/// let node = graph.add_node(Node {}, "node".to_string()).unwrap();
+///
+/// let input_name = node.input_name();
+/// let input_age = node.input_age();
+/// assert_eq!(TypeId::of::<InputPort<String>>(), typeid(&input_name));
+/// assert_eq!(TypeId::of::<InputPort<usize>>(), typeid(&input_age));
+/// # assert_eq!(<Node as NodeFactory>::inputs()[0].0, "name");
+/// # assert_eq!(<Node as NodeFactory>::inputs()[1].0, "age");
+/// ```
+pub use computegraph_macros::node;
 
 use std::{
     any::{Any, TypeId},
@@ -1323,5 +1439,110 @@ mod tests {
         assert_eq!(value_node.metadata.get::<SomeMetadata>(), None);
         assert_eq!(value_node.metadata.get(), Some(&OtherMetadata(42)));
         Ok(())
+    }
+
+    #[test]
+    fn test_macro_node() {
+        extern crate self as computegraph;
+
+        #[derive(Debug)]
+        struct Node1 {}
+        #[node(Node1)]
+        fn run(&self) {}
+
+        #[derive(Debug)] // TODO: why do we need this?
+        struct Node2 {}
+        #[node(Node2)]
+        fn run(&self) -> usize {
+            21
+        }
+
+        #[derive(Debug)]
+        struct Node3 {}
+        #[node(Node3 -> hello)]
+        fn run(&self) -> String {
+            "hello".to_string()
+        }
+
+        #[derive(Debug)]
+        struct Node4 {}
+
+        #[node(Node4 -> (hello, world))]
+        fn run(&self) -> (String, String) {
+            ("hello".to_string(), "world".to_string())
+        }
+
+        #[derive(Debug)]
+        struct Node5 {}
+        #[node(Node5)]
+        fn run(&self, input: &usize) -> usize {
+            *input
+        }
+
+        #[derive(Debug)]
+        struct Node6 {}
+        #[node(Node6 -> output)]
+        fn run(&self, text: &String, repeat_count: &usize) -> String {
+            text.repeat(*repeat_count)
+        }
+
+        // TODO: generics support
+
+        assert_eq!(<Node1 as NodeFactory>::inputs(), vec![]);
+        assert_eq!(<Node1 as NodeFactory>::outputs(), vec![]);
+        let res = ExecutableNode::run(&Node1 {}, &[]);
+        assert_eq!(res.len(), 0);
+
+        assert_eq!(<Node2 as NodeFactory>::inputs(), vec![]);
+        assert_eq!(
+            <Node2 as NodeFactory>::outputs(),
+            vec![("output", TypeId::of::<usize>())]
+        );
+
+        assert_eq!(<Node3 as NodeFactory>::inputs(), vec![]);
+        assert_eq!(
+            <Node3 as NodeFactory>::outputs(),
+            vec![("hello", TypeId::of::<String>())]
+        );
+
+        assert_eq!(<Node4 as NodeFactory>::inputs(), vec![]);
+        assert_eq!(
+            <Node4 as NodeFactory>::outputs(),
+            vec![
+                ("hello", TypeId::of::<String>()),
+                ("world", TypeId::of::<String>())
+            ]
+        );
+        let res = ExecutableNode::run(&Node4 {}, &[]);
+        assert_eq!(res.len(), 2);
+        assert_eq!(res[0].downcast_ref::<String>().unwrap(), "hello");
+        assert_eq!(res[1].downcast_ref::<String>().unwrap(), "world");
+
+        assert_eq!(
+            <Node5 as NodeFactory>::inputs(),
+            vec![("input", TypeId::of::<usize>())]
+        );
+        assert_eq!(
+            <Node5 as NodeFactory>::outputs(),
+            vec![("output", TypeId::of::<usize>())]
+        );
+        let res = ExecutableNode::run(&Node6 {}, &[Box::new("hi".to_string()), Box::new(3_usize)]);
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].downcast_ref::<String>().unwrap(), "hihihi");
+
+        assert_eq!(
+            <Node6 as NodeFactory>::inputs(),
+            vec![
+                ("text", TypeId::of::<String>()),
+                ("repeat_count", TypeId::of::<usize>())
+            ]
+        );
+        assert_eq!(
+            <Node6 as NodeFactory>::outputs(),
+            vec![("output", TypeId::of::<String>())]
+        );
+        let res = ExecutableNode::run(&Node6 {}, &[Box::new("hi".to_string()), Box::new(3_usize)]);
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].downcast_ref::<String>().unwrap(), "hihihi");
     }
 }

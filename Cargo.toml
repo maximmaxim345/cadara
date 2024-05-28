@@ -5,6 +5,7 @@ members = [
   "crates/opencascade-sys",
   "crates/occara",
   "crates/computegraph",
+  "crates/computegraph_macros",
 ]
 
 [package]

@@ -613,7 +613,17 @@ name = "computegraph"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "computegraph_macros",
  "thiserror",
+]
+
+[[package]]
+name = "computegraph_macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.52",
 ]
 
 [[package]]
