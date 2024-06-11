@@ -35,6 +35,7 @@ fn main() -> miette::Result<()> {
         "src/ffi.rs",
         [&std::path::PathBuf::from("include"), build.include_dir()],
     )
+    .extra_clang_args(&["-std=c++20"])
     .build()?;
 
     autocxx_build
