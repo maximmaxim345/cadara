@@ -7,6 +7,7 @@ license = "AGPL-3.0-only"
 [dependencies]
 thiserror = "1.0.60"
 computegraph_macros = { path = "../computegraph_macros" }
+dyn-clone = "1.0.17"
 
 [dev-dependencies]
 anyhow = "1.0.86"
