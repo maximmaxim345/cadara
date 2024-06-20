@@ -45,7 +45,7 @@
 ///
 /// ```rust
 /// # use computegraph::{node, NodeFactory, ComputeGraph};
-/// #[derive(Debug)]
+/// #[derive(Debug, Clone)]
 /// struct Node {}
 ///
 /// #[node(Node)]
@@ -66,7 +66,7 @@
 ///
 /// ```rust
 /// # use computegraph::{node, NodeFactory, ComputeGraph};
-/// #[derive(Debug)]
+/// #[derive(Debug, Clone)]
 /// struct Node {}
 ///
 /// #[node(Node -> result)]
@@ -88,7 +88,7 @@
 ///
 /// ```rust
 /// # use computegraph::{node, NodeFactory, ComputeGraph};
-/// #[derive(Debug)]
+/// #[derive(Debug, Clone)]
 /// struct Node {}
 ///
 /// #[node(Node -> (greeting, target))]
@@ -120,7 +120,7 @@
 /// # fn typeid<T: std::any::Any>(_: &T) -> TypeId {
 /// #     std::any::TypeId::of::<T>()
 /// # }
-/// #[derive(Debug)]
+/// #[derive(Debug, Clone)]
 /// struct Node {}
 ///
 /// #[node(Node)]
@@ -139,7 +139,7 @@
 /// # assert_eq!(<Node as NodeFactory>::inputs()[1].0, "age");
 /// ```
 pub use computegraph_macros::node;
-
+use dyn_clone::DynClone;
 use std::{
     any::{Any, TypeId},
     collections::{BTreeMap, HashSet},
@@ -150,7 +150,7 @@ use std::{
 ///
 /// The graph is a collection of nodes and connections between them, where nodes represent computation logic and connections
 /// represent data flow between nodes.
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct ComputeGraph {
     nodes: Vec<GraphNode>,
     edges: Vec<Connection>,
@@ -213,13 +213,37 @@ pub enum AddError {
     DuplicateName(String),
 }
 
+trait ClonableAny: Any + DynClone + fmt::Debug {
+    fn as_any(&self) -> &dyn Any;
+    fn as_mut_any(&mut self) -> &mut dyn Any;
+}
+
+impl Clone for Box<dyn ClonableAny> {
+    fn clone(&self) -> Self {
+        dyn_clone::clone_box(self.as_ref())
+    }
+}
+
+impl<T> ClonableAny for T
+where
+    T: Any + DynClone + fmt::Debug,
+{
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
 /// A container for storing and managing metadata associated with nodes in a computation graph.
 ///
 /// The `Metadata` struct allows for the storage of arbitrary data types, identified by their type IDs.
 /// This enables the attachment of various types of metadata to nodes in a type-safe manner.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Metadata {
-    data: BTreeMap<TypeId, Box<dyn Any>>,
+    data: BTreeMap<TypeId, Box<dyn ClonableAny>>,
 }
 
 impl Metadata {
@@ -246,7 +270,7 @@ impl Metadata {
     pub fn get<T: 'static>(&self) -> Option<&T> {
         self.data
             .get(&TypeId::of::<T>())
-            .and_then(|v| v.downcast_ref())
+            .and_then(|v| v.as_ref().as_any().downcast_ref())
     }
 
     /// Retrieves a mutable reference to the metadata of the specified type.
@@ -262,7 +286,7 @@ impl Metadata {
     pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
         self.data
             .get_mut(&TypeId::of::<T>())
-            .and_then(|v| v.downcast_mut())
+            .and_then(|v| v.as_mut().as_mut_any().downcast_mut())
     }
 
     /// Inserts metadata of the specified type.
@@ -276,7 +300,7 @@ impl Metadata {
     /// # Arguments
     ///
     /// * `value` - The metadata value to insert.
-    pub fn insert<T: 'static>(&mut self, value: T) {
+    pub fn insert<T: 'static + std::clone::Clone + fmt::Debug>(&mut self, value: T) {
         self.data.insert(TypeId::of::<T>(), Box::new(value));
     }
 
@@ -861,7 +885,7 @@ pub struct Connection {
 }
 
 /// Represents a node in the graph.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GraphNode {
     inputs: Vec<(&'static str, TypeId)>,
     outputs: Vec<(&'static str, TypeId)>,
@@ -910,7 +934,7 @@ impl GraphNode {
 /// defining the logic that processes input data and produces output data.
 ///
 /// Implementors of this trait should always also implement the [`NodeFactory`] trait.
-pub trait ExecutableNode: std::fmt::Debug {
+pub trait ExecutableNode: std::fmt::Debug + DynClone {
     /// Executes the node's computation logic.
     ///
     /// This method takes boxed input data, processes it, and returns boxed output data.
@@ -926,6 +950,12 @@ pub trait ExecutableNode: std::fmt::Debug {
     /// A vector of boxed dynamic values representing the output data.
     // TODO: add error handling
     fn run(&self, input: &[Box<dyn Any>]) -> Vec<Box<dyn Any>>;
+}
+
+impl Clone for Box<dyn ExecutableNode> {
+    fn clone(&self) -> Self {
+        dyn_clone::clone_box(self.as_ref())
+    }
 }
 
 /// Trait for building a node.

@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use computegraph::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TestNodeConstant {
     value: usize,
 }
@@ -17,7 +17,7 @@ fn run(&self) -> usize {
     self.value
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TestNodeAddition {}
 
 impl TestNodeAddition {
@@ -31,7 +31,7 @@ fn run(&self, a: &usize, b: &usize) -> usize {
     *a + *b
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TestNodeNumToString {}
 
 impl TestNodeNumToString {

@@ -24,7 +24,7 @@ fn test_basic_graph() -> Result<()> {
 }
 
 #[test]
-fn test_diamond_dependencies() -> Result<()> {
+fn test_diamond_dependencies_and_cloning() -> Result<()> {
     // Here we will test a more complex graph with two diamond dependencies between nodes.
     // The graph will look like this:
     //
@@ -41,6 +41,7 @@ fn test_diamond_dependencies() -> Result<()> {
     //
     // So The result should be:
     let function = |v1: usize, v2: usize, v3: usize| v1 + v2 + 2 * (v2 + v3);
+    let correct_result = function(5, 7, 3);
 
     let mut graph = ComputeGraph::new();
     let value1 = graph.add_node(TestNodeConstant::new(5), "value1".to_string())?;
@@ -61,7 +62,9 @@ fn test_diamond_dependencies() -> Result<()> {
     graph.connect(addition1.output(), addition4.input_a())?;
     graph.connect(addition3.output(), addition4.input_b())?;
 
-    assert_eq!(graph.compute(addition4.output())?, function(5, 7, 3));
+    assert_eq!(graph.compute(addition4.output())?, correct_result);
+    // Cloning should not affect the result
+    assert_eq!(graph.clone().compute(addition4.output())?, correct_result);
 
     Ok(())
 }

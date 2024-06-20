@@ -6,9 +6,9 @@ use computegraph::*;
 
 #[test]
 fn test_metadata() -> Result<()> {
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     struct SomeMetadata;
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     struct OtherMetadata(usize);
 
     let mut graph = ComputeGraph::new();
@@ -27,9 +27,10 @@ fn test_metadata() -> Result<()> {
     value_node.metadata.insert(OtherMetadata(42));
 
     let value_node = graph
-        .get_node(&value.handle)
+        .get_node_mut(&value.handle)
         .ok_or_else(|| anyhow!("value node not found"))?;
     assert_eq!(value_node.metadata.get::<SomeMetadata>(), None);
     assert_eq!(value_node.metadata.get(), Some(&OtherMetadata(42)));
+    assert_eq!(value_node.metadata.get_mut(), Some(&mut OtherMetadata(42)));
     Ok(())
 }
