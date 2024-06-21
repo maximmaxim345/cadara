@@ -27,8 +27,8 @@
 /// Define custom nodes for a [`ComputeGraph`]
 ///
 /// This macro simplifies the creation of custom nodes by generating the necessary boilerplate code.
-/// The names of the input parameters are automatically derived from the function parameters.
-/// By default, the output parameter is named 'output'.
+/// The names of the input parameters are automatically derived from the function parameters,
+/// ignoring the first '_' if present. By default, the output parameter is named 'output'.
 /// You can specify custom output names by using the `->` symbol followed by the desired output names.
 /// If the node has multiple outputs, use a tuple like `(output_name_1, output_name_2)`.
 ///
@@ -110,7 +110,7 @@
 ///
 /// ### Input parameters
 ///
-/// Names for input parameters are derived from the function signature.
+/// Names for input parameters are derived from the function signature, ignoring the first '_' if present.
 /// All input parameters should be references to the desired type. This macro
 /// will then accept the underlying type without the reference as input.
 ///
@@ -128,15 +128,34 @@
 ///    format!("{} is {} years old", name, age)
 /// }
 ///
+/// // Or equally:
+/// #[derive(Debug, Clone)]
+/// struct Node2 {}
+///
+/// #[node(Node2)]
+/// fn run(&self, _name: &String, _age: &usize) -> String {
+///    format!("{} is {} years old", _name, _age)
+/// }
+///
 /// let mut graph = ComputeGraph::new();
 /// let node = graph.add_node(Node {}, "node".to_string()).unwrap();
+/// # let node2 = graph.add_node(Node2 {}, "node2".to_string()).unwrap();
 ///
 /// let input_name = node.input_name();
 /// let input_age = node.input_age();
 /// assert_eq!(TypeId::of::<InputPort<String>>(), typeid(&input_name));
 /// assert_eq!(TypeId::of::<InputPort<usize>>(), typeid(&input_age));
+/// #
 /// # assert_eq!(<Node as NodeFactory>::inputs()[0].0, "name");
 /// # assert_eq!(<Node as NodeFactory>::inputs()[1].0, "age");
+/// #
+/// # // Test if really equal
+/// # let input_name = node.input_name();
+/// # let input_age = node.input_age();
+/// # assert_eq!(TypeId::of::<InputPort<String>>(), typeid(&input_name));
+/// # assert_eq!(TypeId::of::<InputPort<usize>>(), typeid(&input_age));
+/// # assert_eq!(<Node as NodeFactory>::inputs(), <Node2 as NodeFactory>::inputs());
+/// # assert_eq!(<Node as NodeFactory>::outputs(), <Node2 as NodeFactory>::outputs());
 /// ```
 pub use computegraph_macros::node;
 use dyn_clone::DynClone;

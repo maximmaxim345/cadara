@@ -3,8 +3,6 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::cognitive_complexity)]
 
-// TODO: document how to use this macro
-
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
@@ -183,7 +181,14 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
                     }
                 };
                 if let Pat::Ident(ident) = &**pat {
-                    if input_args.iter().any(|arg| arg.ident == ident.ident) {
+                    let mut arg_ident = ident.ident.clone();
+
+                    // Remove leading underscore if present
+                    if arg_ident.to_string().starts_with('_') {
+                        arg_ident = format_ident!("{}", arg_ident.to_string()[1..]);
+                    }
+
+                    if input_args.iter().any(|arg| arg.ident == arg_ident) {
                         return Error::new_spanned(
                             ident,
                             "All input arguments must have a unique identifier",
@@ -192,7 +197,7 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
                         .into();
                     }
                     input_args.push(InputArg {
-                        ident: ident.ident.clone(),
+                        ident: arg_ident,
                         base_type,
                     });
                 } else {
