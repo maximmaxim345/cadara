@@ -314,6 +314,41 @@ impl Metadata {
     }
 }
 
+/// A dynamic representation of a node in a compute graph.
+///
+/// This struct encapsulates the input and output port information
+/// along with the executable node implementation.
+#[derive(Clone, Debug)]
+pub struct DynamicNode {
+    inputs: Vec<(&'static str, TypeId)>,
+    outputs: Vec<(&'static str, TypeId)>,
+    executable: Box<dyn ExecutableNode>,
+}
+
+impl DynamicNode {
+    /// Returns a slice of the input ports.
+    #[must_use]
+    pub fn inputs(&self) -> &[(&'static str, TypeId)] {
+        &self.inputs
+    }
+
+    /// Returns a slice of the output ports.
+    #[must_use]
+    pub fn outputs(&self) -> &[(&'static str, TypeId)] {
+        &self.outputs
+    }
+}
+
+impl<T: NodeFactory + Clone + 'static> From<T> for DynamicNode {
+    fn from(factory: T) -> Self {
+        Self {
+            inputs: T::inputs(),
+            outputs: T::outputs(),
+            executable: Box::new(factory),
+        }
+    }
+}
+
 impl ComputeGraph {
     /// Creates a new, empty `ComputeGraph`.
     #[must_use]
@@ -352,6 +387,46 @@ impl ComputeGraph {
             metadata: Metadata::default(),
         };
         let instance = N::create_handle(&gnode); // TODO: maybe this should not be defined by the impl
+        self.nodes.push(gnode);
+        Ok(instance)
+    }
+
+    /// Adds a dynamic node to the graph.
+    ///
+    /// This method is similar to `add_node`, but works with `DynamicNode`
+    /// instances, allowing for more flexible node addition.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_builder` - A `DynamicNode` instance representing the node to be added.
+    /// * `name` - The name of the node, which must be unique within the graph.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a `NodeHandle` for the newly added node if successful,
+    /// or an `AddError` if the operation fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns `AddError::DuplicateName` if a node with the given name already exists in the graph.
+    pub fn add_node_dynamic(
+        &mut self,
+        node_builder: DynamicNode,
+        name: String,
+    ) -> Result<NodeHandle, AddError> {
+        if self.nodes.iter().any(|n| n.handle.node_name == name) {
+            return Err(AddError::DuplicateName(name));
+        }
+
+        let gnode = GraphNode {
+            inputs: node_builder.inputs,
+            outputs: node_builder.outputs,
+            node: node_builder.executable,
+            handle: NodeHandle { node_name: name },
+            metadata: Metadata::default(),
+        };
+
+        let instance = gnode.handle.clone();
         self.nodes.push(gnode);
         Ok(instance)
     }

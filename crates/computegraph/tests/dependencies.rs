@@ -24,6 +24,40 @@ fn test_basic_graph() -> Result<()> {
 }
 
 #[test]
+fn test_dynamic_graph() -> Result<()> {
+    let mut graph = ComputeGraph::new();
+    let value1 = graph.add_node_dynamic(TestNodeConstant::new(9).into(), "value1".to_string())?;
+    let value2 = graph.add_node_dynamic(TestNodeConstant::new(10).into(), "value2".to_string())?;
+
+    let addition =
+        graph.add_node_dynamic(TestNodeAddition::new().into(), "addition".to_string())?;
+
+    graph.connect_untyped(
+        value1.clone().to_output_port("output"),
+        addition.clone().to_input_port("a"),
+    )?;
+    graph.connect_untyped(
+        value2.clone().to_output_port("output"),
+        addition.clone().to_input_port("b"),
+    )?;
+
+    assert_eq!(
+        graph.compute(value1.to_output_port("output").to_typed::<usize>())?,
+        9
+    );
+    assert_eq!(
+        graph.compute(value2.to_output_port("output").to_typed::<usize>())?,
+        10
+    );
+    assert_eq!(
+        graph.compute(addition.to_output_port("output").to_typed::<usize>())?,
+        19
+    );
+
+    Ok(())
+}
+
+#[test]
 fn test_diamond_dependencies_and_cloning() -> Result<()> {
     // Here we will test a more complex graph with two diamond dependencies between nodes.
     // The graph will look like this:
