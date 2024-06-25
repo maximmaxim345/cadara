@@ -705,10 +705,19 @@ impl InputPortUntyped {
 /// A port is a connection point for data flow between nodes.
 /// The input port is the point where data enters the node.
 /// It is connected to an [`OutputPort`] of another node through a [`ComputeGraph::connect`] call.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct InputPort<T> {
     pub port_type: std::marker::PhantomData<T>,
     pub port: InputPortUntyped,
+}
+
+impl<T> Clone for InputPort<T> {
+    fn clone(&self) -> Self {
+        Self {
+            port_type: std::marker::PhantomData,
+            port: self.port.clone(),
+        }
+    }
 }
 
 impl<T> fmt::Display for InputPort<T> {
@@ -762,10 +771,19 @@ impl OutputPortUntyped {
 /// A port is a connection point for data flow between nodes.
 /// The output port is the point where data exits the node.
 /// It is connected to an [`InputPort`] of another node through a [`ComputeGraph::connect`] call.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OutputPort<T> {
     pub port_type: std::marker::PhantomData<T>,
     pub port: OutputPortUntyped,
+}
+
+impl<T> Clone for OutputPort<T> {
+    fn clone(&self) -> Self {
+        Self {
+            port_type: std::marker::PhantomData,
+            port: self.port.clone(),
+        }
+    }
 }
 
 impl<T> fmt::Display for OutputPort<T> {
