@@ -571,6 +571,19 @@ impl fmt::Display for InputPortUntyped {
     }
 }
 
+impl InputPortUntyped {
+    /// Converts an untyped input port to a typed input port.
+    ///
+    /// It is the responsibility of the caller to ensure that the type `T` is correct before calling this function.
+    #[must_use]
+    pub const fn to_typed<T>(self) -> InputPort<T> {
+        InputPort {
+            port_type: std::marker::PhantomData,
+            port: self,
+        }
+    }
+}
+
 /// Represents an input port of a node.
 ///
 /// A port is a connection point for data flow between nodes.
@@ -615,6 +628,19 @@ impl<T> From<OutputPort<T>> for OutputPortUntyped {
     }
 }
 
+impl OutputPortUntyped {
+    /// Converts an untyped output port to a typed output port.
+    ///
+    /// It is the responsibility of the caller to ensure that the type `T` is correct before calling this function.
+    #[must_use]
+    pub const fn to_typed<T>(self) -> OutputPort<T> {
+        OutputPort {
+            port_type: std::marker::PhantomData,
+            port: self,
+        }
+    }
+}
+
 /// Represents an output port of a node.
 ///
 /// A port is a connection point for data flow between nodes.
@@ -642,6 +668,46 @@ impl<T> fmt::Display for OutputPort<T> {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NodeHandle {
     pub node_name: String, // TODO: maybe associate with lifetime of the graph?
+}
+
+impl NodeHandle {
+    /// Create a [`InputPortUntyped`] from the node handle and the input name.
+    ///
+    /// This is useful when connecting nodes, when the concrete type of the node is not known at compile time.
+    ///
+    /// # Parameters
+    /// - `name`: The name of the input port.
+    ///
+    /// # Returns
+    ///
+    /// An [`InputPortUntyped`] representing the input port of the node.
+    /// It is not guaranteed that the input port or the node exists.
+    #[must_use]
+    pub const fn to_input_port(self, name: &'static str) -> InputPortUntyped {
+        InputPortUntyped {
+            node: self,
+            input_name: name,
+        }
+    }
+
+    /// Create a [`OutputPortUntyped`] from the node handle and the output name.
+    ///
+    /// This is useful when connecting nodes, when the concrete type of the node is not known at compile time.
+    ///
+    /// # Parameters
+    /// - `name`: The name of the output port.
+    ///
+    /// # Returns
+    ///
+    /// An [`OutputPortUntyped`] representing the output port of the node.
+    /// It is not guaranteed that the output port or the node exists.
+    #[must_use]
+    pub const fn to_output_port(self, name: &'static str) -> OutputPortUntyped {
+        OutputPortUntyped {
+            node: self,
+            output_name: name,
+        }
+    }
 }
 
 impl fmt::Display for NodeHandle {
@@ -684,6 +750,22 @@ impl GraphNode {
     #[must_use]
     pub const fn get_outputs(&self) -> &Vec<(&'static str, TypeId)> {
         &self.outputs
+    }
+
+    #[must_use]
+    pub fn get_type_of_input(&self, input: &InputPortUntyped) -> Option<TypeId> {
+        self.inputs
+            .iter()
+            .find(|i| i.0 == input.input_name)
+            .map(|i| i.1)
+    }
+
+    #[must_use]
+    pub fn get_type_of_output(&self, output: &OutputPortUntyped) -> Option<TypeId> {
+        self.outputs
+            .iter()
+            .find(|i| i.0 == output.output_name)
+            .map(|i| i.1)
     }
 }
 
