@@ -353,10 +353,10 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
         };
         let input_name = ident.to_string();
         quote! {
-            pub fn #fn_ident(&self) -> computegraph::InputPort<#base_type> {
-                computegraph::InputPort {
+            pub fn #fn_ident(&self) -> ::computegraph::InputPort<#base_type> {
+                ::computegraph::InputPort {
                     port_type: ::std::marker::PhantomData,
-                    port: computegraph::InputPortUntyped {
+                    port: ::computegraph::InputPortUntyped {
                         node: self.handle.clone(),
                         input_name: #input_name,
                     },
@@ -373,10 +373,10 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
         };
         let output_name = ident.to_string();
         quote! {
-            pub fn #fn_ident(&self) -> computegraph::OutputPort<#base_type> {
-                computegraph::OutputPort {
+            pub fn #fn_ident(&self) -> ::computegraph::OutputPort<#base_type> {
+                ::computegraph::OutputPort {
                     port_type: ::std::marker::PhantomData,
-                    port: computegraph::OutputPortUntyped {
+                    port: ::computegraph::OutputPortUntyped {
                         node: self.handle.clone(),
                         output_name: #output_name,
                     },
@@ -398,7 +398,7 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
     quote! {
         #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub struct #handle_name {
-            pub handle: computegraph::NodeHandle
+            pub handle: ::computegraph::NodeHandle
         }
 
         impl #handle_name {
@@ -406,13 +406,13 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
             #(#handle_output_ports)*
         }
 
-        impl Into<computegraph::NodeHandle> for #handle_name {
-            fn into(self) -> computegraph::NodeHandle {
+        impl Into<::computegraph::NodeHandle> for #handle_name {
+            fn into(self) -> ::computegraph::NodeHandle {
                 self.handle
             }
         }
 
-        impl computegraph::NodeFactory for #node_name {
+        impl ::computegraph::NodeFactory for #node_name {
             type Handle = #handle_name;
 
             fn inputs() -> ::std::vec::Vec<(&'static str, ::core::any::TypeId)> {
@@ -427,14 +427,14 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
                 ]
             }
 
-            fn create_handle(gnode: &computegraph::GraphNode) -> Self::Handle {
+            fn create_handle(gnode: &::computegraph::GraphNode) -> Self::Handle {
                 Self::Handle {
                     handle: gnode.handle().clone(),
                 }
             }
         }
 
-        impl computegraph::ExecutableNode for #node_name {
+        impl ::computegraph::ExecutableNode for #node_name {
             fn run(&self, input: &[::std::boxed::Box<dyn ::std::any::Any>]) -> Vec<::std::boxed::Box<dyn ::std::any::Any>> {
                 let res = self.run(
                     #( input[#run_call_parameters].downcast_ref().unwrap() ),*
