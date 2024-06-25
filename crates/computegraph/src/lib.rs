@@ -1060,7 +1060,7 @@ impl Clone for Box<dyn ExecutableNode> {
 // TODO: describe the handle, add example usage
 pub trait NodeFactory: ExecutableNode {
     /// The type of handle used to interact with the node, returned by [`ComputeGraph::add_node`].
-    type Handle;
+    type Handle: Into<NodeHandle>;
 
     /// Returns a vector of tuples representing the input ports of the node.
     ///
