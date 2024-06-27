@@ -232,7 +232,7 @@ pub enum AddError {
     DuplicateName(String),
 }
 
-trait ClonableAny: Any + DynClone + fmt::Debug {
+trait ClonableAny: Any + DynClone + fmt::Debug + Send + Sync {
     fn as_any(&self) -> &dyn Any;
     fn as_mut_any(&mut self) -> &mut dyn Any;
 }
@@ -245,7 +245,7 @@ impl Clone for Box<dyn ClonableAny> {
 
 impl<T> ClonableAny for T
 where
-    T: Any + DynClone + fmt::Debug,
+    T: Any + DynClone + fmt::Debug + Send + Sync,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -319,7 +319,7 @@ impl Metadata {
     /// # Arguments
     ///
     /// * `value` - The metadata value to insert.
-    pub fn insert<T: 'static + std::clone::Clone + fmt::Debug>(&mut self, value: T) {
+    pub fn insert<T: 'static + std::clone::Clone + fmt::Debug + Send + Sync>(&mut self, value: T) {
         self.data.insert(TypeId::of::<T>(), Box::new(value));
     }
 
@@ -1028,7 +1028,7 @@ impl GraphNode {
 /// defining the logic that processes input data and produces output data.
 ///
 /// Implementors of this trait should always also implement the [`NodeFactory`] trait.
-pub trait ExecutableNode: std::fmt::Debug + DynClone {
+pub trait ExecutableNode: std::fmt::Debug + DynClone + Send + Sync {
     /// Executes the node's computation logic.
     ///
     /// This method takes boxed input data, processes it, and returns boxed output data.
