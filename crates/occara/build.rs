@@ -1,7 +1,7 @@
 use walkdir::WalkDir;
 
 fn main() -> miette::Result<()> {
-    let include_dir = opencascade_sys::include_dir();
+    let build = opencascade_sys::OpenCascadeSource::new().build();
     // Find all cpp files in the cpp directory
     let files: Vec<_> = WalkDir::new("cpp")
         .into_iter()
@@ -33,7 +33,7 @@ fn main() -> miette::Result<()> {
     // Generate autocxx bindings
     let mut autocxx_build = autocxx_build::Builder::new(
         "src/ffi.rs",
-        [&std::path::PathBuf::from("include"), &include_dir],
+        [&std::path::PathBuf::from("include"), build.include_dir()],
     )
     .build()?;
 
@@ -43,6 +43,6 @@ fn main() -> miette::Result<()> {
         .compile("occara-autocxx-bridge");
     println!("cargo:rerun-if-changed=src/ffi.rs");
 
-    opencascade_sys::link_opencascade();
+    build.link();
     Ok(())
 }
