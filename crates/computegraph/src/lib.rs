@@ -1046,11 +1046,7 @@ pub trait ExecutableNode: std::fmt::Debug + DynClone {
     fn run(&self, input: &[Box<dyn Any>]) -> Vec<Box<dyn Any>>;
 }
 
-impl Clone for Box<dyn ExecutableNode> {
-    fn clone(&self) -> Self {
-        dyn_clone::clone_box(self.as_ref())
-    }
-}
+dyn_clone::clone_trait_object!(ExecutableNode);
 
 /// Trait for building a node.
 ///
