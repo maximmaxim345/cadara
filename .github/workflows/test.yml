@@ -26,13 +26,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.toolchain }}
-      - name: Cache OpenCASCADE
-        uses: actions/cache@v4
-        with:
-          path: |
-            crates/opencascade-sys/occt_build
-            crates/opencascade-sys/occt_source
-          key: opencascade-${{ runner.os }}-${{ hashFiles('**/occt_commit_hash.lock') }}
       - name: Cache Cargo
         uses: actions/cache@v4
         with:
