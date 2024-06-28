@@ -20,12 +20,12 @@ pub struct InternalDocumentSession<M: Module> {
     /// Non-persistent data shared among users for this session.
     pub shared_data: M::SharedData,
     /// A weak reference to the `Project` to which this document belongs.
-    pub project_ref: Weak<RefCell<InternalProject>>,
+    pub _project_ref: Weak<RefCell<InternalProject>>,
     // TODO: delete this and project_ref field -> move to Session
     /// A weak reference to the internal representation of this document.
     pub document_model_ref: Weak<RefCell<InternalDocumentModel<M>>>,
     /// The unique identifier of the document.
-    pub document_uuid: Uuid,
+    pub _document_uuid: Uuid,
     /// The unique identifier of this session.
     pub session_uuid: Uuid,
 }
@@ -75,8 +75,8 @@ impl<M: Module> InternalDocumentSession<M> {
             user_data: doc.user_data.clone(),
             shared_data,
             session_data: M::SessionData::default(),
-            project_ref: Rc::downgrade(project),
-            document_uuid,
+            _project_ref: Rc::downgrade(project),
+            _document_uuid: document_uuid,
             session_uuid,
             document_model_ref: Rc::downgrade(&doc_model.0),
         };
