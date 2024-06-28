@@ -6,6 +6,7 @@ members = [
   "crates/occara",
   "crates/computegraph",
   "crates/computegraph_macros",
+  "crates/workspace",
 ]
 
 [package]
