@@ -3751,7 +3751,9 @@ dependencies = [
  "glam 0.27.0",
  "iced",
  "image",
+ "project",
  "rand",
+ "thiserror",
  "wgpu",
 ]
 
