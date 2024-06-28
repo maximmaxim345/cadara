@@ -636,18 +636,16 @@ impl ComputeGraph {
     ///
     /// An error is returned if:
     /// - The node is not found.
+    /// - The node has the incorrect output type
     /// - An input port of the node ar a dependency of the node are not connected.
     /// - A cycle is detected in the graph.
-    ///
-    /// # Panics
-    ///
-    /// This function may panic if:
-    /// - The downcast operation fails, indicating an internal inconsistency in the graph's type system.
     pub fn compute<T: 'static>(&self, output: OutputPort<T>) -> Result<T, ComputeError> {
-        let res = self.compute_untyped(output.port)?;
+        let res = self.compute_untyped(output.port.clone())?;
         let res = res
             .downcast::<T>()
-            .expect("this should not happen, since we checked the type before");
+            .map_err(|_| ComputeError::OutputTypeMismatch {
+                node: output.port.node,
+            })?;
         Ok(*res)
     }
 
