@@ -15,3 +15,5 @@ image = "0.25.1"
 rand = "0.8.5"
 wgpu = "0.19.4"
 computegraph = { path = "../computegraph" }
+thiserror = "1.0.61"
+project = { path = "../project" }
