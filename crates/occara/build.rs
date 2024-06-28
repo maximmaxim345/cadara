@@ -3,7 +3,7 @@ use walkdir::WalkDir;
 fn main() -> miette::Result<()> {
     let build = opencascade_sys::OpenCascadeSource::new().build();
     // Find all cpp files in the cpp directory
-    let files: Vec<_> = WalkDir::new("cpp")
+    let cpp_files: Vec<_> = WalkDir::new("cpp")
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| e.path().is_file())
@@ -15,11 +15,24 @@ fn main() -> miette::Result<()> {
         })
         .map(|e| e.into_path())
         .collect();
+    let include_files: Vec<_> = WalkDir::new("include")
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| e.path().is_file())
+        .filter(|e| {
+            e.path()
+                .extension()
+                .map(|ext| ext == "hpp" || ext == "h")
+                .unwrap_or(false)
+        })
+        .map(|e| e.into_path())
+        .collect();
 
     // Watch for changes in the cpp and include directories
-    println!("cargo:rerun-if-changed=cpp");
-    println!("cargo:rerun-if-changed=include");
-    for file in &files {
+    for file in &cpp_files {
+        println!("cargo:rerun-if-changed={}", file.to_str().unwrap());
+    }
+    for file in &include_files {
         println!("cargo:rerun-if-changed={}", file.to_str().unwrap());
     }
     for entry in WalkDir::new("include")
@@ -40,7 +53,7 @@ fn main() -> miette::Result<()> {
 
     autocxx_build
         .std("c++20")
-        .files(files)
+        .files(cpp_files)
         .compile("occara-autocxx-bridge");
     println!("cargo:rerun-if-changed=src/ffi.rs");
 
