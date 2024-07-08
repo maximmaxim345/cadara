@@ -1837,6 +1837,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "module"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "uuid",
+]
+
+[[package]]
 name = "moveit"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2412,6 +2420,7 @@ version = "0.1.0"
 dependencies = [
  "erased-serde",
  "lazy_static",
+ "module",
  "serde",
  "serde_json",
  "utils",

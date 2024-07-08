@@ -1,8 +1,5 @@
-use crate::{
-    document::transaction::TransactionError,
-    transaction::{DocumentTransaction, ReversibleDocumentTransaction},
-    user::User,
-};
+use crate::{document::transaction::TransactionError, user::User};
+use module::{DocumentTransaction, Module, ReversibleDocumentTransaction};
 use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
@@ -11,7 +8,7 @@ use std::{
 };
 use uuid::Uuid;
 
-use super::{session::internal::InternalDocumentSession, transaction::SessionApplyError, Module};
+use super::{session::internal::InternalDocumentSession, transaction::SessionApplyError};
 
 // TODO: write docs for these types
 /// Data required to undo and redo a transaction.

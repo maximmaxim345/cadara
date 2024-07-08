@@ -1,4 +1,11 @@
+#![warn(clippy::nursery)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::cognitive_complexity)]
+
+use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
+use uuid::Uuid;
 
 /// A trait for transactions that can be applied to data section as defined by the [`Module`] trait.
 ///
@@ -119,4 +126,66 @@ pub trait ReversibleDocumentTransaction: DocumentTransaction {
     /// - This function is pure, therefore when called on a equivalent object with the same undo data,
     ///   it should always produce the same output and leave the object in the same state.
     fn undo(&mut self, undo_data: Self::UndoData);
+}
+
+/// Modules are the main building blocks of a document in `CADara`.
+///
+/// Each document is represented by a single module, which defines the data structure of the document and its behaviours.
+/// A module is responsible for defining the following aspects of a document:
+/// - Data Structure: The data that is stored for each document, separated into four categories.
+/// - Transactions: How transactions are applied to each of the four data structures, which is used to modify the document.
+/// - Links: How links and dependencies are handled between documents.
+// TODO: look into while we require Clone and Default on this
+pub trait Module: Clone + Default + Debug + 'static {
+    /// Data structure used for persistent storage of the document.
+    ///
+    /// # Notes
+    /// - This data is saved to disk and should be enough to load the document from disk.
+    type DocumentData: ReversibleDocumentTransaction
+        + Clone
+        + Default
+        + Debug
+        + PartialEq
+        + Serialize
+        + for<'a> Deserialize<'a>;
+    /// Data structure used for persistent storage of the user's state.
+    ///
+    /// This data is saved to disk, but should not be necessary to load the document from disk.
+    ///
+    /// # Notes
+    /// - This data is not shared between different users.
+    type UserData: ReversibleDocumentTransaction
+        + Clone
+        + Default
+        + Debug
+        + PartialEq
+        + Serialize
+        + for<'a> Deserialize<'a>;
+    /// Data structure used for data which persists until the user closes the session.
+    ///
+    /// # Notes
+    /// - This data is not shared between users.
+    /// - This data is not saved to disk.
+    type SessionData: DocumentTransaction + Clone + Default + Debug + PartialEq;
+    /// Data structure used for data, which is shared between all sessions/users.
+    ///
+    /// # Notes
+    /// - This data will be synchronized between users.
+    /// - This data is not saved to disk.
+    type SharedData: DocumentTransaction
+        + Clone
+        + Default
+        + Debug
+        + PartialEq
+        + Serialize
+        + for<'a> Deserialize<'a>;
+
+    /// Returns the human-readable name of the module.
+    fn name() -> String;
+    /// Returns the static [`Uuid`] associated with the module.
+    ///
+    /// # Returns
+    /// The [`Uuid`] associated with the module.
+    /// Must be unique for each module.
+    fn uuid() -> Uuid;
 }

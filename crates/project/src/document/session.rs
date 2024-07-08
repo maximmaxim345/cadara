@@ -4,10 +4,10 @@ use super::{
     internal::{
         AppliedTransaction, InternalDocumentModel, TransactionState, UndoUnit, UndoneTransaction,
     },
-    transaction, Module,
+    transaction,
 };
-use crate::transaction::{DocumentTransaction, ReversibleDocumentTransaction};
 use internal::InternalDocumentSession;
+use module::{DocumentTransaction, Module, ReversibleDocumentTransaction};
 use std::{
     cell::RefCell,
     rc::{Rc, Weak},

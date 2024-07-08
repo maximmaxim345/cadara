@@ -1,8 +1,5 @@
-use document::Module;
-use project::transaction::DocumentTransaction;
-use project::*;
+use module::{DocumentTransaction, Module, ReversibleDocumentTransaction};
 use serde::{Deserialize, Serialize};
-use transaction::ReversibleDocumentTransaction;
 use uuid::Uuid;
 
 use lazy_static::lazy_static;

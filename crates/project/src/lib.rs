@@ -18,12 +18,12 @@
 // Public modules
 pub mod document;
 pub mod manager;
-pub mod transaction;
 pub mod user;
 
 use document::{
-    internal::InternalDocumentModel, session::internal::InternalDocumentSession, Module, Session,
+    internal::InternalDocumentModel, session::internal::InternalDocumentSession, Session,
 };
+use module::Module;
 use serde::de::{DeserializeSeed, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::any::Any;

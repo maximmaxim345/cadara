@@ -1,9 +1,6 @@
 // A second minimal test module, to test multiple different modules
-use document::Module;
-use project::transaction::DocumentTransaction;
-use project::*;
+use module::{DocumentTransaction, Module, ReversibleDocumentTransaction};
 use serde::{Deserialize, Serialize};
-use transaction::ReversibleDocumentTransaction;
 use uuid::Uuid;
 
 #[derive(Clone, Default, Debug, PartialEq)]

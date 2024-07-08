@@ -1,5 +1,4 @@
-use super::Module;
-use crate::transaction::DocumentTransaction;
+use module::{DocumentTransaction, Module};
 
 // TODO: complete docs
 
