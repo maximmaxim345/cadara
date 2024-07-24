@@ -7,7 +7,7 @@ use utils::Transaction;
 
 #[test]
 fn test_document_persistent_data() {
-    let project = Project::new("Project".to_string());
+    let project = Project::new("Project".to_string()).create_session();
 
     let doc_uuid = project.create_document::<TestModule>();
     {
@@ -46,7 +46,7 @@ fn test_document_persistent_data() {
 
 #[test]
 fn test_shared_state() {
-    let project = Project::new("Project".to_string());
+    let project = Project::new("Project".to_string()).create_session();
     let doc_uuid = project.create_document::<TestModule>();
     let mut session1 = project.open_document::<TestModule>(doc_uuid).unwrap();
     let session2 = project.open_document::<TestModule>(doc_uuid).unwrap();
@@ -73,7 +73,7 @@ fn test_shared_state() {
 
 #[test]
 fn test_reset_of_shared_state() {
-    let project = Project::new("Project".to_string());
+    let project = Project::new("Project".to_string()).create_session();
     let doc_uuid = project.create_document::<TestModule>();
     {
         let mut session1 = project.open_document::<TestModule>(doc_uuid).unwrap();
@@ -97,7 +97,7 @@ fn test_reset_of_shared_state() {
 
 #[test]
 fn test_user_state() {
-    let project = Project::new("Project".to_string());
+    let project = Project::new("Project".to_string()).create_session();
     let doc_uuid = project.create_document::<TestModule>();
     {
         let mut session1 = project.open_document::<TestModule>(doc_uuid).unwrap();

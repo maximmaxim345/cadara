@@ -7,13 +7,13 @@ use utils::Transaction;
 use uuid::Uuid;
 
 fn create_undo_redo_test_setup() -> (
-    Project,
+    ProjectSession,
     Session<TestModule>,
     Session<TestModule>,
     Uuid,
     Vec<TestTransaction>,
 ) {
-    let project = Project::new("Project".to_string());
+    let project = Project::new("Project".to_string()).create_session();
     let doc_uuid = project.create_document::<TestModule>();
 
     let mut session1 = project.open_document::<TestModule>(doc_uuid).unwrap();
@@ -475,7 +475,7 @@ fn test_redo_document_one_user() {
 
 #[test]
 fn test_undo_redo_on_failed_transactions() {
-    let project = Project::new("Project".to_string());
+    let project = Project::new("Project".to_string()).create_session();
     let doc_uuid = project.create_document::<TestModule>();
 
     let mut session2 = project.open_document::<TestModule>(doc_uuid).unwrap();

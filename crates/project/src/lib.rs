@@ -357,6 +357,8 @@ struct InternalProject {
 
 /// Represents a project within the `CADara` application.
 ///
+/// Interact with this Project through a [`ProjectSession`] by calling [`Project::create_session`].
+///
 /// A `Project` serves as the primary container for documents, which can represent parts,
 /// assemblies, or other data units. Each document is uniquely identified by a `Uuid`.
 ///
@@ -368,11 +370,18 @@ struct InternalProject {
 pub struct Project {
     /// Encapsulates the internal representation of the project, including documents and metadata.
     project: Rc<RefCell<InternalProject>>,
-    /// The user currently interacting with the project.
-    user: User,
 }
 
 impl Project {
+    //  TODO: document
+    #[must_use]
+    pub fn create_session(&self) -> ProjectSession {
+        ProjectSession {
+            project: self.project.clone(),
+            user: User::local(),
+        }
+    }
+
     /// Creates a new project with the given name.
     ///
     /// # Arguments
@@ -387,14 +396,13 @@ impl Project {
                 tags: vec![],
                 _path: None,
             })),
-            user: User::local(),
         }
     }
 
     /// Creates a new project given the name, user and path.
     /// TODO: replace this with a proper, maybe hide except for project manager
     #[must_use]
-    pub fn new_with_path(name: String, user: User, path: PathBuf) -> Self {
+    pub fn new_with_path(name: String, _user: User, path: PathBuf) -> Self {
         Self {
             project: Rc::new(RefCell::new(InternalProject {
                 documents: HashMap::new(),
@@ -402,10 +410,20 @@ impl Project {
                 tags: vec![],
                 _path: Some(path),
             })),
-            user,
         }
     }
+}
 
+/// TODO: document
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct ProjectSession {
+    /// Encapsulates the internal representation of the project, including documents and metadata.
+    project: Rc<RefCell<InternalProject>>,
+    /// The user currently interacting with the project.
+    user: User,
+}
+
+impl ProjectSession {
     /// Opens a session for a document in this project.
     ///
     /// # Arguments

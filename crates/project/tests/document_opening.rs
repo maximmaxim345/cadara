@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 #[test]
 fn test_attempt_open_nonexistent_document() {
-    let project = Project::new("Project".to_string());
+    let project = Project::new("Project".to_string()).create_session();
 
     let doc = project.open_document::<TestModule>(Uuid::new_v4());
     assert!(doc.is_none());
@@ -14,7 +14,7 @@ fn test_attempt_open_nonexistent_document() {
 
 #[test]
 fn test_open_document() {
-    let project = Project::new("Project".to_string());
+    let project = Project::new("Project".to_string()).create_session();
 
     let doc_uuid = project.create_document::<TestModule>();
 
@@ -24,7 +24,7 @@ fn test_open_document() {
 
 #[test]
 fn test_attempt_open_document_with_incorrect_module() {
-    let project = Project::new("Project".to_string());
+    let project = Project::new("Project".to_string()).create_session();
 
     let doc_uuid = project.create_document::<MinimalTestModule>();
 

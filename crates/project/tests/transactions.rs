@@ -7,7 +7,7 @@ use utils::Transaction;
 
 #[test]
 fn test_failed_transaction() {
-    let project = Project::new("Project".to_string());
+    let project = Project::new("Project".to_string()).create_session();
     let doc_uuid = project.create_document::<TestModule>();
     {
         let mut session1 = project.open_document::<TestModule>(doc_uuid).unwrap();
