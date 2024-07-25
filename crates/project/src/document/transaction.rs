@@ -4,7 +4,7 @@ use module::{DocumentTransaction, Module};
 
 /// A transaction that can be applied to a [`Session`].
 ///
-/// [`Session`]: crate::document::Session
+/// [`Session`]: crate::document::DocumentSession
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum TransactionArgs<M: Module> {
     Document(<M::DocumentData as DocumentTransaction>::Args),
@@ -15,7 +15,7 @@ pub enum TransactionArgs<M: Module> {
 
 /// The output of a transaction applied to a [`Session`].
 ///
-/// [`Session`]: crate::document::Session
+/// [`Session`]: crate::document::DocumentSession
 #[derive(Debug, Clone, PartialEq)]
 pub enum TransactionOutput<M: Module> {
     Document(<M::DocumentData as DocumentTransaction>::Output),
@@ -35,7 +35,7 @@ pub enum TransactionError<M: Module> {
 
 /// The error that can occur when applying a transaction to a [`Session`].
 ///
-/// [`Session`]: crate::document::Session
+/// [`Session`]: crate::document::DocumentSession
 #[derive(Debug, Clone, PartialEq)]
 pub enum SessionApplyError<M: Module> {
     TransactionFailure(TransactionError<M>),

@@ -20,9 +20,9 @@ use utils::Transaction;
 /// It includes both persistent and non-persistent data related to the document and the user.
 /// TODO: add note saying this is main way to access data <- if true
 ///
-/// retrieved using [`Session::snapshot`].
+/// retrieved using [`DocumentSession::snapshot`].
 ///
-/// [`Session::snapshot`]: crate::document::Session::snapshot
+/// [`DocumentSession::snapshot`]: crate::document::DocumentSession::snapshot
 #[derive(Clone, Default, Debug, PartialEq, Hash)]
 pub struct Snapshot<M: Module> {
     /// The persistent document data.
@@ -37,7 +37,7 @@ pub struct Snapshot<M: Module> {
 
 /// Represents an interactive session of a document within a project.
 ///
-/// A [`Session`] encapsulates the state of an open document that is part of a [`Project`].
+/// A [`DocumentSession`] encapsulates the state of an open document that is part of a [`Project`].
 /// It maintains a copy of the document's state, allowing for concurrent editing and individual
 /// management of persistent and non-persistent data.
 ///
@@ -45,13 +45,13 @@ pub struct Snapshot<M: Module> {
 ///
 /// [`Project`]: crate::Project
 #[derive(Clone, Debug)]
-pub struct Session<M: Module> {
+pub struct DocumentSession<M: Module> {
     /// The internal implementation of this session.
     pub(crate) session: Rc<RefCell<InternalDocumentSession<M>>>,
     pub(crate) document_model_ref: Weak<RefCell<InternalDocumentModel<M>>>,
 }
 
-impl<M: Module> Session<M> {
+impl<M: Module> DocumentSession<M> {
     /// Captures the current state of the session in a snapshot.
     ///
     /// A snapshot includes all relevant session data, such as persistent data and
@@ -812,7 +812,7 @@ impl<M: Module> Session<M> {
     }
 }
 
-impl<M: Module> Transaction for Session<M> {
+impl<M: Module> Transaction for DocumentSession<M> {
     type Args = transaction::TransactionArgs<M>;
     type Error = transaction::SessionApplyError<M>;
     type Output = transaction::TransactionOutput<M>;

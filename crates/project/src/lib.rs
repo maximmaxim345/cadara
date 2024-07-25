@@ -21,7 +21,7 @@ pub mod manager;
 pub mod user;
 
 use document::{
-    internal::InternalDocumentModel, session::internal::InternalDocumentSession, Session,
+    internal::InternalDocumentModel, session::internal::InternalDocumentSession, DocumentSession,
 };
 use module::Module;
 use serde::de::{DeserializeSeed, Visitor};
@@ -434,7 +434,7 @@ impl ProjectSession {
     ///
     /// An `Option` containing a `Session` if the document could be opened, or `None` otherwise.
     #[must_use]
-    pub fn open_document<M: Module>(&self, document_uuid: Uuid) -> Option<Session<M>> {
+    pub fn open_document<M: Module>(&self, document_uuid: Uuid) -> Option<DocumentSession<M>> {
         // TODO: Option -> Result
         let project = &self.project;
 
@@ -452,7 +452,7 @@ impl ProjectSession {
         // Create a new session for the document
         let session =
             InternalDocumentSession::new(document_model, project, document_uuid, self.user);
-        Some(Session {
+        Some(DocumentSession {
             session,
             document_model_ref: Rc::downgrade(&document_model.0),
         })
