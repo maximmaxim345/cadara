@@ -12,7 +12,7 @@
 
 // Public modules and re-exports
 pub mod transaction;
-pub use session::{DocumentSession, Snapshot};
+pub use session::{DataSession, Snapshot};
 
 // Internal modules
 pub(crate) mod internal;

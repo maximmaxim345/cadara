@@ -11,18 +11,16 @@
 #![allow(clippy::cognitive_complexity)]
 // TODO: allow too many lines (remove allow on functions)
 
-// TODO: make InternalDocumentSession private
+// TODO: make InternalDataSession private
 // TODO: rename traits/structs to not have Document in the name
 // TODO: Transactions should be split into a normal and +unchecked version
 
 // Public modules
-pub mod document;
+pub mod data;
 pub mod manager;
 pub mod user;
 
-use document::{
-    internal::InternalDocumentModel, session::internal::InternalDocumentSession, DocumentSession,
-};
+use data::{internal::InternalData, session::internal::InternalDataSession, DataSession};
 use module::Module;
 use serde::de::{DeserializeSeed, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -36,25 +34,25 @@ use std::rc::Rc;
 use user::User;
 use uuid::Uuid;
 
-/// A trait for type-erased document models, enabling polymorphic handling of different document types.
+/// A trait for type-erased data models, enabling polymorphic handling of different data types.
 ///
-/// This trait allows for the storage of any `SharedDocumentModel` type while providing
+/// This trait allows for the storage of any `DataModel` type while providing
 /// mechanisms to recover the specific type through downcasting. It also facilitates
-/// serialization of document models without knowing their concrete types.
-trait DocumentModelTrait: erased_serde::Serialize + Debug {
+/// serialization of data without knowing their concrete types.
+trait DataModelTrait: erased_serde::Serialize + Debug {
     /// Retrieves a mutable reference to the underlying type as a trait object.
-    /// This is used for downcasting to the concrete `SharedDocumentModel` type.
+    /// This is used for downcasting to the concrete `DataModel` type.
     fn as_any(&mut self) -> &mut dyn Any;
 }
-erased_serde::serialize_trait_object!(DocumentModelTrait);
+erased_serde::serialize_trait_object!(DataModelTrait);
 
-/// A struct for managing shared, mutable access to an `InternalDocumentModel`.
+/// A struct for managing shared, mutable access to an [`InternalData`].
 ///
-/// This struct encapsulates an `InternalDocumentModel` within `Rc<RefCell<...>>` to enable
+/// This struct encapsulates an [`InternalData`] within `Rc<RefCell<...>>` to enable
 /// shared ownership and mutability across different parts of the code. It is designed to work
-/// with document models that implement the `Module` trait.
+/// with data models that implement the `Module` trait.
 #[derive(Clone, Debug, Deserialize)]
-struct SharedDocumentModel<M: Module>(Rc<RefCell<InternalDocumentModel<M>>>);
+struct DataModel<M: Module>(Rc<RefCell<InternalData<M>>>);
 
 // We use this thread local storage to pass data to the deserialize function through
 // automatically derived implementations of `Deserialize`. Alternatively, we could
@@ -65,26 +63,26 @@ thread_local! {
     static MODULE_REGISTRY: RefCell<Option<*const ModuleRegistry>> = const { RefCell::new(None) };
 }
 
-/// A struct representing a type-erased `SharedDocumentModel`.
+/// A struct representing a type-erased `DataModel`.
 ///
-/// This struct holds a `Uuid` identifying the document and a boxed `DocumentModelTrait`,
-/// allowing for the storage and serialization of various document model types without
+/// This struct holds a `Uuid` identifying the document and a boxed `DataModelTrait`,
+/// allowing for the storage and serialization of various data types without
 /// knowing their concrete types at compile time.
 #[derive(Debug, Serialize)]
-struct ErasedDocumentModel {
+struct ErasedDataModel {
     uuid: Uuid,
-    model: Box<dyn DocumentModelTrait>,
+    model: Box<dyn DataModelTrait>,
 }
 
 // TODO: maybe custom serialization logic can be replaced with the typetag crate
 
-impl<M: Module> DocumentModelTrait for SharedDocumentModel<M> {
+impl<M: Module> DataModelTrait for DataModel<M> {
     fn as_any(&mut self) -> &mut dyn Any {
         self
     }
 }
 
-impl<M: Module> Serialize for SharedDocumentModel<M> {
+impl<M: Module> Serialize for DataModel<M> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -93,7 +91,7 @@ impl<M: Module> Serialize for SharedDocumentModel<M> {
     }
 }
 
-impl<'de> Deserialize<'de> for ErasedDocumentModel {
+impl<'de> Deserialize<'de> for ErasedDataModel {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -117,7 +115,7 @@ impl<'de> Deserialize<'de> for ErasedDocumentModel {
 /// A registry containing all installed modules necessary for deserialization.
 #[derive(Clone, Debug, Default)]
 pub struct ModuleRegistry {
-    modules: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn DocumentModelTrait>>>,
+    modules: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn DataModelTrait>>>,
 }
 
 impl ModuleRegistry {
@@ -126,9 +124,7 @@ impl ModuleRegistry {
         M: Module + for<'de> Deserialize<'de>,
     {
         self.modules.insert(M::uuid(), |d| {
-            Ok(Box::new(
-                erased_serde::deserialize::<SharedDocumentModel<M>>(d)?,
-            ))
+            Ok(Box::new(erased_serde::deserialize::<DataModel<M>>(d)?))
         });
     }
 }
@@ -184,7 +180,7 @@ impl<'a, 'de> DeserializeSeed<'de> for ModuleSeed<'a>
 where
     'a: 'de,
 {
-    type Value = ErasedDocumentModel;
+    type Value = ErasedDataModel;
 
     #[allow(clippy::too_many_lines)]
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -251,20 +247,20 @@ where
         }
 
         struct ModuleVisitor<'de> {
-            marker: PhantomData<ErasedDocumentModel>,
+            marker: PhantomData<ErasedDataModel>,
             lifetime: PhantomData<&'de ()>,
             registry: &'de ModuleRegistry,
         }
 
         impl<'de> Visitor<'de> for ModuleVisitor<'de> {
-            type Value = ErasedDocumentModel;
+            type Value = ErasedDataModel;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("struct ErasedDocumentModel")
+                formatter.write_str("struct ErasedDataModel")
             }
 
             #[inline]
-            fn visit_seq<V>(self, mut _seq: V) -> Result<ErasedDocumentModel, V::Error>
+            fn visit_seq<V>(self, mut _seq: V) -> Result<ErasedDataModel, V::Error>
             where
                 V: serde::de::SeqAccess<'de>,
             {
@@ -277,12 +273,12 @@ where
                 //     // })?
                 //     .next_element()?
                 //     .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
-                // Ok(ErasedDocumentModel { uuid, model })
-                todo!("sequential deserialization of ErasedDocumentModel is not supported yet")
+                // Ok(ErasedDataModel { uuid, model })
+                todo!("sequential deserialization of ErasedDataModel is not supported yet")
             }
 
             #[inline]
-            fn visit_map<V>(self, mut map: V) -> Result<ErasedDocumentModel, V::Error>
+            fn visit_map<V>(self, mut map: V) -> Result<ErasedDataModel, V::Error>
             where
                 V: serde::de::MapAccess<'de>,
             {
@@ -314,7 +310,7 @@ where
                         }
                     }
                 }
-                Ok(ErasedDocumentModel {
+                Ok(ErasedDataModel {
                     uuid: uuid.ok_or_else(|| serde::de::Error::missing_field("uuid"))?,
                     model: model.ok_or_else(|| serde::de::Error::missing_field("model"))?,
                 })
@@ -323,10 +319,10 @@ where
 
         const FIELDS: &[&str] = &["uuid", "model"];
         deserializer.deserialize_struct(
-            "ErasedDocumentModel",
+            "ErasedDataModel",
             FIELDS,
             ModuleVisitor {
-                marker: PhantomData::<ErasedDocumentModel>,
+                marker: PhantomData::<ErasedDataModel>,
                 lifetime: PhantomData,
                 registry: self.registry,
             },
@@ -344,7 +340,7 @@ where
 #[derive(Serialize, Deserialize, Debug)]
 struct InternalProject {
     /// A map linking document UUIDs to their corresponding type-erased document models.
-    documents: HashMap<Uuid, ErasedDocumentModel>,
+    documents: HashMap<Uuid, ErasedDataModel>,
     /// The name of the project.
     name: String,
     /// A list of tags associated with the project for categorization or searchability.
@@ -434,7 +430,7 @@ impl ProjectSession {
     ///
     /// An `Option` containing a `Session` if the document could be opened, or `None` otherwise.
     #[must_use]
-    pub fn open_document<M: Module>(&self, document_uuid: Uuid) -> Option<DocumentSession<M>> {
+    pub fn open_document<M: Module>(&self, document_uuid: Uuid) -> Option<DataSession<M>> {
         // TODO: Option -> Result
         let project = &self.project;
 
@@ -446,13 +442,11 @@ impl ProjectSession {
             .model
             .as_mut()
             .as_any();
-        let document_model: &mut SharedDocumentModel<M> =
-            boxed_proj_doc.downcast_mut::<SharedDocumentModel<M>>()?;
+        let document_model: &mut DataModel<M> = boxed_proj_doc.downcast_mut::<DataModel<M>>()?;
 
         // Create a new session for the document
-        let session =
-            InternalDocumentSession::new(document_model, project, document_uuid, self.user);
-        Some(DocumentSession {
+        let session = InternalDataSession::new(document_model, project, document_uuid, self.user);
+        Some(DataSession {
             session,
             document_model_ref: Rc::downgrade(&document_model.0),
         })
@@ -468,7 +462,7 @@ impl ProjectSession {
         let new_doc_uuid = Uuid::new_v4();
 
         let mut project = self.project.borrow_mut();
-        let proj_doc = InternalDocumentModel::<M> {
+        let proj_doc = InternalData::<M> {
             document_data: M::DocumentData::default(),
             user_data: M::UserData::default(),
             sessions: vec![],
@@ -477,11 +471,10 @@ impl ProjectSession {
             transaction_history: std::collections::VecDeque::new(),
             session_to_user: HashMap::new(),
         };
-        let doc_model: SharedDocumentModel<M> =
-            SharedDocumentModel(Rc::new(RefCell::new(proj_doc)));
+        let doc_model: DataModel<M> = DataModel(Rc::new(RefCell::new(proj_doc)));
         project.documents.insert(
             new_doc_uuid,
-            ErasedDocumentModel {
+            ErasedDataModel {
                 model: Box::new(doc_model),
                 uuid: M::uuid(),
             },

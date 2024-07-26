@@ -2,9 +2,9 @@ use module::{DocumentTransaction, Module};
 
 // TODO: complete docs
 
-/// A transaction that can be applied to a [`Session`].
+/// A transaction that can be applied to a [`DataSession`].
 ///
-/// [`Session`]: crate::document::DocumentSession
+/// [`DataSession`]: crate::data::DataSession
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum TransactionArgs<M: Module> {
     Document(<M::DocumentData as DocumentTransaction>::Args),
@@ -13,9 +13,9 @@ pub enum TransactionArgs<M: Module> {
     Shared(<M::SharedData as DocumentTransaction>::Args),
 }
 
-/// The output of a transaction applied to a [`Session`].
+/// The output of a transaction applied to a [`DataSession`].
 ///
-/// [`Session`]: crate::document::DocumentSession
+/// [`DataSession`]: crate::data::DataSession
 #[derive(Debug, Clone, PartialEq)]
 pub enum TransactionOutput<M: Module> {
     Document(<M::DocumentData as DocumentTransaction>::Output),
@@ -33,9 +33,9 @@ pub enum TransactionError<M: Module> {
     Shared(<M::SharedData as DocumentTransaction>::Error),
 }
 
-/// The error that can occur when applying a transaction to a [`Session`].
+/// The error that can occur when applying a transaction to a [`DataSession`].
 ///
-/// [`Session`]: crate::document::DocumentSession
+/// [`DataSession`]: crate::data::DataSession
 #[derive(Debug, Clone, PartialEq)]
 pub enum SessionApplyError<M: Module> {
     TransactionFailure(TransactionError<M>),

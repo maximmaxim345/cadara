@@ -1,15 +1,15 @@
 mod common;
 use common::test_module::*;
-use document::DocumentSession;
-use project::document::transaction::TransactionArgs;
+use data::DataSession;
+use project::data::transaction::TransactionArgs;
 use project::*;
 use utils::Transaction;
 use uuid::Uuid;
 
 fn create_undo_redo_test_setup() -> (
     ProjectSession,
-    DocumentSession<TestModule>,
-    DocumentSession<TestModule>,
+    DataSession<TestModule>,
+    DataSession<TestModule>,
     Uuid,
     Vec<TestTransaction>,
 ) {

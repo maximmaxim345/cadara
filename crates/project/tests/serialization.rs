@@ -2,7 +2,7 @@ mod common;
 
 use common::test_module::*;
 
-use project::document::transaction::TransactionArgs;
+use project::data::transaction::TransactionArgs;
 use project::*;
 use serde::de::DeserializeSeed;
 use utils::Transaction;

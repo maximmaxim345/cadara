@@ -1,12 +1,10 @@
 pub mod internal;
 
 use super::{
-    internal::{
-        AppliedTransaction, InternalDocumentModel, TransactionState, UndoUnit, UndoneTransaction,
-    },
+    internal::{AppliedTransaction, InternalData, TransactionState, UndoUnit, UndoneTransaction},
     transaction,
 };
-use internal::InternalDocumentSession;
+use internal::InternalDataSession;
 use module::{DocumentTransaction, Module, ReversibleDocumentTransaction};
 use std::{
     cell::RefCell,
@@ -20,9 +18,9 @@ use utils::Transaction;
 /// It includes both persistent and non-persistent data related to the document and the user.
 /// TODO: add note saying this is main way to access data <- if true
 ///
-/// retrieved using [`DocumentSession::snapshot`].
+/// retrieved using [`DataSession::snapshot`].
 ///
-/// [`DocumentSession::snapshot`]: crate::document::DocumentSession::snapshot
+/// [`DataSession::snapshot`]: crate::data::DataSession::snapshot
 #[derive(Clone, Default, Debug, PartialEq, Hash)]
 pub struct Snapshot<M: Module> {
     /// The persistent document data.
@@ -37,7 +35,7 @@ pub struct Snapshot<M: Module> {
 
 /// Represents an interactive session of a document within a project.
 ///
-/// A [`DocumentSession`] encapsulates the state of an open document that is part of a [`Project`].
+/// A [`DataSession`] encapsulates the state of an open document that is part of a [`Project`].
 /// It maintains a copy of the document's state, allowing for concurrent editing and individual
 /// management of persistent and non-persistent data.
 ///
@@ -45,13 +43,13 @@ pub struct Snapshot<M: Module> {
 ///
 /// [`Project`]: crate::Project
 #[derive(Clone, Debug)]
-pub struct DocumentSession<M: Module> {
+pub struct DataSession<M: Module> {
     /// The internal implementation of this session.
-    pub(crate) session: Rc<RefCell<InternalDocumentSession<M>>>,
-    pub(crate) document_model_ref: Weak<RefCell<InternalDocumentModel<M>>>,
+    pub(crate) session: Rc<RefCell<InternalDataSession<M>>>,
+    pub(crate) document_model_ref: Weak<RefCell<InternalData<M>>>,
 }
 
-impl<M: Module> DocumentSession<M> {
+impl<M: Module> DataSession<M> {
     /// Captures the current state of the session in a snapshot.
     ///
     /// A snapshot includes all relevant session data, such as persistent data and
@@ -812,7 +810,7 @@ impl<M: Module> DocumentSession<M> {
     }
 }
 
-impl<M: Module> Transaction for DocumentSession<M> {
+impl<M: Module> Transaction for DataSession<M> {
     type Args = transaction::TransactionArgs<M>;
     type Error = transaction::SessionApplyError<M>;
     type Output = transaction::TransactionOutput<M>;

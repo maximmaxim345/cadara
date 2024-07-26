@@ -1,4 +1,4 @@
-use crate::{document::transaction::TransactionError, user::User};
+use crate::{data::transaction::TransactionError, user::User};
 use module::{DocumentTransaction, Module, ReversibleDocumentTransaction};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -8,7 +8,7 @@ use std::{
 };
 use uuid::Uuid;
 
-use super::{session::internal::InternalDocumentSession, transaction::SessionApplyError};
+use super::{session::internal::InternalDataSession, transaction::SessionApplyError};
 
 // TODO: write docs for these types
 /// Data required to undo and redo a transaction.
@@ -54,7 +54,6 @@ pub struct TransactionHistoryState<
     pub state: TransactionState<D, U>,
 }
 
-// TODO: rename to InternalDcoument
 // TODO: make this more private
 /// Represents an internal model of a document within a project in `CADara`.
 ///
@@ -62,7 +61,7 @@ pub struct TransactionHistoryState<
 ///
 /// [`Project`]: crate::Project
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InternalDocumentModel<M: Module> {
+pub struct InternalData<M: Module> {
     /// Document data for this document
     pub(crate) document_data: M::DocumentData,
     /// TODO: write doc
@@ -77,7 +76,7 @@ pub struct InternalDocumentModel<M: Module> {
     pub(crate) shared_data: Option<M::SharedData>,
     /// List of all currently open sessions of this document.
     #[serde(skip)]
-    pub sessions: Vec<(Uuid, Weak<RefCell<InternalDocumentSession<M>>>)>,
+    pub sessions: Vec<(Uuid, Weak<RefCell<InternalDataSession<M>>>)>,
     /// UUID of the module implementing the document.
     // TODO: remove duplicate in serialization
     pub module_uuid: Uuid,
@@ -87,7 +86,7 @@ pub struct InternalDocumentModel<M: Module> {
 }
 
 // TODO: make methods private, write docs
-impl<M: Module> InternalDocumentModel<M> {
+impl<M: Module> InternalData<M> {
     pub fn apply_document(
         &mut self,
         args: <M::DocumentData as DocumentTransaction>::Args,
