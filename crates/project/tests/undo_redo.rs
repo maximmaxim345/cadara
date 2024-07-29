@@ -14,10 +14,12 @@ fn create_undo_redo_test_setup() -> (
     Vec<TestTransaction>,
 ) {
     let project = Project::new("Project".to_string()).create_session();
-    let doc_uuid = project.create_document::<TestModule>();
+    let doc = project.create_document();
+    let doc = project.open_document(doc).unwrap();
+    let data_uuid = doc.create_data::<TestModule>();
 
-    let mut session1 = project.open_document::<TestModule>(doc_uuid).unwrap();
-    let mut session2 = project.open_document::<TestModule>(doc_uuid).unwrap();
+    let mut session1 = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
+    let mut session2 = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
 
     let transactions = vec![
         (
@@ -95,7 +97,7 @@ fn create_undo_redo_test_setup() -> (
     );
     assert_eq!(loc, 2);
 
-    (project, session1, session2, doc_uuid, transactions)
+    (project, session1, session2, data_uuid, transactions)
 }
 
 #[test]
@@ -103,8 +105,8 @@ fn test_undo_document_one_user() {
     // Both session are owned by the same user
     let (project, mut session1, mut session2, doc_uuid, transactions) =
         create_undo_redo_test_setup();
-    let session_doc_closure = project.open_document::<TestModule>(doc_uuid).unwrap();
-    let session_user_closure = project.open_document::<TestModule>(doc_uuid).unwrap();
+    let session_doc_closure = project.open_data::<TestModule>(doc_uuid).unwrap();
+    let session_user_closure = project.open_data::<TestModule>(doc_uuid).unwrap();
     // closures for getting a current snapshot of both data sections and the internal log
     // Since all sessions are owned by the same user, the data should be the same
     let document = || session_doc_closure.snapshot().document;
@@ -257,8 +259,8 @@ fn test_redo_document_one_user() {
     // Both session are owned by the same user
     let (project, mut session1, mut session2, doc_uuid, transactions) =
         create_undo_redo_test_setup();
-    let session_doc_closure = project.open_document::<TestModule>(doc_uuid).unwrap();
-    let session_user_closure = project.open_document::<TestModule>(doc_uuid).unwrap();
+    let session_doc_closure = project.open_data::<TestModule>(doc_uuid).unwrap();
+    let session_user_closure = project.open_data::<TestModule>(doc_uuid).unwrap();
     // closures for getting a current snapshot of both data sections and the internal log
     // Since all sessions are owned by the same user, the data should be the same
     let document = || session_doc_closure.snapshot().document;
@@ -476,11 +478,15 @@ fn test_redo_document_one_user() {
 #[test]
 fn test_undo_redo_on_failed_transactions() {
     let project = Project::new("Project".to_string()).create_session();
-    let doc_uuid = project.create_document::<TestModule>();
+    let doc_uuid = project.create_document();
+    let data_uuid = project
+        .open_document(doc_uuid)
+        .unwrap()
+        .create_data::<TestModule>();
 
-    let mut session2 = project.open_document::<TestModule>(doc_uuid).unwrap();
-    let mut session3 = project.open_document::<TestModule>(doc_uuid).unwrap();
-    let mut session1 = project.open_document::<TestModule>(doc_uuid).unwrap();
+    let mut session2 = project.open_data::<TestModule>(data_uuid).unwrap();
+    let mut session3 = project.open_data::<TestModule>(data_uuid).unwrap();
+    let mut session1 = project.open_data::<TestModule>(data_uuid).unwrap();
 
     let transactions = vec![
         (
@@ -535,8 +541,8 @@ fn test_undo_redo_on_failed_transactions() {
 
     // We already tested the undo_redo_list in the previous tests
 
-    let session_doc_closure = project.open_document::<TestModule>(doc_uuid).unwrap();
-    let session_user_closure = project.open_document::<TestModule>(doc_uuid).unwrap();
+    let session_doc_closure = project.open_data::<TestModule>(data_uuid).unwrap();
+    let session_user_closure = project.open_data::<TestModule>(data_uuid).unwrap();
     // closures for getting a current snapshot of both data sections and the internal log
     // Since all sessions are owned by the same user, the data should be the same
     let document = || session_doc_closure.snapshot().document;

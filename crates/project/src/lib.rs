@@ -17,10 +17,12 @@
 
 // Public modules
 pub mod data;
+pub mod document;
 pub mod manager;
 pub mod user;
 
 use data::{internal::InternalData, session::internal::InternalDataSession, DataSession};
+use document::DocumentSession;
 use module::Module;
 use serde::de::{DeserializeSeed, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -72,6 +74,14 @@ thread_local! {
 struct ErasedDataModel {
     uuid: Uuid,
     model: Box<dyn DataModelTrait>,
+}
+
+/// Document in a Project
+///
+/// Defines the metadata and the identifiers of containing data sections.
+#[derive(Debug, Serialize, Deserialize, Default)]
+struct DocumentRecord {
+    data: Vec<Uuid>,
 }
 
 // TODO: maybe custom serialization logic can be replaced with the typetag crate
@@ -332,15 +342,17 @@ where
 
 /// Represents the internal data of a `CADara` project.
 ///
-/// This struct is used to manage the internal state of a project, including its documents,
+/// This struct is used to manage the internal state of a project, including its documents (including their data),
 /// name, tags, and disk path. It is not intended for direct use by consumers of the API;
 /// instead, use the [`Project`] struct for public interactions.
 ///
 /// [`Project`]: crate::Project
 #[derive(Serialize, Deserialize, Debug)]
 struct InternalProject {
-    /// A map linking document UUIDs to their corresponding type-erased document models.
-    documents: HashMap<Uuid, ErasedDataModel>,
+    /// A map linking data UUIDs to their corresponding type-erased data model.
+    data: HashMap<Uuid, ErasedDataModel>,
+    /// A map of all documents found in this project
+    documents: HashMap<Uuid, DocumentRecord>,
     /// The name of the project.
     name: String,
     /// A list of tags associated with the project for categorization or searchability.
@@ -387,6 +399,7 @@ impl Project {
     pub fn new(name: String) -> Self {
         Self {
             project: Rc::new(RefCell::new(InternalProject {
+                data: HashMap::new(),
                 documents: HashMap::new(),
                 name,
                 tags: vec![],
@@ -401,6 +414,7 @@ impl Project {
     pub fn new_with_path(name: String, _user: User, path: PathBuf) -> Self {
         Self {
             project: Rc::new(RefCell::new(InternalProject {
+                data: HashMap::new(),
                 documents: HashMap::new(),
                 name,
                 tags: vec![],
@@ -420,7 +434,7 @@ pub struct ProjectSession {
 }
 
 impl ProjectSession {
-    /// Opens a session for a document in this project.
+    /// Opens a document
     ///
     /// # Arguments
     ///
@@ -428,27 +442,15 @@ impl ProjectSession {
     ///
     /// # Returns
     ///
-    /// An `Option` containing a `Session` if the document could be opened, or `None` otherwise.
+    /// An `Option` containing a `DocumentSession` if the document could be opened, or `None` otherwise.
     #[must_use]
-    pub fn open_document<M: Module>(&self, document_uuid: Uuid) -> Option<DataSession<M>> {
-        // TODO: Option -> Result
-        let project = &self.project;
-
-        // first, we get the document model from the project (if it exists)
-        let mut mut_project = project.borrow_mut();
-        let boxed_proj_doc = mut_project
-            .documents
-            .get_mut(&document_uuid)?
-            .model
-            .as_mut()
-            .as_any();
-        let document_model: &mut DataModel<M> = boxed_proj_doc.downcast_mut::<DataModel<M>>()?;
-
-        // Create a new session for the document
-        let session = InternalDataSession::new(document_model, project, document_uuid, self.user);
-        Some(DataSession {
-            session,
-            document_model_ref: Rc::downgrade(&document_model.0),
+    pub fn open_document(&self, document_uuid: Uuid) -> Option<DocumentSession> {
+        let project = self.project.borrow_mut();
+        let _ = project.documents.get(&document_uuid)?;
+        Some(DocumentSession {
+            document: document_uuid,
+            project: self.project.clone(),
+            user: self.user,
         })
     }
 
@@ -458,27 +460,48 @@ impl ProjectSession {
     ///
     /// The unique identifier [`Uuid`] of the newly created document.
     #[must_use]
-    pub fn create_document<M: Module>(&self) -> Uuid {
+    pub fn create_document(&self) -> Uuid {
         let new_doc_uuid = Uuid::new_v4();
 
         let mut project = self.project.borrow_mut();
-        let proj_doc = InternalData::<M> {
-            document_data: M::DocumentData::default(),
-            user_data: M::UserData::default(),
-            sessions: vec![],
-            module_uuid: M::uuid(),
-            shared_data: None,
-            transaction_history: std::collections::VecDeque::new(),
-            session_to_user: HashMap::new(),
-        };
-        let doc_model: DataModel<M> = DataModel(Rc::new(RefCell::new(proj_doc)));
-        project.documents.insert(
-            new_doc_uuid,
-            ErasedDataModel {
-                model: Box::new(doc_model),
-                uuid: M::uuid(),
-            },
-        );
+        project
+            .documents
+            .insert(new_doc_uuid, DocumentRecord { data: Vec::new() });
         new_doc_uuid
+    }
+
+    /// Opens a data section
+    ///
+    /// Given a identifier of a data sections, that is in a document inside this project,
+    /// the data section can be directly be accessed, resiliant to moving of data between documents.
+    ///
+    /// # Arguments
+    ///
+    /// * `data_uuid` - The unique identifier of the data section to open.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing a `DataSession` if found, or `None` otherwise.
+    #[must_use]
+    pub fn open_data<M: Module>(&self, data_uuid: Uuid) -> Option<DataSession<M>> {
+        // TODO: Option -> Result
+        let project = &self.project;
+
+        // first, we get the document model from the project (if it exists)
+        let mut mut_project = project.borrow_mut();
+        let data_model = mut_project
+            .data
+            .get_mut(&data_uuid)?
+            .model
+            .as_mut()
+            .as_any();
+        let data_model: &mut DataModel<M> = data_model.downcast_mut::<DataModel<M>>()?;
+
+        // Create a new session for the document
+        let session = InternalDataSession::new(data_model, project, data_uuid, self.user);
+        Some(DataSession {
+            session,
+            document_model_ref: Rc::downgrade(&data_model.0),
+        })
     }
 }

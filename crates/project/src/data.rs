@@ -1,14 +1,7 @@
 //! Document data and state management.
 //!
-//! Each document is represented by a single [`module::Module`], which defines the data structures of the document
-//! and how it implements behaviour like cross document linking.
-//! TODO: update this doc when linking is implemented
-//!
-//! # Linking and Dependencies
-//!
-//! Links and dependencies are managed through it's parent [`Project`] and can only be created between documents in the same project.
-//!
-//! [`Project`]: crate::Project
+//! Each data section is described by a [`module::Module`]. Each data section is a member of a single document and
+//! has a project wide unique Uuid, which is stable across renames.
 
 // Public modules and re-exports
 pub mod transaction;

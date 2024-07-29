@@ -9,25 +9,27 @@ use utils::Transaction;
 fn test_document_persistent_data() {
     let project = Project::new("Project".to_string()).create_session();
 
-    let doc_uuid = project.create_document::<TestModule>();
+    let doc = project.create_document();
+    let doc = project.open_document(doc).unwrap();
+    let data_uuid = doc.create_data::<TestModule>();
     {
-        let mut doc = project.open_document::<TestModule>(doc_uuid).unwrap();
+        let mut data = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
         let transaction = TestTransaction::SetWord("Test".to_string());
 
-        assert!(doc
+        assert!(data
             .apply(TransactionArgs::Document(transaction.clone()))
             .is_ok());
-        assert!(doc
+        assert!(data
             .apply(TransactionArgs::User(transaction.clone()))
             .is_ok());
-        assert!(doc
+        assert!(data
             .apply(TransactionArgs::Session(transaction.clone()))
             .is_ok());
-        assert!(doc.apply(TransactionArgs::Shared(transaction)).is_ok());
+        assert!(data.apply(TransactionArgs::Shared(transaction)).is_ok());
     }
     {
-        let doc = project.open_document::<TestModule>(doc_uuid).unwrap();
-        let snapshot = doc.snapshot();
+        let data = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
+        let snapshot = data.snapshot();
 
         assert_eq!(
             snapshot.document.single_word, "Test",
@@ -47,9 +49,11 @@ fn test_document_persistent_data() {
 #[test]
 fn test_shared_state() {
     let project = Project::new("Project".to_string()).create_session();
-    let doc_uuid = project.create_document::<TestModule>();
-    let mut session1 = project.open_document::<TestModule>(doc_uuid).unwrap();
-    let session2 = project.open_document::<TestModule>(doc_uuid).unwrap();
+    let doc = project.create_document();
+    let doc = project.open_document(doc).unwrap();
+    let data_uuid = doc.create_data::<TestModule>();
+    let mut session1 = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
+    let session2 = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
     {
         let transaction = TestTransaction::SetWord("Test".to_string());
         assert!(session1.apply(TransactionArgs::Shared(transaction)).is_ok());
@@ -62,7 +66,7 @@ fn test_shared_state() {
         );
     }
     {
-        let session3 = project.open_document::<TestModule>(doc_uuid).unwrap();
+        let session3 = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
         let snapshot = session3.snapshot();
         assert_eq!(
             snapshot.shared.single_word, "Test",
@@ -74,9 +78,11 @@ fn test_shared_state() {
 #[test]
 fn test_reset_of_shared_state() {
     let project = Project::new("Project".to_string()).create_session();
-    let doc_uuid = project.create_document::<TestModule>();
+    let doc = project.create_document();
+    let doc = project.open_document(doc).unwrap();
+    let data_uuid = doc.create_data::<TestModule>();
     {
-        let mut session1 = project.open_document::<TestModule>(doc_uuid).unwrap();
+        let mut session1 = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
         let transaction = TestTransaction::SetWord("Test".to_string());
         assert!(session1.apply(TransactionArgs::Shared(transaction)).is_ok());
         let snapshot = session1.snapshot();
@@ -86,8 +92,8 @@ fn test_reset_of_shared_state() {
         );
     }
     {
-        let doc = project.open_document::<TestModule>(doc_uuid).unwrap();
-        let snapshot = doc.snapshot();
+        let data = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
+        let snapshot = data.snapshot();
         assert_eq!(
             snapshot.shared.single_word, "default",
             "Shared state should be reset after closing all sessions"
@@ -98,14 +104,16 @@ fn test_reset_of_shared_state() {
 #[test]
 fn test_user_state() {
     let project = Project::new("Project".to_string()).create_session();
-    let doc_uuid = project.create_document::<TestModule>();
+    let doc = project.create_document();
+    let doc = project.open_document(doc).unwrap();
+    let data_uuid = doc.create_data::<TestModule>();
     {
-        let mut session1 = project.open_document::<TestModule>(doc_uuid).unwrap();
+        let mut session1 = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
         let transaction = TestTransaction::SetWord("Test".to_string());
         assert!(session1
             .apply(TransactionArgs::Session(transaction))
             .is_ok());
-        let session2 = project.open_document::<TestModule>(doc_uuid).unwrap();
+        let session2 = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
         let snapshot = session2.snapshot();
         assert_eq!(
             snapshot.session.single_word, "default",
@@ -113,8 +121,8 @@ fn test_user_state() {
         );
     }
     {
-        let doc = project.open_document::<TestModule>(doc_uuid).unwrap();
-        let snapshot = doc.snapshot();
+        let data = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
+        let snapshot = data.snapshot();
         assert_eq!(
             snapshot.session.single_word, "default",
             "User state should be reset after closing all sessions"
