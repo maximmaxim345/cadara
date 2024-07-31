@@ -70,7 +70,7 @@ impl<M: Module> DataSession<M> {
 
     // TODO: add doc
     fn apply_session(
-        &mut self,
+        &self,
         args: <M::SessionData as DataTransaction>::Args,
     ) -> Result<<M::SessionData as DataTransaction>::Output, transaction::SessionApplyError<M>>
     {
@@ -164,7 +164,7 @@ impl<M: Module> DataSession<M> {
     ///
     /// This function is not expected to panic under normal circumstances.
     #[allow(clippy::too_many_lines)]
-    pub fn undo(&mut self, n: usize) {
+    pub fn undo(&self, n: usize) {
         enum UndoData<D: ReversibleDataTransaction, U: ReversibleDataTransaction> {
             Persistent(D::UndoData),
             PersistentUser(U::UndoData),
@@ -539,7 +539,7 @@ impl<M: Module> DataSession<M> {
     ///
     /// This function is not expected to panic under normal circumstances.
     #[allow(clippy::too_many_lines)]
-    pub fn redo(&mut self, n: usize) {
+    pub fn redo(&self, n: usize) {
         // enum RedoData<D: ReversibleDataTransaction, U: ReversibleDataTransaction> {
         //     Persistent(D::UndoData),
         //     PersistentUser(U::UndoData),

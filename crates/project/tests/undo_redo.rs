@@ -102,8 +102,7 @@ fn create_undo_redo_test_setup() -> (
 #[test]
 fn test_undo_document_one_user() {
     // Both session are owned by the same user
-    let (project, mut session1, mut session2, doc_uuid, transactions) =
-        create_undo_redo_test_setup();
+    let (project, session1, session2, doc_uuid, transactions) = create_undo_redo_test_setup();
     let session_doc_closure = project.open_data::<TestModule>(doc_uuid).unwrap();
     let session_user_closure = project.open_data::<TestModule>(doc_uuid).unwrap();
     // closures for getting a current snapshot of both data sections and the internal log
@@ -256,8 +255,7 @@ fn test_undo_document_one_user() {
 #[test]
 fn test_redo_document_one_user() {
     // Both session are owned by the same user
-    let (project, mut session1, mut session2, doc_uuid, transactions) =
-        create_undo_redo_test_setup();
+    let (project, session1, session2, doc_uuid, transactions) = create_undo_redo_test_setup();
     let session_doc_closure = project.open_data::<TestModule>(doc_uuid).unwrap();
     let session_user_closure = project.open_data::<TestModule>(doc_uuid).unwrap();
     // closures for getting a current snapshot of both data sections and the internal log
