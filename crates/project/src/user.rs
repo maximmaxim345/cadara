@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 /// Represents a user within the `CADara` application.
 ///
-/// Each user is uniquely identified by a `Uuid`. The `User` struct is used to
+/// Each user is uniquely identified by a [`Uuid`]. The [`User`] struct is used to
 /// represent different types of users and their permissions within the application.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct User {

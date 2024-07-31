@@ -2,10 +2,10 @@ use crate::{user::User, Project};
 use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
 use uuid::Uuid;
 
-/// Errors that can occur when interacting with the `ProjectManager`.
+/// Errors that can occur when interacting with the [`ProjectManager`].
 ///
 /// This enum provides a robust way of handling errors that may occur when
-/// performing operations with the `ProjectManager`.
+/// performing operations with the [`ProjectManager`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ManagerError {
     /// The user lacks the necessary permissions for the operation.
@@ -51,7 +51,7 @@ struct InternalProjectManager {
 
 /// Manages the lifecycle of projects within the `CADara` application.
 ///
-/// The `ProjectManager` consolidates multiple instances of the same project into a single instance.
+/// The [`ProjectManager`] consolidates multiple instances of the same project into a single instance.
 /// This ensures that all changes are synchronized across all instances of the project and
 /// prevents data corruption.
 ///
@@ -59,15 +59,15 @@ struct InternalProjectManager {
 /// 1. By specifying the project's location.
 /// 2. By using a managed project location.
 ///
-/// Managed project locations are controlled by the `ProjectManager` and can be
+/// Managed project locations are controlled by the [`ProjectManager`] and can be
 /// either on a remote host or locally. This is the recommended way to access/create
 /// projects, as it better supports multi-user environments and simplifies project creation and
 /// management for the user.
 ///
 /// # Warning
 ///
-/// Do not share `Project`s between multiple instances of the `ProjectManager` in the same or different applications.
-/// Opening the same (local) project with different `ProjectManager` instances multiple times can lead to data corruption.
+/// Do not share `Project`s between multiple instances of the [`ProjectManager`] in the same or different applications.
+/// Opening the same (local) project with different [`ProjectManager`] instances multiple times can lead to data corruption.
 #[derive(Clone, Default, Debug)]
 pub struct ProjectManager {
     manager: Rc<RefCell<InternalProjectManager>>,
@@ -82,7 +82,7 @@ impl ProjectManager {
 
     /// Opens a project at the specified location for the specified user.
     ///
-    /// If the same project is opened multiple times, the `ProjectManager`
+    /// If the same project is opened multiple times, the [`ProjectManager`]
     /// consolidates all instances into a single instance, synchronizing data across all instances.
     ///
     /// # Returns
@@ -106,7 +106,7 @@ impl ProjectManager {
     ///
     /// # Returns
     ///
-    /// The location of the created project. Use this location to open the project with `open`.
+    /// The location of the created project. Use this location to open the project with [`ProjectManager::open`].
     ///
     /// # Errors
     ///
