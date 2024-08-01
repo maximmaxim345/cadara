@@ -27,10 +27,10 @@ fn test_failed_transaction() {
             // Apply 4 invalid transactions for each data section
             let transaction = TestTransaction::SetWord("Test Test".to_string());
             assert!(session1
-                .apply(TransactionArgs::Document(transaction.clone()))
+                .apply(TransactionArgs::Persistent(transaction.clone()))
                 .is_err());
             assert!(session1
-                .apply(TransactionArgs::User(transaction.clone()))
+                .apply(TransactionArgs::PersistentUser(transaction.clone()))
                 .is_err());
             assert!(session1
                 .apply(TransactionArgs::Session(transaction.clone()))

@@ -17,10 +17,10 @@ fn test_document_persistent_data() {
         let transaction = TestTransaction::SetWord("Test".to_string());
 
         assert!(data
-            .apply(TransactionArgs::Document(transaction.clone()))
+            .apply(TransactionArgs::Persistent(transaction.clone()))
             .is_ok());
         assert!(data
-            .apply(TransactionArgs::User(transaction.clone()))
+            .apply(TransactionArgs::PersistentUser(transaction.clone()))
             .is_ok());
         assert!(data
             .apply(TransactionArgs::Session(transaction.clone()))
@@ -32,11 +32,11 @@ fn test_document_persistent_data() {
         let snapshot = data.snapshot();
 
         assert_eq!(
-            snapshot.document.single_word, "Test",
-            "Document data should be shared"
+            snapshot.persistent.single_word, "Test",
+            "Persistent data should be shared"
         );
         assert_eq!(
-            snapshot.user.single_word, "Test",
+            snapshot.persistent_user.single_word, "Test",
             "User data should be shared"
         );
         assert_eq!(

@@ -1,5 +1,5 @@
 use crate::{data::transaction::TransactionError, user::User};
-use module::{DocumentTransaction, Module, ReversibleDocumentTransaction};
+use module::{DataTransaction, Module, ReversibleDataTransaction};
 use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
@@ -13,31 +13,31 @@ use super::{session::internal::InternalDataSession, transaction::SessionApplyErr
 // TODO: write docs for these types
 /// Data required to undo and redo a transaction.
 #[derive(Debug, Clone, PartialEq)]
-pub struct UndoUnit<T: ReversibleDocumentTransaction> {
+pub struct UndoUnit<T: ReversibleDataTransaction> {
     pub undo_data: T::UndoData,
-    pub args: <T as DocumentTransaction>::Args,
+    pub args: <T as DataTransaction>::Args,
 }
 
 /// Data required to redo a transaction.
-type RedoUnit<T> = <T as DocumentTransaction>::Args;
+type RedoUnit<T> = <T as DataTransaction>::Args;
 
 // TODO: rename these types
 /// Represents the state of a document transaction that can be reversed.
 #[derive(Debug, Clone, PartialEq)]
-pub enum AppliedTransaction<D: ReversibleDocumentTransaction, U: ReversibleDocumentTransaction> {
-    Document(UndoUnit<D>),
-    User(UndoUnit<U>),
+pub enum AppliedTransaction<D: ReversibleDataTransaction, U: ReversibleDataTransaction> {
+    Persistent(UndoUnit<D>),
+    PersistentUser(UndoUnit<U>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum UndoneTransaction<D: ReversibleDocumentTransaction, U: ReversibleDocumentTransaction> {
-    Document(RedoUnit<D>),
-    User(RedoUnit<U>),
+pub enum UndoneTransaction<D: ReversibleDataTransaction, U: ReversibleDataTransaction> {
+    Persistent(RedoUnit<D>),
+    PersistentUser(RedoUnit<U>),
 }
 
 /// Represents the state of a transaction that can be reversed.
 #[derive(Debug, Clone, PartialEq)]
-pub enum TransactionState<D: ReversibleDocumentTransaction, U: ReversibleDocumentTransaction> {
+pub enum TransactionState<D: ReversibleDataTransaction, U: ReversibleDataTransaction> {
     Applied(AppliedTransaction<D, U>),
     Undone(UndoneTransaction<D, U>),
     Failed(UndoneTransaction<D, U>),
@@ -45,30 +45,28 @@ pub enum TransactionState<D: ReversibleDocumentTransaction, U: ReversibleDocumen
 
 /// Represents the state of a transaction history.
 #[derive(Debug, Clone, PartialEq)]
-pub struct TransactionHistoryState<
-    D: ReversibleDocumentTransaction,
-    U: ReversibleDocumentTransaction,
-> {
+pub struct TransactionHistoryState<D: ReversibleDataTransaction, U: ReversibleDataTransaction> {
     pub session: Uuid,
     pub name: String,
     pub state: TransactionState<D, U>,
 }
 
 // TODO: make this more private
-/// Represents an internal model of a document within a project in `CADara`.
+/// Represents an internal model of a data section within a project in `CADara`.
 ///
-/// Used internally by [`Project`] to store data about a document.
+/// Used internally by [`Project`] to store data about a data section.
 ///
 /// [`Project`]: crate::Project
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InternalData<M: Module> {
-    /// Document data for this document
-    pub(crate) document_data: M::DocumentData,
+    /// Persistent data
+    pub(crate) persistent_data: M::PersistentData,
     /// TODO: write doc
     #[serde(skip)]
-    pub transaction_history: VecDeque<TransactionHistoryState<M::DocumentData, M::UserData>>,
+    pub transaction_history:
+        VecDeque<TransactionHistoryState<M::PersistentData, M::PersistentUserData>>,
     /// User-specific data for this document
-    pub(crate) user_data: M::UserData,
+    pub(crate) user_data: M::PersistentUserData,
     /// Shared session data for this document
     // TODO: this was an option
     // TODO: make this a skip conditional (sometimes we might want to deserialize this too)
@@ -87,24 +85,24 @@ pub struct InternalData<M: Module> {
 
 // TODO: make methods private, write docs
 impl<M: Module> InternalData<M> {
-    pub fn apply_document(
+    pub fn apply_persistent(
         &mut self,
-        args: <M::DocumentData as DocumentTransaction>::Args,
+        args: <M::PersistentData as DataTransaction>::Args,
         session_uuid: Uuid,
-    ) -> Result<<M::DocumentData as DocumentTransaction>::Output, SessionApplyError<M>> {
+    ) -> Result<<M::PersistentData as DataTransaction>::Output, SessionApplyError<M>> {
         // First we try to apply the transaction to our internal data
         let (output, undo_data) =
-            ReversibleDocumentTransaction::apply(&mut self.document_data, args.clone()).map_err(
-                |e| SessionApplyError::TransactionFailure(TransactionError::<M>::Document(e)),
+            ReversibleDataTransaction::apply(&mut self.persistent_data, args.clone()).map_err(
+                |e| SessionApplyError::TransactionFailure(TransactionError::<M>::Persistent(e)),
             )?;
 
-        let name = <M::DocumentData as DocumentTransaction>::undo_history_name(&args);
+        let name = <M::PersistentData as DataTransaction>::undo_history_name(&args);
 
         // We can now apply the transaction to all sessions
         for session in &self.sessions {
             let session = session.1.upgrade().unwrap();
-            ReversibleDocumentTransaction::apply_unchecked(
-                &mut session.borrow_mut().document_data,
+            ReversibleDataTransaction::apply_unchecked(
+                &mut session.borrow_mut().persistent,
                 args.clone(),
             );
         }
@@ -113,7 +111,7 @@ impl<M: Module> InternalData<M> {
         self.transaction_history.push_back(TransactionHistoryState {
             session: session_uuid,
             name,
-            state: TransactionState::Applied(AppliedTransaction::Document(UndoUnit {
+            state: TransactionState::Applied(AppliedTransaction::Persistent(UndoUnit {
                 undo_data,
                 args,
             })),
@@ -125,10 +123,10 @@ impl<M: Module> InternalData<M> {
 
     pub fn apply_user(
         &mut self,
-        args: <M::UserData as DocumentTransaction>::Args,
+        args: <M::PersistentUserData as DataTransaction>::Args,
         session_uuid: Uuid,
-    ) -> Result<<M::UserData as DocumentTransaction>::Output, SessionApplyError<M>> {
-        // For now we just do the same thing as apply_document, since we haven't implemented
+    ) -> Result<<M::PersistentUserData as DataTransaction>::Output, SessionApplyError<M>> {
+        // For now we just do the same thing as apply_persistent, since we haven't implemented
         // multiple users yet
 
         // for now we assume that there is only one user
@@ -137,16 +135,16 @@ impl<M: Module> InternalData<M> {
 
         // First we try to apply the transaction to our internal data
         let (output, undo_data) =
-            ReversibleDocumentTransaction::apply(&mut self.user_data, args.clone()).map_err(
-                |e| SessionApplyError::TransactionFailure(TransactionError::<M>::User(e)),
-            )?;
-        let name = <M::UserData as DocumentTransaction>::undo_history_name(&args);
+            ReversibleDataTransaction::apply(&mut self.user_data, args.clone()).map_err(|e| {
+                SessionApplyError::TransactionFailure(TransactionError::<M>::PersistentUser(e))
+            })?;
+        let name = <M::PersistentUserData as DataTransaction>::undo_history_name(&args);
 
         // We can now apply the transaction to all sessions
         for session in &self.sessions {
             let session = session.1.upgrade().unwrap();
-            ReversibleDocumentTransaction::apply_unchecked(
-                &mut session.borrow_mut().user_data,
+            ReversibleDataTransaction::apply_unchecked(
+                &mut session.borrow_mut().persistent_user,
                 args.clone(),
             );
         }
@@ -156,7 +154,7 @@ impl<M: Module> InternalData<M> {
         self.transaction_history.push_back(TransactionHistoryState {
             session: session_uuid,
             name,
-            state: TransactionState::Applied(AppliedTransaction::User(UndoUnit {
+            state: TransactionState::Applied(AppliedTransaction::PersistentUser(UndoUnit {
                 undo_data,
                 args,
             })),
@@ -168,9 +166,9 @@ impl<M: Module> InternalData<M> {
 
     pub fn apply_shared(
         &mut self,
-        args: &<M::SharedData as DocumentTransaction>::Args,
+        args: &<M::SharedData as DataTransaction>::Args,
         _session_uuid: Uuid,
-    ) -> Result<<M::SharedData as DocumentTransaction>::Output, SessionApplyError<M>> {
+    ) -> Result<<M::SharedData as DataTransaction>::Output, SessionApplyError<M>> {
         // Works like apply_user, but with no distinction between different users
 
         // TODO: we currently take a session_uuid, think where it is appropriate

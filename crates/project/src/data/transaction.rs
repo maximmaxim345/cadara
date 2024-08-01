@@ -1,4 +1,4 @@
-use module::{DocumentTransaction, Module};
+use module::{DataTransaction, Module};
 
 // TODO: complete docs
 
@@ -7,10 +7,10 @@ use module::{DocumentTransaction, Module};
 /// [`DataSession`]: crate::data::DataSession
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum TransactionArgs<M: Module> {
-    Document(<M::DocumentData as DocumentTransaction>::Args),
-    User(<M::UserData as DocumentTransaction>::Args),
-    Session(<M::SessionData as DocumentTransaction>::Args),
-    Shared(<M::SharedData as DocumentTransaction>::Args),
+    Persistent(<M::PersistentData as DataTransaction>::Args),
+    PersistentUser(<M::PersistentUserData as DataTransaction>::Args),
+    Session(<M::SessionData as DataTransaction>::Args),
+    Shared(<M::SharedData as DataTransaction>::Args),
 }
 
 /// The output of a transaction applied to a [`DataSession`].
@@ -18,19 +18,19 @@ pub enum TransactionArgs<M: Module> {
 /// [`DataSession`]: crate::data::DataSession
 #[derive(Debug, Clone, PartialEq)]
 pub enum TransactionOutput<M: Module> {
-    Document(<M::DocumentData as DocumentTransaction>::Output),
-    User(<M::UserData as DocumentTransaction>::Output),
-    Session(<M::SessionData as DocumentTransaction>::Output),
-    Shared(<M::SharedData as DocumentTransaction>::Output),
+    Persistent(<M::PersistentData as DataTransaction>::Output),
+    PersistentUser(<M::PersistentUserData as DataTransaction>::Output),
+    Session(<M::SessionData as DataTransaction>::Output),
+    Shared(<M::SharedData as DataTransaction>::Output),
 }
 
 /// Common error type for all transactions on a document.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TransactionError<M: Module> {
-    Document(<M::DocumentData as DocumentTransaction>::Error),
-    User(<M::UserData as DocumentTransaction>::Error),
-    Session(<M::SessionData as DocumentTransaction>::Error),
-    Shared(<M::SharedData as DocumentTransaction>::Error),
+    Persistent(<M::PersistentData as DataTransaction>::Error),
+    PersistentUser(<M::PersistentUserData as DataTransaction>::Error),
+    Session(<M::SessionData as DataTransaction>::Error),
+    Shared(<M::SharedData as DataTransaction>::Error),
 }
 
 /// The error that can occur when applying a transaction to a [`DataSession`].

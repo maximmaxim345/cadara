@@ -6,20 +6,20 @@ use std::{
 };
 use uuid::Uuid;
 
-/// The internal representation of a document session.
+/// The internal representation of a data session.
 #[derive(Clone, Debug)]
 pub struct InternalDataSession<M: Module> {
-    /// Persistent document data for this session.
+    /// Persistent data for this session.
     ///
     /// Synced with other sessions and the project.
-    pub document_data: M::DocumentData,
+    pub persistent: M::PersistentData,
     /// Persistent user-specific data for this session.
-    pub user_data: M::UserData,
+    pub persistent_user: M::PersistentUserData,
     /// Non-persistent user-specific data for this session.
     pub session_data: M::SessionData,
     /// Non-persistent data shared among users for this session.
     pub shared_data: M::SharedData,
-    /// A weak reference to the `Project` to which this document belongs.
+    /// A weak reference to the `Project` to which this data belongs.
     pub _project_ref: Weak<RefCell<InternalProject>>,
     // TODO: delete this and project_ref field -> move to Session
     /// A weak reference to the internal representation of this data section.
@@ -71,8 +71,8 @@ impl<M: Module> InternalDataSession<M> {
         let shared_data = data.shared_data.clone().unwrap();
 
         let session = Self {
-            document_data: data.document_data.clone(),
-            user_data: data.user_data.clone(),
+            persistent: data.persistent_data.clone(),
+            persistent_user: data.user_data.clone(),
             shared_data,
             session_data: M::SessionData::default(),
             _project_ref: Rc::downgrade(project),

@@ -501,7 +501,7 @@ impl ProjectSession {
         let session = InternalDataSession::new(data_model, project, data_uuid, self.user);
         Some(DataSession {
             session,
-            document_model_ref: Rc::downgrade(&data_model.0),
+            data_model_ref: Rc::downgrade(&data_model.0),
         })
     }
 }

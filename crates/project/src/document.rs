@@ -88,8 +88,8 @@ impl DocumentSession {
 
         let mut project = self.project.borrow_mut();
         let data = InternalData::<M> {
-            document_data: M::DocumentData::default(),
-            user_data: M::UserData::default(),
+            persistent_data: M::PersistentData::default(),
+            user_data: M::PersistentUserData::default(),
             sessions: vec![],
             module_uuid: M::uuid(),
             shared_data: None,
