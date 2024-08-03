@@ -3,7 +3,7 @@
 //! Each document is a collection of data sections, which is displayed to the user as a single item.
 
 use crate::{
-    data::{internal::InternalData, DataSession},
+    data::{internal::InternalData, DataSession, DataUuid},
     user::User,
     DataModel, ErasedDataModel, InternalProject, ProjectSession,
 };
@@ -15,11 +15,30 @@ use uuid::Uuid;
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct DocumentSession {
     /// Identifier of this document
-    pub(crate) document: Uuid,
+    pub(crate) document: DocumentUuid,
     /// Encapsulates the internal representation of the project, including documents and metadata.
     pub(crate) project: Rc<RefCell<InternalProject>>,
     /// The user currently interacting with the project.
     pub(crate) user: User,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[serde(transparent)]
+pub struct DocumentUuid {
+    uuid: Uuid,
+}
+
+impl DocumentUuid {
+    // TODO: make this pub(crate)
+    #[must_use]
+    pub const fn new(uuid: Uuid) -> Self {
+        Self { uuid }
+    }
+
+    #[must_use]
+    pub fn new_v4() -> Self {
+        Self::new(Uuid::new_v4())
+    }
 }
 
 impl DocumentSession {
@@ -33,7 +52,7 @@ impl DocumentSession {
     ///
     /// An `Option` containing a `DataSession` if the data section exists, or `None` otherwise.
     #[must_use]
-    pub fn open_data_by_uuid<M: Module>(&self, data_uuid: Uuid) -> Option<DataSession<M>> {
+    pub fn open_data_by_uuid<M: Module>(&self, data_uuid: DataUuid) -> Option<DataSession<M>> {
         if self.project.borrow().documents[&self.document]
             .data
             .iter()
@@ -83,8 +102,8 @@ impl DocumentSession {
     ///
     /// If the document was deleted after creating this session object.
     #[must_use]
-    pub fn create_data<M: Module>(&self) -> Uuid {
-        let new_data_uuid = Uuid::new_v4();
+    pub fn create_data<M: Module>(&self) -> DataUuid {
+        let new_data_uuid = DataUuid::new_v4();
 
         let mut project = self.project.borrow_mut();
         let data = InternalData::<M> {

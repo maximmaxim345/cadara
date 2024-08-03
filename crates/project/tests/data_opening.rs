@@ -1,7 +1,7 @@
 mod common;
 use common::{minimal_test_module::MinimalTestModule, test_module::TestModule};
+use data::DataUuid;
 use project::*;
-use uuid::Uuid;
 
 #[test]
 fn test_attempt_open_data_with_incorrect_module() {
@@ -25,7 +25,7 @@ fn test_open_nonexistent_data() {
     let doc = project.open_document(doc_uuid).unwrap();
 
     assert!(doc
-        .open_data_by_uuid::<TestModule>(Uuid::new_v4())
+        .open_data_by_uuid::<TestModule>(DataUuid::new_v4())
         .is_none());
 }
 

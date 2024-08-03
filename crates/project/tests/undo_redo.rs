@@ -1,16 +1,15 @@
 mod common;
 use common::test_module::*;
-use data::DataSession;
+use data::{DataSession, DataUuid};
 use project::data::transaction::TransactionArgs;
 use project::*;
 use utils::Transaction;
-use uuid::Uuid;
 
 fn create_undo_redo_test_setup() -> (
     ProjectSession,
     DataSession<TestModule>,
     DataSession<TestModule>,
-    Uuid,
+    DataUuid,
     Vec<TestTransaction>,
 ) {
     let project = Project::new("Project".to_string()).create_session();

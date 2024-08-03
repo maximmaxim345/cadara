@@ -21,8 +21,9 @@ pub mod document;
 pub mod manager;
 pub mod user;
 
+use data::DataUuid;
 use data::{internal::InternalData, session::internal::InternalDataSession, DataSession};
-use document::DocumentSession;
+use document::{DocumentSession, DocumentUuid};
 use module::Module;
 use serde::de::{DeserializeSeed, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -81,7 +82,7 @@ struct ErasedDataModel {
 /// Defines the metadata and the identifiers of containing data sections.
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct DocumentRecord {
-    data: Vec<Uuid>,
+    data: Vec<DataUuid>,
 }
 
 // TODO: maybe custom serialization logic can be replaced with the typetag crate
@@ -350,9 +351,9 @@ where
 #[derive(Serialize, Deserialize, Debug)]
 struct InternalProject {
     /// A map linking data UUIDs to their corresponding type-erased data model.
-    data: HashMap<Uuid, ErasedDataModel>,
+    data: HashMap<DataUuid, ErasedDataModel>,
     /// A map of all documents found in this project
-    documents: HashMap<Uuid, DocumentRecord>,
+    documents: HashMap<DocumentUuid, DocumentRecord>,
     /// The name of the project.
     name: String,
     /// A list of tags associated with the project for categorization or searchability.
@@ -444,7 +445,7 @@ impl ProjectSession {
     ///
     /// An `Option` containing a `DocumentSession` if the document could be opened, or `None` otherwise.
     #[must_use]
-    pub fn open_document(&self, document_uuid: Uuid) -> Option<DocumentSession> {
+    pub fn open_document(&self, document_uuid: DocumentUuid) -> Option<DocumentSession> {
         let project = self.project.borrow_mut();
         let _ = project.documents.get(&document_uuid)?;
         Some(DocumentSession {
@@ -460,8 +461,8 @@ impl ProjectSession {
     ///
     /// The unique identifier [`Uuid`] of the newly created document.
     #[must_use]
-    pub fn create_document(&self) -> Uuid {
-        let new_doc_uuid = Uuid::new_v4();
+    pub fn create_document(&self) -> DocumentUuid {
+        let new_doc_uuid = DocumentUuid::new_v4();
 
         let mut project = self.project.borrow_mut();
         project
@@ -483,7 +484,7 @@ impl ProjectSession {
     ///
     /// An `Option` containing a `DataSession` if found, or `None` otherwise.
     #[must_use]
-    pub fn open_data<M: Module>(&self, data_uuid: Uuid) -> Option<DataSession<M>> {
+    pub fn open_data<M: Module>(&self, data_uuid: DataUuid) -> Option<DataSession<M>> {
         // TODO: Option -> Result
         let project = &self.project;
 

@@ -5,7 +5,26 @@
 
 // Public modules and re-exports
 pub mod transaction;
+use serde::{Deserialize, Serialize};
 pub use session::{DataSession, Snapshot};
+use uuid::Uuid;
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[serde(transparent)]
+pub struct DataUuid {
+    uuid: Uuid,
+}
+
+impl DataUuid {
+    pub(crate) const fn new(uuid: Uuid) -> Self {
+        Self { uuid }
+    }
+
+    #[must_use]
+    pub fn new_v4() -> Self {
+        Self::new(Uuid::new_v4())
+    }
+}
 
 // Internal modules
 pub(crate) mod internal;

@@ -1,12 +1,12 @@
 mod common;
+use document::DocumentUuid;
 use project::*;
-use uuid::Uuid;
 
 #[test]
 fn test_attempt_open_nonexistent_document() {
     let project = Project::new("Project".to_string()).create_session();
 
-    let doc = project.open_document(Uuid::new_v4());
+    let doc = project.open_document(DocumentUuid::new_v4());
     assert!(doc.is_none());
 }
 

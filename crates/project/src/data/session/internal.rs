@@ -1,5 +1,5 @@
 use super::Module;
-use crate::{user::User, DataModel, InternalData, InternalProject};
+use crate::{data::DataUuid, user::User, DataModel, InternalData, InternalProject};
 use std::{
     cell::RefCell,
     rc::{Rc, Weak},
@@ -25,7 +25,7 @@ pub struct InternalDataSession<M: Module> {
     /// A weak reference to the internal representation of this data section.
     pub data_model_ref: Weak<RefCell<InternalData<M>>>,
     /// The unique identifier of the document.
-    pub _data_uuid: Uuid,
+    pub _data_uuid: DataUuid,
     /// The unique identifier of this session.
     pub session_uuid: Uuid,
 }
@@ -53,7 +53,7 @@ impl<M: Module> InternalDataSession<M> {
     pub fn new(
         data_model: &DataModel<M>,
         project: &Rc<RefCell<InternalProject>>,
-        data_uuid: Uuid,
+        data_uuid: DataUuid,
         user: User,
     ) -> Rc<RefCell<Self>> {
         let mut data = data_model.0.borrow_mut();
