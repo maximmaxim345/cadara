@@ -39,12 +39,12 @@ use uuid::Uuid;
 
 /// A trait for type-erased data models, enabling polymorphic handling of different data types.
 ///
-/// This trait allows for the storage of any `DataModel` type while providing
+/// This trait allows for the storage of any [`DataModel`] type while providing
 /// mechanisms to recover the specific type through downcasting. It also facilitates
 /// serialization of data without knowing their concrete types.
 trait DataModelTrait: erased_serde::Serialize + Debug {
     /// Retrieves a mutable reference to the underlying type as a trait object.
-    /// This is used for downcasting to the concrete `DataModel` type.
+    /// This is used for downcasting to the concrete [`DataModel`] type.
     fn as_any(&mut self) -> &mut dyn Any;
 }
 erased_serde::serialize_trait_object!(DataModelTrait);
@@ -53,7 +53,7 @@ erased_serde::serialize_trait_object!(DataModelTrait);
 ///
 /// This struct encapsulates an [`InternalData`] within `Rc<RefCell<...>>` to enable
 /// shared ownership and mutability across different parts of the code. It is designed to work
-/// with data models that implement the `Module` trait.
+/// with data models that implement the [`Module`] trait.
 #[derive(Clone, Debug, Deserialize)]
 struct DataModel<M: Module>(Rc<RefCell<InternalData<M>>>);
 
@@ -66,9 +66,9 @@ thread_local! {
     static MODULE_REGISTRY: RefCell<Option<*const ModuleRegistry>> = const { RefCell::new(None) };
 }
 
-/// A struct representing a type-erased `DataModel`.
+/// A struct representing a type-erased [`DataModel`].
 ///
-/// This struct holds a `Uuid` identifying the document and a boxed `DataModelTrait`,
+/// This struct holds a [`Uuid`] identifying the document and a boxed [`DataModelTrait`],
 /// allowing for the storage and serialization of various data types without
 /// knowing their concrete types at compile time.
 #[derive(Debug, Serialize)]
@@ -368,8 +368,8 @@ struct InternalProject {
 ///
 /// Interact with this Project through a [`ProjectSession`] by calling [`Project::create_session`].
 ///
-/// A `Project` serves as the primary container for documents, which can represent parts,
-/// assemblies, or other data units. Each document is uniquely identified by a `Uuid`.
+/// A [`Project`] serves as the primary container for documents, which can represent parts,
+/// assemblies, or other data units. Each document is uniquely identified by a [`Uuid`].
 ///
 /// Projects can be saved to and loaded from disk, but it is recommended to manage projects
 /// through a [`ProjectManager`] to ensure data integrity, especially in multi-user scenarios.
@@ -443,7 +443,7 @@ impl ProjectSession {
     ///
     /// # Returns
     ///
-    /// An `Option` containing a `DocumentSession` if the document could be opened, or `None` otherwise.
+    /// An `Option` containing a [`DocumentSession`] if the document could be opened, or `None` otherwise.
     #[must_use]
     pub fn open_document(&self, document_uuid: DocumentUuid) -> Option<DocumentSession> {
         let project = self.project.borrow_mut();

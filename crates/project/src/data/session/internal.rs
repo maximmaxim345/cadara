@@ -19,7 +19,7 @@ pub struct InternalDataSession<M: Module> {
     pub session_data: M::SessionData,
     /// Non-persistent data shared among users for this session.
     pub shared_data: M::SharedData,
-    /// A weak reference to the `Project` to which this data belongs.
+    /// A weak reference to the [`crate::Project`] to which this data belongs.
     pub _project_ref: Weak<RefCell<InternalProject>>,
     // TODO: delete this and project_ref field -> move to Session
     /// A weak reference to the internal representation of this data section.

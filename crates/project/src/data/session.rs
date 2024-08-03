@@ -56,7 +56,7 @@ impl<M: Module> DataSession<M> {
     /// data shared among users for the current session.
     ///
     /// # Returns
-    /// A `Snapshot<M>` that encapsulates the session's current state.
+    /// A [`Snapshot<M>`] that encapsulates the session's current state.
     #[must_use]
     pub fn snapshot(&self) -> Snapshot<M> {
         let session = self.session.borrow();
@@ -70,7 +70,7 @@ impl<M: Module> DataSession<M> {
 
     // TODO: add doc
     fn apply_session(
-        &mut self,
+        &self,
         args: <M::SessionData as DataTransaction>::Args,
     ) -> Result<<M::SessionData as DataTransaction>::Output, transaction::SessionApplyError<M>>
     {
@@ -96,7 +96,7 @@ impl<M: Module> DataSession<M> {
     /// If the index points outside the list (i.e., it's equal to the length of the list),
     /// it means that all transactions have been applied and none can be redone.
     ///
-    /// To undo or redo a specific number of transactions, use the `undo` and `redo` functions
+    /// To undo or redo a specific number of transactions, use [`DataSession::undo`] and [`DataSession::redo`].
     /// with the number of steps to move from the current position.
     ///
     /// # Returns
@@ -164,7 +164,7 @@ impl<M: Module> DataSession<M> {
     ///
     /// This function is not expected to panic under normal circumstances.
     #[allow(clippy::too_many_lines)]
-    pub fn undo(&mut self, n: usize) {
+    pub fn undo(&self, n: usize) {
         enum UndoData<D: ReversibleDataTransaction, U: ReversibleDataTransaction> {
             Persistent(D::UndoData),
             PersistentUser(U::UndoData),
@@ -529,7 +529,7 @@ impl<M: Module> DataSession<M> {
     /// If any other sessions applied transactions after the transaction that is being redone,
     /// the system will attempt to reapply all those transactions which are still valid.
     /// For instance, if a transaction from another user became invalid due to an undo operation,
-    /// calling `redo` will make it valid again.
+    /// calling [`DataSession::redo`] will make it valid again.
     ///
     /// # Arguments
     ///
@@ -539,7 +539,7 @@ impl<M: Module> DataSession<M> {
     ///
     /// This function is not expected to panic under normal circumstances.
     #[allow(clippy::too_many_lines)]
-    pub fn redo(&mut self, n: usize) {
+    pub fn redo(&self, n: usize) {
         // enum RedoData<D: ReversibleDataTransaction, U: ReversibleDataTransaction> {
         //     Persistent(D::UndoData),
         //     PersistentUser(U::UndoData),
