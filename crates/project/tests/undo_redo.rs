@@ -1,44 +1,45 @@
 mod common;
 use common::test_module::*;
-use document::Session;
-use project::document::transaction::TransactionArgs;
+use data::{DataSession, DataUuid};
+use project::data::transaction::TransactionArgs;
 use project::*;
 use utils::Transaction;
-use uuid::Uuid;
 
 fn create_undo_redo_test_setup() -> (
-    Project,
-    Session<TestModule>,
-    Session<TestModule>,
-    Uuid,
+    ProjectSession,
+    DataSession<TestModule>,
+    DataSession<TestModule>,
+    DataUuid,
     Vec<TestTransaction>,
 ) {
-    let project = Project::new("Project".to_string());
-    let doc_uuid = project.create_document::<TestModule>();
+    let project = Project::new("Project".to_string()).create_session();
+    let doc = project.create_document();
+    let doc = project.open_document(doc).unwrap();
+    let data_uuid = doc.create_data::<TestModule>();
 
-    let mut session1 = project.open_document::<TestModule>(doc_uuid).unwrap();
-    let mut session2 = project.open_document::<TestModule>(doc_uuid).unwrap();
+    let mut session1 = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
+    let mut session2 = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
 
     let transactions = vec![
         (
             1,
-            TransactionArgs::Document(TestTransaction::SetWord("word_a".to_string())),
+            TransactionArgs::Persistent(TestTransaction::SetWord("word_a".to_string())),
         ),
         (
             1,
-            TransactionArgs::User(TestTransaction::SetWord("word_b".to_string())),
+            TransactionArgs::PersistentUser(TestTransaction::SetWord("word_b".to_string())),
         ),
         (
             2,
-            TransactionArgs::Document(TestTransaction::SetWord("word_c".to_string())),
+            TransactionArgs::Persistent(TestTransaction::SetWord("word_c".to_string())),
         ),
         (
             2,
-            TransactionArgs::User(TestTransaction::SetWord("word_d".to_string())),
+            TransactionArgs::PersistentUser(TestTransaction::SetWord("word_d".to_string())),
         ),
         (
             1,
-            TransactionArgs::Document(TestTransaction::SetWord("word_e".to_string())),
+            TransactionArgs::Persistent(TestTransaction::SetWord("word_e".to_string())),
         ),
     ];
 
@@ -56,8 +57,8 @@ fn create_undo_redo_test_setup() -> (
     let transactions = transactions
         .into_iter()
         .map(|(_, transaction)| match transaction {
-            TransactionArgs::Document(transaction) => transaction,
-            TransactionArgs::User(transaction) => transaction,
+            TransactionArgs::Persistent(transaction) => transaction,
+            TransactionArgs::PersistentUser(transaction) => transaction,
             TransactionArgs::Session(transaction) => transaction,
             TransactionArgs::Shared(transaction) => transaction,
         })
@@ -71,8 +72,8 @@ fn create_undo_redo_test_setup() -> (
     session1.redo(1);
 
     let snapshot = session1.snapshot();
-    assert_eq!(snapshot.document.single_word, "word_e".to_string());
-    assert_eq!(snapshot.user.single_word, "word_d".to_string());
+    assert_eq!(snapshot.persistent.single_word, "word_e".to_string());
+    assert_eq!(snapshot.persistent_user.single_word, "word_d".to_string());
 
     let (hist, loc) = session1.undo_redo_list();
     assert_eq!(
@@ -95,7 +96,7 @@ fn create_undo_redo_test_setup() -> (
     );
     assert_eq!(loc, 2);
 
-    (project, session1, session2, doc_uuid, transactions)
+    (project, session1, session2, data_uuid, transactions)
 }
 
 #[test]
@@ -103,12 +104,12 @@ fn test_undo_document_one_user() {
     // Both session are owned by the same user
     let (project, mut session1, mut session2, doc_uuid, transactions) =
         create_undo_redo_test_setup();
-    let session_doc_closure = project.open_document::<TestModule>(doc_uuid).unwrap();
-    let session_user_closure = project.open_document::<TestModule>(doc_uuid).unwrap();
+    let session_doc_closure = project.open_data::<TestModule>(doc_uuid).unwrap();
+    let session_user_closure = project.open_data::<TestModule>(doc_uuid).unwrap();
     // closures for getting a current snapshot of both data sections and the internal log
     // Since all sessions are owned by the same user, the data should be the same
-    let document = || session_doc_closure.snapshot().document;
-    let user = || session_user_closure.snapshot().user;
+    let document = || session_doc_closure.snapshot().persistent;
+    let user = || session_user_closure.snapshot().persistent_user;
     let get_doc_log_and_clear = || {
         let doc_log_uuid = document().logging_uuid;
         let doc_log = get_transaction_log(doc_log_uuid);
@@ -257,12 +258,12 @@ fn test_redo_document_one_user() {
     // Both session are owned by the same user
     let (project, mut session1, mut session2, doc_uuid, transactions) =
         create_undo_redo_test_setup();
-    let session_doc_closure = project.open_document::<TestModule>(doc_uuid).unwrap();
-    let session_user_closure = project.open_document::<TestModule>(doc_uuid).unwrap();
+    let session_doc_closure = project.open_data::<TestModule>(doc_uuid).unwrap();
+    let session_user_closure = project.open_data::<TestModule>(doc_uuid).unwrap();
     // closures for getting a current snapshot of both data sections and the internal log
     // Since all sessions are owned by the same user, the data should be the same
-    let document = || session_doc_closure.snapshot().document;
-    let user = || session_user_closure.snapshot().user;
+    let document = || session_doc_closure.snapshot().persistent;
+    let user = || session_user_closure.snapshot().persistent_user;
     let get_doc_log_and_clear = || {
         let doc_log_uuid = document().logging_uuid;
         let doc_log = get_transaction_log(doc_log_uuid);
@@ -475,32 +476,45 @@ fn test_redo_document_one_user() {
 
 #[test]
 fn test_undo_redo_on_failed_transactions() {
-    let project = Project::new("Project".to_string());
-    let doc_uuid = project.create_document::<TestModule>();
+    let project = Project::new("Project".to_string()).create_session();
+    let doc_uuid = project.create_document();
+    let data_uuid = project
+        .open_document(doc_uuid)
+        .unwrap()
+        .create_data::<TestModule>();
 
-    let mut session2 = project.open_document::<TestModule>(doc_uuid).unwrap();
-    let mut session3 = project.open_document::<TestModule>(doc_uuid).unwrap();
-    let mut session1 = project.open_document::<TestModule>(doc_uuid).unwrap();
+    let mut session2 = project.open_data::<TestModule>(data_uuid).unwrap();
+    let mut session3 = project.open_data::<TestModule>(data_uuid).unwrap();
+    let mut session1 = project.open_data::<TestModule>(data_uuid).unwrap();
 
     let transactions = vec![
         (
             1,
-            TransactionArgs::Document(TestTransaction::SetNumber(101)),
+            TransactionArgs::Persistent(TestTransaction::SetNumber(101)),
         ),
-        (1, TransactionArgs::User(TestTransaction::SetNumber(201))),
-        (1, TransactionArgs::User(TestTransaction::SetNumber(51))),
+        (
+            1,
+            TransactionArgs::PersistentUser(TestTransaction::SetNumber(201)),
+        ),
+        (
+            1,
+            TransactionArgs::PersistentUser(TestTransaction::SetNumber(51)),
+        ),
         (
             2,
-            TransactionArgs::Document(TestTransaction::SetNumber(301)),
+            TransactionArgs::Persistent(TestTransaction::SetNumber(301)),
         ),
         (
             3,
-            TransactionArgs::User(TestTransaction::FailIfNumberIsOver100),
+            TransactionArgs::PersistentUser(TestTransaction::FailIfNumberIsOver100),
         ),
-        (2, TransactionArgs::Document(TestTransaction::SetNumber(1))),
+        (
+            2,
+            TransactionArgs::Persistent(TestTransaction::SetNumber(1)),
+        ),
         (
             3,
-            TransactionArgs::Document(TestTransaction::FailIfNumberIsOver100),
+            TransactionArgs::Persistent(TestTransaction::FailIfNumberIsOver100),
         ),
     ];
 
@@ -519,8 +533,8 @@ fn test_undo_redo_on_failed_transactions() {
     let transactions: Vec<TestTransaction> = transactions
         .into_iter()
         .map(|(_, transaction)| match transaction {
-            TransactionArgs::Document(transaction) => transaction,
-            TransactionArgs::User(transaction) => transaction,
+            TransactionArgs::Persistent(transaction) => transaction,
+            TransactionArgs::PersistentUser(transaction) => transaction,
             TransactionArgs::Session(transaction) => transaction,
             TransactionArgs::Shared(transaction) => transaction,
         })
@@ -535,12 +549,12 @@ fn test_undo_redo_on_failed_transactions() {
 
     // We already tested the undo_redo_list in the previous tests
 
-    let session_doc_closure = project.open_document::<TestModule>(doc_uuid).unwrap();
-    let session_user_closure = project.open_document::<TestModule>(doc_uuid).unwrap();
+    let session_doc_closure = project.open_data::<TestModule>(data_uuid).unwrap();
+    let session_user_closure = project.open_data::<TestModule>(data_uuid).unwrap();
     // closures for getting a current snapshot of both data sections and the internal log
     // Since all sessions are owned by the same user, the data should be the same
-    let document = || session_doc_closure.snapshot().document;
-    let user = || session_user_closure.snapshot().user;
+    let document = || session_doc_closure.snapshot().persistent;
+    let user = || session_user_closure.snapshot().persistent_user;
     let get_doc_log_and_clear = || {
         let doc_log_uuid = document().logging_uuid;
         let doc_log = get_transaction_log(doc_log_uuid);

@@ -1,8 +1,5 @@
-use document::Module;
-use project::transaction::DocumentTransaction;
-use project::*;
+use module::{DataTransaction, Module, ReversibleDataTransaction};
 use serde::{Deserialize, Serialize};
-use transaction::ReversibleDocumentTransaction;
 use uuid::Uuid;
 
 use lazy_static::lazy_static;
@@ -20,7 +17,7 @@ pub enum TransactionStatus {
 
 pub type TransactionLog = Vec<(
     TransactionStatus,
-    <TestDataSection as DocumentTransaction>::Args,
+    <TestDataSection as DataTransaction>::Args,
 )>;
 
 lazy_static! {
@@ -84,14 +81,13 @@ pub enum TestTransactionError {
     InvalidNumber,
 }
 
-impl DocumentTransaction for TestDataSection {
+impl DataTransaction for TestDataSection {
     type Args = TestTransaction;
     type Error = TestTransactionError;
     type Output = String;
     fn apply(&mut self, args: Self::Args) -> Result<Self::Output, Self::Error> {
         // Use the undoable transaction to implement this
-        <Self as ReversibleDocumentTransaction>::apply(self, args)
-            .map(|(output, _undo_data)| output)
+        <Self as ReversibleDataTransaction>::apply(self, args).map(|(output, _undo_data)| output)
     }
 
     fn undo_history_name(args: &Self::Args) -> String {
@@ -103,7 +99,7 @@ impl DocumentTransaction for TestDataSection {
     }
 }
 
-impl ReversibleDocumentTransaction for TestDataSection {
+impl ReversibleDataTransaction for TestDataSection {
     type UndoData = (TestTransactionUndoData, Self::Args);
     fn apply(&mut self, args: Self::Args) -> Result<(Self::Output, Self::UndoData), Self::Error> {
         let result = match args.clone() {
@@ -188,8 +184,8 @@ impl ReversibleDocumentTransaction for TestDataSection {
 }
 
 impl Module for TestModule {
-    type DocumentData = TestDataSection;
-    type UserData = TestDataSection;
+    type PersistentData = TestDataSection;
+    type PersistentUserData = TestDataSection;
     type SessionData = TestDataSection;
     type SharedData = TestDataSection;
 
@@ -217,7 +213,7 @@ pub fn test_test_module() {
     // Try applying all 4 transactions
     clear_transaction_log(uuid);
     let undodata_word =
-        ReversibleDocumentTransaction::apply(&mut test_data, transaction_valid_word.clone())
+        ReversibleDataTransaction::apply(&mut test_data, transaction_valid_word.clone())
             .unwrap()
             .1;
     assert_eq!(
@@ -225,11 +221,11 @@ pub fn test_test_module() {
         "Transaction should have been applied"
     );
 
-    let result = DocumentTransaction::apply(&mut test_data, transaction_invalid_word.clone());
+    let result = DataTransaction::apply(&mut test_data, transaction_invalid_word.clone());
     assert!(result.is_err());
 
     let undodata_number =
-        ReversibleDocumentTransaction::apply(&mut test_data, transaction_valid_number.clone())
+        ReversibleDataTransaction::apply(&mut test_data, transaction_valid_number.clone())
             .unwrap()
             .1;
     assert_eq!(
@@ -237,7 +233,7 @@ pub fn test_test_module() {
         "Transaction should have been applied"
     );
 
-    let result = DocumentTransaction::apply(&mut test_data, transaction_invalid_number.clone());
+    let result = DataTransaction::apply(&mut test_data, transaction_invalid_number.clone());
     assert!(result.is_err());
 
     // Test if the transaction log is correct
@@ -260,8 +256,8 @@ pub fn test_test_module() {
 
     // Try undoing the 2 successful transactions
     clear_transaction_log(uuid);
-    ReversibleDocumentTransaction::undo(&mut test_data, undodata_number);
-    ReversibleDocumentTransaction::undo(&mut test_data, undodata_word);
+    ReversibleDataTransaction::undo(&mut test_data, undodata_number);
+    ReversibleDataTransaction::undo(&mut test_data, undodata_word);
     let log = get_transaction_log(uuid);
     assert_eq!(
         log,
@@ -277,12 +273,10 @@ pub fn test_test_module() {
     );
 
     // Try the failing transaction
-    assert!(DocumentTransaction::apply(&mut test_data, TestTransaction::SetNumber(99)).is_ok());
+    assert!(DataTransaction::apply(&mut test_data, TestTransaction::SetNumber(99)).is_ok());
+    assert!(DataTransaction::apply(&mut test_data, TestTransaction::FailIfNumberIsOver100).is_ok());
+    assert!(DataTransaction::apply(&mut test_data, TestTransaction::SetNumber(101)).is_ok());
     assert!(
-        DocumentTransaction::apply(&mut test_data, TestTransaction::FailIfNumberIsOver100).is_ok()
-    );
-    assert!(DocumentTransaction::apply(&mut test_data, TestTransaction::SetNumber(101)).is_ok());
-    assert!(
-        DocumentTransaction::apply(&mut test_data, TestTransaction::FailIfNumberIsOver100).is_err()
+        DataTransaction::apply(&mut test_data, TestTransaction::FailIfNumberIsOver100).is_err()
     );
 }

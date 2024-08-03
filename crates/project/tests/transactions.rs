@@ -1,23 +1,25 @@
 mod common;
 use common::test_module::*;
 
-use project::document::transaction::TransactionArgs;
+use project::data::transaction::TransactionArgs;
 use project::*;
 use utils::Transaction;
 
 #[test]
 fn test_failed_transaction() {
-    let project = Project::new("Project".to_string());
-    let doc_uuid = project.create_document::<TestModule>();
+    let project = Project::new("Project".to_string()).create_session();
+    let doc = project.create_document();
+    let doc = project.open_document(doc).unwrap();
+    let data_uuid = doc.create_data::<TestModule>();
     {
-        let mut session1 = project.open_document::<TestModule>(doc_uuid).unwrap();
-        let session2 = project.open_document::<TestModule>(doc_uuid).unwrap();
+        let mut session1 = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
+        let session2 = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
 
         // Backup the state of the sessions and the document before applying the transactions
         let session1_snapshot_pre = session1.snapshot();
         let session2_snapshot_pre = session2.snapshot();
-        let tmp_session_snapshot_pre = project
-            .open_document::<TestModule>(doc_uuid)
+        let tmp_session_snapshot_pre = doc
+            .open_data_by_uuid::<TestModule>(data_uuid)
             .unwrap()
             .snapshot();
 
@@ -25,10 +27,10 @@ fn test_failed_transaction() {
             // Apply 4 invalid transactions for each data section
             let transaction = TestTransaction::SetWord("Test Test".to_string());
             assert!(session1
-                .apply(TransactionArgs::Document(transaction.clone()))
+                .apply(TransactionArgs::Persistent(transaction.clone()))
                 .is_err());
             assert!(session1
-                .apply(TransactionArgs::User(transaction.clone()))
+                .apply(TransactionArgs::PersistentUser(transaction.clone()))
                 .is_err());
             assert!(session1
                 .apply(TransactionArgs::Session(transaction.clone()))
@@ -41,8 +43,8 @@ fn test_failed_transaction() {
         // Verify that all the states are the same as before
         let session1_snapshot_post = session1.snapshot();
         let session2_snapshot_post = session2.snapshot();
-        let tmp_session_snapshot_post = project
-            .open_document::<TestModule>(doc_uuid)
+        let tmp_session_snapshot_post = doc
+            .open_data_by_uuid::<TestModule>(data_uuid)
             .unwrap()
             .snapshot();
 
@@ -60,9 +62,9 @@ fn test_failed_transaction() {
         );
     }
     {
-        let doc = project.open_document::<TestModule>(doc_uuid).unwrap();
+        let data = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
         assert_eq!(
-            doc.snapshot().session.odd_number,
+            data.snapshot().session.odd_number,
             1,
             "User state should be reset after closing all sessions"
         );

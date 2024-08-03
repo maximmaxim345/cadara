@@ -1,12 +1,19 @@
+#![warn(clippy::nursery)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::cognitive_complexity)]
+
+use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
+use uuid::Uuid;
 
 /// A trait for transactions that can be applied to data section as defined by the [`Module`] trait.
 ///
 /// Implements the Command pattern.
-/// If the transaction is reversible, it should implement the [`ReversibleDocumentTransaction`] trait too.
+/// If the transaction is reversible, it should implement the [`ReversibleDataTransaction`] trait too.
 ///
 /// [`Module`]: crate::Module
-pub trait DocumentTransaction {
+pub trait DataTransaction {
     // TODO: add Debug, Clone, ... to these types
     /// The type of arguments required to apply the transaction.
     type Args: Clone + Debug + PartialEq + Hash;
@@ -66,7 +73,7 @@ pub trait DocumentTransaction {
 }
 
 /// A trait for transactions that can be reversed.
-pub trait ReversibleDocumentTransaction: DocumentTransaction {
+pub trait ReversibleDataTransaction: DataTransaction {
     /// The type of data required to undo the transaction.
     type UndoData: Clone + Debug + PartialEq + Hash;
 
@@ -105,7 +112,7 @@ pub trait ReversibleDocumentTransaction: DocumentTransaction {
     ///   by previously calling apply with the same arguments (on a equivalent object).
     /// - This function should otherwise behave the same as apply.
     fn apply_unchecked(&mut self, args: Self::Args) -> (Self::Output, Self::UndoData) {
-        ReversibleDocumentTransaction::apply(self, args)
+        ReversibleDataTransaction::apply(self, args)
             .unwrap_or_else(|_| panic!("Unchecked transaction failed with error"))
     }
 
@@ -119,4 +126,64 @@ pub trait ReversibleDocumentTransaction: DocumentTransaction {
     /// - This function is pure, therefore when called on a equivalent object with the same undo data,
     ///   it should always produce the same output and leave the object in the same state.
     fn undo(&mut self, undo_data: Self::UndoData);
+}
+
+/// Modules are the main building blocks of a document in `CADara`.
+///
+/// A document is a collection of data sections, which are represented by modules, which define the data structure stored in it.
+/// A module is responsible for defining the following aspects of a data section:
+/// - Data Structure: The data that is stored for each section, separated into four categories.
+/// - Transactions: How transactions are applied to each of the four data structures, which is used to modify the data.
+pub trait Module: Clone + Default + Debug + 'static {
+    /// Data structure used for persistent storage of the data.
+    ///
+    /// # Notes
+    /// - This data is saved to disk and should be enough to load the data from disk.
+    type PersistentData: ReversibleDataTransaction
+        + Clone
+        + Default
+        + Debug
+        + PartialEq
+        + Serialize
+        + for<'a> Deserialize<'a>;
+    /// Data structure used for persistent storage of the user's state.
+    ///
+    /// This data is saved to disk, but should not be necessary to load the data from disk.
+    ///
+    /// # Notes
+    /// - This data is not shared between different users.
+    type PersistentUserData: ReversibleDataTransaction
+        + Clone
+        + Default
+        + Debug
+        + PartialEq
+        + Serialize
+        + for<'a> Deserialize<'a>;
+    /// Data structure used for data which persists until the user closes the session.
+    ///
+    /// # Notes
+    /// - This data is not shared between users.
+    /// - This data is not saved to disk.
+    type SessionData: DataTransaction + Clone + Default + Debug + PartialEq;
+    /// Data structure used for data, which is shared between all sessions/users.
+    ///
+    /// # Notes
+    /// - This data will be synchronized between users.
+    /// - This data is not saved to disk.
+    type SharedData: DataTransaction
+        + Clone
+        + Default
+        + Debug
+        + PartialEq
+        + Serialize
+        + for<'a> Deserialize<'a>;
+
+    /// Returns the human-readable name of the module.
+    fn name() -> String;
+    /// Returns the static [`Uuid`] associated with the module.
+    ///
+    /// # Returns
+    /// The [`Uuid`] associated with the module.
+    /// Must be unique for each module.
+    fn uuid() -> Uuid;
 }

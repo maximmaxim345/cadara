@@ -1,34 +1,32 @@
 pub mod internal;
 
 use super::{
-    internal::{
-        AppliedTransaction, InternalDocumentModel, TransactionState, UndoUnit, UndoneTransaction,
-    },
-    transaction, Module,
+    internal::{AppliedTransaction, InternalData, TransactionState, UndoUnit, UndoneTransaction},
+    transaction,
 };
-use crate::transaction::{DocumentTransaction, ReversibleDocumentTransaction};
-use internal::InternalDocumentSession;
+use internal::InternalDataSession;
+use module::{DataTransaction, Module, ReversibleDataTransaction};
 use std::{
     cell::RefCell,
     rc::{Rc, Weak},
 };
 use utils::Transaction;
 
-/// Represents a snapshot of a document's state in a session.
+/// Represents a snapshot of a data sections state in a session.
 ///
-/// A [`Snapshot`] encapsulates the state of a document at a specific point in time during a session.
-/// It includes both persistent and non-persistent data related to the document and the user.
+/// A [`Snapshot`] encapsulates the state of a data section at a specific point in time during a session.
+/// It includes both persistent and non-persistent data.
 /// TODO: add note saying this is main way to access data <- if true
 ///
-/// retrieved using [`Session::snapshot`].
+/// retrieved using [`DataSession::snapshot`].
 ///
-/// [`Session::snapshot`]: crate::document::Session::snapshot
+/// [`DataSession::snapshot`]: crate::data::DataSession::snapshot
 #[derive(Clone, Default, Debug, PartialEq, Hash)]
 pub struct Snapshot<M: Module> {
-    /// The persistent document data.
-    pub document: M::DocumentData,
+    /// The persistent data.
+    pub persistent: M::PersistentData,
     /// The persistent user-specific data.
-    pub user: M::UserData,
+    pub persistent_user: M::PersistentUserData,
     /// The non-persistent user-specific data.
     pub session: M::SessionData,
     /// The non-persistent data shared among users.
@@ -37,7 +35,7 @@ pub struct Snapshot<M: Module> {
 
 /// Represents an interactive session of a document within a project.
 ///
-/// A [`Session`] encapsulates the state of an open document that is part of a [`Project`].
+/// A [`DataSession`] encapsulates the state of an open document that is part of a [`Project`].
 /// It maintains a copy of the document's state, allowing for concurrent editing and individual
 /// management of persistent and non-persistent data.
 ///
@@ -45,13 +43,13 @@ pub struct Snapshot<M: Module> {
 ///
 /// [`Project`]: crate::Project
 #[derive(Clone, Debug)]
-pub struct Session<M: Module> {
+pub struct DataSession<M: Module> {
     /// The internal implementation of this session.
-    pub(crate) session: Rc<RefCell<InternalDocumentSession<M>>>,
-    pub(crate) document_model_ref: Weak<RefCell<InternalDocumentModel<M>>>,
+    pub(crate) session: Rc<RefCell<InternalDataSession<M>>>,
+    pub(crate) data_model_ref: Weak<RefCell<InternalData<M>>>,
 }
 
-impl<M: Module> Session<M> {
+impl<M: Module> DataSession<M> {
     /// Captures the current state of the session in a snapshot.
     ///
     /// A snapshot includes all relevant session data, such as persistent data and
@@ -63,8 +61,8 @@ impl<M: Module> Session<M> {
     pub fn snapshot(&self) -> Snapshot<M> {
         let session = self.session.borrow();
         Snapshot {
-            document: session.document_data.clone(),
-            user: session.user_data.clone(),
+            persistent: session.persistent.clone(),
+            persistent_user: session.persistent_user.clone(),
             session: session.session_data.clone(),
             shared: session.shared_data.clone(),
         }
@@ -73,8 +71,8 @@ impl<M: Module> Session<M> {
     // TODO: add doc
     fn apply_session(
         &mut self,
-        args: <M::SessionData as DocumentTransaction>::Args,
-    ) -> Result<<M::SessionData as DocumentTransaction>::Output, transaction::SessionApplyError<M>>
+        args: <M::SessionData as DataTransaction>::Args,
+    ) -> Result<<M::SessionData as DataTransaction>::Output, transaction::SessionApplyError<M>>
     {
         let mut internal = self.session.borrow_mut();
         // We do not need to replicate the transaction to other sessions.
@@ -115,9 +113,9 @@ impl<M: Module> Session<M> {
     #[must_use]
     pub fn undo_redo_list(&self) -> (Vec<String>, usize) {
         let session_uuid = self.session.borrow().session_uuid;
-        let ref_cell = self.document_model_ref.upgrade().unwrap();
-        let internal_doc = ref_cell.borrow();
-        let history = &internal_doc.transaction_history;
+        let ref_cell = self.data_model_ref.upgrade().unwrap();
+        let internal_data = ref_cell.borrow();
+        let history = &internal_data.transaction_history;
 
         let mut undo_list = Vec::new();
         let mut position = 0;
@@ -151,7 +149,7 @@ impl<M: Module> Session<M> {
     /// Reverts the last `n` transactions applied to this session.
     ///
     /// This function undoes the last `n` undoable transactions that were applied through this session.
-    /// It only affects the document and user data sections.
+    /// It only affects the persistent and user data sections.
     ///
     /// When a transaction is undone, the state of all other sessions and the project is updated accordingly.
     /// If another session applied a transaction after the one being undone, the system will attempt to reapply all subsequent transactions that are still valid.
@@ -167,27 +165,27 @@ impl<M: Module> Session<M> {
     /// This function is not expected to panic under normal circumstances.
     #[allow(clippy::too_many_lines)]
     pub fn undo(&mut self, n: usize) {
-        enum UndoData<D: ReversibleDocumentTransaction, U: ReversibleDocumentTransaction> {
-            Document(D::UndoData),
-            User(U::UndoData),
+        enum UndoData<D: ReversibleDataTransaction, U: ReversibleDataTransaction> {
+            Persistent(D::UndoData),
+            PersistentUser(U::UndoData),
             WasFailed,
         }
 
         struct UndoAction<M: Module> {
             index: usize,
-            queued: UndoData<M::DocumentData, M::UserData>,
+            queued: UndoData<M::PersistentData, M::PersistentUserData>,
             should_redo: bool,
         }
 
         let session_uuid = self.session.borrow().session_uuid;
-        let ref_cell = self.document_model_ref.upgrade().unwrap();
-        let mut internal_doc = ref_cell.borrow_mut();
+        let ref_cell = self.data_model_ref.upgrade().unwrap();
+        let mut internal_data = ref_cell.borrow_mut();
 
         // This algorithm is a bit tricky, since multi user editing is allowed.
         // Here is an explanation of how it works:
         // - we can keep all transactions before the earliest transaction to undo
         // - remember the index, where the earliest undo needs to be performed to each data section
-        //   (a separate data section is for example document data (for all users), user data of user 1, user data of user 2, ...)
+        //   (a separate data section is for example persistent data (for all users), user data of user 1, user data of user 2, ...)
         //   (if the section is not touched, set the index to the end of the list)
         // - update all transactions until the earliest to undo as follows, in reverse order:
         //   - if we want to undo it: undo the transaction
@@ -204,29 +202,29 @@ impl<M: Module> Session<M> {
         // (t) marks the order of the algorithm
 
         // |               before undo                 |               while undoing
-        // - Session 1: Applied - some doc  transaction <| All transactions before and including this one can be kept as is
-        // - Session 2: Applied - some doc  transaction <(4) undo    << This is a transaction we want to undo, earliest doc
-        // - Session 1: Applied - some doc  transaction <(3) undo and mark <(5) try redo
+        // - Session 1: Applied - some data transaction <| All transactions before and including this one can be kept as is
+        // - Session 2: Applied - some data transaction <(4) undo    << This is a transaction we want to undo, earliest data
+        // - Session 1: Applied - some data transaction <(3) undo and mark <(5) try redo
         // - Session 1: Applied - some usr1 transaction
         // - Session 2: Applied - some usr2 transaction <(2) undo    << This is a transaction we want to undo, earliest usr2
         // - Session 2: Undone  - some usr2 transaction
-        // - Session 1: Applied - some doc  transaction <(1) undo and mark <(6) try redo
+        // - Session 1: Applied - some data transaction <(1) undo and mark <(6) try redo
 
         // |               after undo                  |
-        // - Session 1: Applied - some doc  transaction
-        // - Session 2: Undone  - some doc  transaction
-        // - Session 1: Applied - some doc  transaction
+        // - Session 1: Applied - some data transaction
+        // - Session 2: Undone  - some data transaction
+        // - Session 1: Applied - some data transaction
         // - Session 1: Applied - some usr1 transaction
         // - Session 2: Undone  - some usr2 transaction
         // - Session 2: Undone  - some usr2 transaction
-        // - Session 1: Failed  - some doc  transaction << If a transaction can't be redone, mark it as failed
+        // - Session 1: Failed  - some data transaction << If a transaction can't be redone, mark it as failed
 
         // find the earliest transaction of each section, that we want to undo
-        let mut earliest_undo_doc = internal_doc.transaction_history.len();
-        let mut earliest_undo_user = internal_doc.transaction_history.len();
+        let mut earliest_undo_data = internal_data.transaction_history.len();
+        let mut earliest_undo_user = internal_data.transaction_history.len();
         let mut undos_left = n;
         // We only want to undo transactions that were applied by this session
-        for (index, history_state) in internal_doc
+        for (index, history_state) in internal_data
             .transaction_history
             .iter()
             .enumerate()
@@ -235,10 +233,10 @@ impl<M: Module> Session<M> {
         {
             if let TransactionState::Applied(transaction) = &history_state.state {
                 match transaction {
-                    super::internal::AppliedTransaction::Document(_) => {
-                        earliest_undo_doc = index;
+                    super::internal::AppliedTransaction::Persistent(_) => {
+                        earliest_undo_data = index;
                     }
-                    super::internal::AppliedTransaction::User(_) => {
+                    super::internal::AppliedTransaction::PersistentUser(_) => {
                         earliest_undo_user = index;
                     }
                 }
@@ -254,7 +252,7 @@ impl<M: Module> Session<M> {
         let mut queued_undos: Vec<UndoAction<M>> = Vec::new();
         // In reverse order, update as described above
         let mut undos_left = n;
-        for (index, history_state) in internal_doc
+        for (index, history_state) in internal_data
             .transaction_history
             .iter_mut()
             .enumerate()
@@ -284,11 +282,11 @@ impl<M: Module> Session<M> {
                     if history_state.session == session_uuid {
                         // This is a transaction the user requested to undo
                         let undo = match transaction {
-                            AppliedTransaction::Document(undo_unit) => {
-                                UndoData::Document(undo_unit.undo_data.clone())
+                            AppliedTransaction::Persistent(undo_unit) => {
+                                UndoData::Persistent(undo_unit.undo_data.clone())
                             }
-                            AppliedTransaction::User(undo_unit) => {
-                                UndoData::User(undo_unit.undo_data.clone())
+                            AppliedTransaction::PersistentUser(undo_unit) => {
+                                UndoData::PersistentUser(undo_unit.undo_data.clone())
                             }
                         };
                         queued_undos.push(UndoAction {
@@ -300,20 +298,22 @@ impl<M: Module> Session<M> {
                     } else {
                         // Test if it is after the earliest to undo, if yes undo and mark it
                         match transaction {
-                            AppliedTransaction::Document(undo_unit) => {
-                                if index > earliest_undo_doc {
+                            AppliedTransaction::Persistent(undo_unit) => {
+                                if index > earliest_undo_data {
                                     queued_undos.push(UndoAction {
                                         index,
-                                        queued: UndoData::Document(undo_unit.undo_data.clone()),
+                                        queued: UndoData::Persistent(undo_unit.undo_data.clone()),
                                         should_redo: true,
                                     });
                                 }
                             }
-                            AppliedTransaction::User(undo_unit) => {
+                            AppliedTransaction::PersistentUser(undo_unit) => {
                                 if index > earliest_undo_user {
                                     queued_undos.push(UndoAction {
                                         index,
-                                        queued: UndoData::User(undo_unit.undo_data.clone()),
+                                        queued: UndoData::PersistentUser(
+                                            undo_unit.undo_data.clone(),
+                                        ),
                                         should_redo: true,
                                     });
                                 }
@@ -339,17 +339,17 @@ impl<M: Module> Session<M> {
         } in &queued_undos
         {
             match queued {
-                UndoData::Document(undo_data) => {
-                    internal_doc.document_data.undo(undo_data.clone());
+                UndoData::Persistent(undo_data) => {
+                    internal_data.persistent_data.undo(undo_data.clone());
                     if !should_redo {
                         // Now mark it as Undone, since we don't want to redo it
-                        let state = &mut internal_doc.transaction_history[*index].state;
-                        *state = if let TransactionState::Applied(AppliedTransaction::Document(
+                        let state = &mut internal_data.transaction_history[*index].state;
+                        *state = if let TransactionState::Applied(AppliedTransaction::Persistent(
                             undo_unit,
                         )) = state
                         {
                             // Update the state
-                            TransactionState::Undone(UndoneTransaction::Document(
+                            TransactionState::Undone(UndoneTransaction::Persistent(
                                 undo_unit.args.clone(),
                             ))
                         } else {
@@ -359,31 +359,31 @@ impl<M: Module> Session<M> {
                     }
                     // The rest is updated in the redo loop
                 }
-                UndoData::User(undo_data) => {
-                    internal_doc.user_data.undo(undo_data.clone());
+                UndoData::PersistentUser(undo_data) => {
+                    internal_data.user_data.undo(undo_data.clone());
                     if !should_redo {
                         // Now mark it as Undone, since we don't want to redo it
-                        let state = &mut internal_doc.transaction_history[*index].state;
-                        *state =
-                            if let TransactionState::Applied(AppliedTransaction::User(undo_unit)) =
-                                state
-                            {
-                                // Update the state
-                                TransactionState::Undone(UndoneTransaction::User(
-                                    undo_unit.args.clone(),
-                                ))
-                            } else {
-                                // This should never happen, since we only queue Applied transactions
-                                panic!("Found undone transaction marked for redo");
-                            };
+                        let state = &mut internal_data.transaction_history[*index].state;
+                        *state = if let TransactionState::Applied(
+                            AppliedTransaction::PersistentUser(undo_unit),
+                        ) = state
+                        {
+                            // Update the state
+                            TransactionState::Undone(UndoneTransaction::PersistentUser(
+                                undo_unit.args.clone(),
+                            ))
+                        } else {
+                            // This should never happen, since we only queue Applied transactions
+                            panic!("Found undone transaction marked for redo");
+                        };
                     }
                     // The rest is updated in the redo loop
                 }
                 UndoData::WasFailed => {
                     let is_this_session =
-                        internal_doc.transaction_history[*index].session == session_uuid;
+                        internal_data.transaction_history[*index].session == session_uuid;
                     if is_this_session {
-                        let state = &mut internal_doc.transaction_history[*index].state;
+                        let state = &mut internal_data.transaction_history[*index].state;
                         // Just change the state from Failed to Undone
                         if let TransactionState::Failed(transaction) = state {
                             *state = TransactionState::Undone(transaction.clone());
@@ -402,9 +402,9 @@ impl<M: Module> Session<M> {
         {
             // This is a transaction we want to redo
             match queued {
-                UndoData::User(_) | UndoData::Document(_) | UndoData::WasFailed => {
+                UndoData::PersistentUser(_) | UndoData::Persistent(_) | UndoData::WasFailed => {
                     // We redo the transaction and update the record in the history
-                    internal_doc.transaction_history[*index].state = match internal_doc
+                    internal_data.transaction_history[*index].state = match internal_data
                         .transaction_history[*index]
                         .state
                         .clone()
@@ -413,37 +413,37 @@ impl<M: Module> Session<M> {
                             // It is still marked as applied, but it is undone
                             // Try to redo it
                             match transaction {
-                                AppliedTransaction::Document(undo_unit) => {
-                                    let result = ReversibleDocumentTransaction::apply(
-                                        &mut internal_doc.document_data,
+                                AppliedTransaction::Persistent(undo_unit) => {
+                                    let result = ReversibleDataTransaction::apply(
+                                        &mut internal_data.persistent_data,
                                         undo_unit.args.clone(),
                                     );
                                     match result {
                                         Ok((_output, undo_data)) => TransactionState::Applied(
-                                            AppliedTransaction::Document(UndoUnit {
+                                            AppliedTransaction::Persistent(UndoUnit {
                                                 undo_data,
                                                 args: undo_unit.args,
                                             }),
                                         ),
                                         Err(_error) => TransactionState::Failed(
-                                            UndoneTransaction::Document(undo_unit.args),
+                                            UndoneTransaction::Persistent(undo_unit.args),
                                         ),
                                     }
                                 }
-                                AppliedTransaction::User(undo_unit) => {
-                                    let result = ReversibleDocumentTransaction::apply(
-                                        &mut internal_doc.user_data,
+                                AppliedTransaction::PersistentUser(undo_unit) => {
+                                    let result = ReversibleDataTransaction::apply(
+                                        &mut internal_data.user_data,
                                         undo_unit.args.clone(),
                                     );
                                     match result {
                                         Ok((_output, undo_data)) => TransactionState::Applied(
-                                            AppliedTransaction::User(UndoUnit {
+                                            AppliedTransaction::PersistentUser(UndoUnit {
                                                 undo_data,
                                                 args: undo_unit.args,
                                             }),
                                         ),
                                         Err(_error) => TransactionState::Failed(
-                                            UndoneTransaction::User(undo_unit.args),
+                                            UndoneTransaction::PersistentUser(undo_unit.args),
                                         ),
                                     }
                                 }
@@ -453,45 +453,50 @@ impl<M: Module> Session<M> {
                             // We want to redo this transaction if the data section is touched
                             // (if it is not touched, we don't need to redo it)
                             match transaction {
-                                UndoneTransaction::Document(args) => {
-                                    if *index < earliest_undo_doc {
+                                UndoneTransaction::Persistent(args) => {
+                                    if *index < earliest_undo_data {
                                         // Since we didn't touch the data section, redoing it would fail again
-                                        TransactionState::Failed(UndoneTransaction::Document(args))
+                                        TransactionState::Failed(UndoneTransaction::Persistent(
+                                            args,
+                                        ))
                                     } else {
-                                        let result = ReversibleDocumentTransaction::apply(
-                                            &mut internal_doc.document_data,
+                                        let result = ReversibleDataTransaction::apply(
+                                            &mut internal_data.persistent_data,
                                             args.clone(),
                                         );
                                         match result {
                                             Ok((_output, undo_data)) => TransactionState::Applied(
-                                                AppliedTransaction::Document(UndoUnit {
+                                                AppliedTransaction::Persistent(UndoUnit {
                                                     undo_data,
                                                     args,
                                                 }),
                                             ),
                                             Err(_error) => TransactionState::Failed(
-                                                UndoneTransaction::Document(args),
+                                                UndoneTransaction::Persistent(args),
                                             ),
                                         }
                                     }
                                 }
-                                UndoneTransaction::User(args) => {
+                                UndoneTransaction::PersistentUser(args) => {
                                     if *index < earliest_undo_user {
                                         // Since we didn't touch the data section, redoing it would fail again
-                                        TransactionState::Failed(UndoneTransaction::User(args))
+                                        TransactionState::Failed(UndoneTransaction::PersistentUser(
+                                            args,
+                                        ))
                                     } else {
-                                        let result = ReversibleDocumentTransaction::apply(
-                                            &mut internal_doc.user_data,
+                                        let result = ReversibleDataTransaction::apply(
+                                            &mut internal_data.user_data,
                                             args.clone(),
                                         );
                                         match result {
-                                            Ok((_output, undo_data)) => {
-                                                TransactionState::Applied(AppliedTransaction::User(
-                                                    UndoUnit { undo_data, args },
-                                                ))
-                                            }
+                                            Ok((_output, undo_data)) => TransactionState::Applied(
+                                                AppliedTransaction::PersistentUser(UndoUnit {
+                                                    undo_data,
+                                                    args,
+                                                }),
+                                            ),
                                             Err(_error) => TransactionState::Failed(
-                                                UndoneTransaction::User(args),
+                                                UndoneTransaction::PersistentUser(args),
                                             ),
                                         }
                                     }
@@ -508,17 +513,17 @@ impl<M: Module> Session<M> {
         }
 
         // Copy the data to all sessions
-        for session in &internal_doc.sessions {
+        for session in &internal_data.sessions {
             let session = session.1.upgrade().unwrap();
-            session.borrow_mut().document_data = internal_doc.document_data.clone();
-            session.borrow_mut().user_data = internal_doc.user_data.clone();
+            session.borrow_mut().persistent = internal_data.persistent_data.clone();
+            session.borrow_mut().persistent_user = internal_data.user_data.clone();
         }
     }
 
     /// Redoes a specified number of previously undone transactions in this session.
     ///
     /// This function redoes the last `n` transactions that were previously undone in this session.
-    /// The redo operation applies only to the document and user data sections.
+    /// The redo operation applies only to the persistent and persistent user data sections.
     ///
     /// When a transaction is redone, the state of all other sessions and the project is updated accordingly.
     /// If any other sessions applied transactions after the transaction that is being redone,
@@ -535,9 +540,9 @@ impl<M: Module> Session<M> {
     /// This function is not expected to panic under normal circumstances.
     #[allow(clippy::too_many_lines)]
     pub fn redo(&mut self, n: usize) {
-        // enum RedoData<D: ReversibleDocumentTransaction, U: ReversibleDocumentTransaction> {
-        //     Document(D::UndoData),
-        //     User(U::UndoData),
+        // enum RedoData<D: ReversibleDataTransaction, U: ReversibleDataTransaction> {
+        //     Persistent(D::UndoData),
+        //     PersistentUser(U::UndoData),
         //     WasFailed,
         // }
         enum ActionType {
@@ -548,14 +553,14 @@ impl<M: Module> Session<M> {
         struct Action {
             index: usize,
             action_type: ActionType,
-            // queued: RedoData<M::DocumentData, M::UserData>,
+            // queued: RedoData<M::PersistentData, M::PersistentUserData>,
             // should_redo: bool,
         }
 
         let session_uuid = self.session.borrow().session_uuid;
-        let ref_cell = self.document_model_ref.upgrade().unwrap();
-        let mut internal_doc = ref_cell.borrow_mut();
-        // let _history = &internal_doc.transaction_history;
+        let ref_cell = self.data_model_ref.upgrade().unwrap();
+        let mut internal_data = ref_cell.borrow_mut();
+        // let _history = &internal_data.transaction_history;
 
         // This algorithm is for redoing transactions in a multi-user editing system.
         // It complements the undo algorithm described in the undo() method.
@@ -593,29 +598,29 @@ impl<M: Module> Session<M> {
         // Here's the example from the undo() method, session 2 wants to again redo the 2 transactions:
         // |                 before redo               |              while redoing
         //                                              <(4) we ran the first loop until here
-        // - Session 1: Applied - some doc  transaction    <(5) we start the second loop here
-        // - Session 2: Undone  - some doc  transaction    <(6) redo, increase redone count
-        // - Session 1: Applied - some doc  transaction <(3) undo and mark <(7) try redo
+        // - Session 1: Applied - some data transaction    <(5) we start the second loop here
+        // - Session 2: Undone  - some data transaction    <(6) redo, increase redone count
+        // - Session 1: Applied - some data transaction <(3) undo and mark <(7) try redo
         // - Session 1: Applied - some usr1 transaction <(2) undo and mark <(8) try redo
         // - Session 2: Undone  - some usr2 transaction    <(9) redo, increase redone count
         // - Session 2: Undone  - some usr2 transaction    <(10) do nothing, since redone count is already 2
-        // - Session 1: Failed  - some doc  transaction <(1) mark for redo <(11) try redo
+        // - Session 1: Failed  - some data transaction <(1) mark for redo <(11) try redo
 
         // |                 after  redo               |
-        // - Session 1: Applied - some doc  transaction
-        // - Session 2: Applied - some doc  transaction
-        // - Session 1: Applied - some doc  transaction
+        // - Session 1: Applied - some data transaction
+        // - Session 2: Applied - some data transaction
+        // - Session 1: Applied - some data transaction
         // - Session 1: Applied - some usr1 transaction
         // - Session 2: Applied - some usr2 transaction
         // - Session 2: Undone  - some usr2 transaction
-        // - Session 1: Applied - some doc  transaction
+        // - Session 1: Applied - some data transaction
 
         // This is the list of all actions that need to be performed (like undo or undo+redo)
         // We don't yet call undo, so that we can optimize redundant undo/redo actions
         let mut queued_actions: Vec<Action> = Vec::new();
         let mut next_iteration = 0;
         // In reverse order, update as described above
-        for (index, history_state) in internal_doc
+        for (index, history_state) in internal_data
             .transaction_history
             .iter_mut()
             .enumerate()
@@ -644,13 +649,13 @@ impl<M: Module> Session<M> {
         }
 
         let mut redo_left = n;
-        let mut doc_touched = false;
+        let mut data_touched = false;
         let mut user_touched = false;
         // Optimize redundant undo/redo actions
-        for index in next_iteration..internal_doc.transaction_history.len() {
+        for index in next_iteration..internal_data.transaction_history.len() {
             // TODO: replace find with something more efficient (we know that the list is sorted)
             let action = queued_actions.iter_mut().find(|a| a.index == index);
-            let history_state = &mut internal_doc.transaction_history[index];
+            let history_state = &mut internal_data.transaction_history[index];
             match &history_state.state {
                 TransactionState::Undone(transaction) => {
                     if (history_state.session == session_uuid) && redo_left > 0 {
@@ -658,8 +663,8 @@ impl<M: Module> Session<M> {
                         redo_left -= 1;
                         // Mark the data section as changed
                         match transaction {
-                            UndoneTransaction::Document(_) => doc_touched = true,
-                            UndoneTransaction::User(_) => user_touched = true,
+                            UndoneTransaction::Persistent(_) => data_touched = true,
+                            UndoneTransaction::PersistentUser(_) => user_touched = true,
                         }
                     }
                 }
@@ -667,14 +672,14 @@ impl<M: Module> Session<M> {
                     if let Some(action) = action {
                         // This is a transaction that is planned for undo+redo
                         match transaction {
-                            AppliedTransaction::Document(_) => {
-                                if !doc_touched {
+                            AppliedTransaction::Persistent(_) => {
+                                if !data_touched {
                                     // The data section is not affected by the redo() call
                                     // so we don't need to execute the action
                                     action.action_type = ActionType::NoActionRequired;
                                 }
                             }
-                            AppliedTransaction::User(_) => {
+                            AppliedTransaction::PersistentUser(_) => {
                                 if !user_touched {
                                     action.action_type = ActionType::NoActionRequired;
                                 }
@@ -686,14 +691,14 @@ impl<M: Module> Session<M> {
                     if let Some(action) = action {
                         // This is a failed transaction that is planned for redo
                         match transaction {
-                            UndoneTransaction::Document(_) => {
-                                if !doc_touched {
+                            UndoneTransaction::Persistent(_) => {
+                                if !data_touched {
                                     // The data section is not affected by the redo() call
                                     // redoing it would fail again
                                     action.action_type = ActionType::NoActionRequired;
                                 }
                             }
-                            UndoneTransaction::User(_) => {
+                            UndoneTransaction::PersistentUser(_) => {
                                 if !user_touched {
                                     action.action_type = ActionType::NoActionRequired;
                                 }
@@ -711,18 +716,18 @@ impl<M: Module> Session<M> {
                 ActionType::Recompute => {
                     // Execute the undo and save the new state
                     // TODO: saving the state may not be necessary, since we later change it again
-                    internal_doc.transaction_history[index].state =
-                        match internal_doc.transaction_history[index].state.clone() {
+                    internal_data.transaction_history[index].state =
+                        match internal_data.transaction_history[index].state.clone() {
                             TransactionState::Applied(transaction) => match transaction {
-                                AppliedTransaction::Document(undo_unit) => {
-                                    internal_doc.document_data.undo(undo_unit.undo_data);
-                                    TransactionState::Undone(UndoneTransaction::Document(
+                                AppliedTransaction::Persistent(undo_unit) => {
+                                    internal_data.persistent_data.undo(undo_unit.undo_data);
+                                    TransactionState::Undone(UndoneTransaction::Persistent(
                                         undo_unit.args,
                                     ))
                                 }
-                                AppliedTransaction::User(undo_unit) => {
-                                    internal_doc.user_data.undo(undo_unit.undo_data);
-                                    TransactionState::Undone(UndoneTransaction::User(
+                                AppliedTransaction::PersistentUser(undo_unit) => {
+                                    internal_data.user_data.undo(undo_unit.undo_data);
+                                    TransactionState::Undone(UndoneTransaction::PersistentUser(
                                         undo_unit.args,
                                     ))
                                 }
@@ -746,14 +751,14 @@ impl<M: Module> Session<M> {
 
         let mut redo_left = n;
         // We now want to redo all transactions that the user requested and that are marked for redo
-        for index in next_iteration..internal_doc.transaction_history.len() {
+        for index in next_iteration..internal_data.transaction_history.len() {
             // TODO: again, replace find with something more efficient (we know that the list is sorted)
             let action = queued_actions.iter_mut().find(|a| a.index == index);
             let is_current_session =
-                internal_doc.transaction_history[index].session == session_uuid;
+                internal_data.transaction_history[index].session == session_uuid;
 
             if let TransactionState::Undone(transaction) =
-                internal_doc.transaction_history[index].state.clone()
+                internal_data.transaction_history[index].state.clone()
             {
                 // If true, we want to redo it
                 let is_user_requested = is_current_session && redo_left > 0;
@@ -770,32 +775,33 @@ impl<M: Module> Session<M> {
 
                 if is_user_requested || marked_for_recompute {
                     // We try to redo it, and update the state accordingly
-                    internal_doc.transaction_history[index].state = match transaction {
-                        UndoneTransaction::Document(args) => {
-                            match ReversibleDocumentTransaction::apply(
-                                &mut internal_doc.document_data,
+                    internal_data.transaction_history[index].state = match transaction {
+                        UndoneTransaction::Persistent(args) => {
+                            match ReversibleDataTransaction::apply(
+                                &mut internal_data.persistent_data,
                                 args.clone(),
                             ) {
                                 Ok((_, undo_data)) => TransactionState::Applied(
-                                    AppliedTransaction::Document(UndoUnit { undo_data, args }),
+                                    AppliedTransaction::Persistent(UndoUnit { undo_data, args }),
                                 ),
                                 Err(_) => {
-                                    TransactionState::Failed(UndoneTransaction::Document(args))
+                                    TransactionState::Failed(UndoneTransaction::Persistent(args))
                                 }
                             }
                         }
-                        UndoneTransaction::User(args) => {
-                            match ReversibleDocumentTransaction::apply(
-                                &mut internal_doc.user_data,
+                        UndoneTransaction::PersistentUser(args) => {
+                            match ReversibleDataTransaction::apply(
+                                &mut internal_data.user_data,
                                 args.clone(),
                             ) {
                                 Ok((_, undo_data)) => {
-                                    TransactionState::Applied(AppliedTransaction::User(UndoUnit {
-                                        undo_data,
-                                        args,
-                                    }))
+                                    TransactionState::Applied(AppliedTransaction::PersistentUser(
+                                        UndoUnit { undo_data, args },
+                                    ))
                                 }
-                                Err(_) => TransactionState::Failed(UndoneTransaction::User(args)),
+                                Err(_) => TransactionState::Failed(
+                                    UndoneTransaction::PersistentUser(args),
+                                ),
                             }
                         }
                     };
@@ -804,15 +810,15 @@ impl<M: Module> Session<M> {
         }
 
         // Copy the data to all sessions
-        for session in &internal_doc.sessions {
+        for session in &internal_data.sessions {
             let session = session.1.upgrade().unwrap();
-            session.borrow_mut().document_data = internal_doc.document_data.clone();
-            session.borrow_mut().user_data = internal_doc.user_data.clone();
+            session.borrow_mut().persistent = internal_data.persistent_data.clone();
+            session.borrow_mut().persistent_user = internal_data.user_data.clone();
         }
     }
 }
 
-impl<M: Module> Transaction for Session<M> {
+impl<M: Module> Transaction for DataSession<M> {
     type Args = transaction::TransactionArgs<M>;
     type Error = transaction::SessionApplyError<M>;
     type Output = transaction::TransactionOutput<M>;
@@ -825,23 +831,23 @@ impl<M: Module> Transaction for Session<M> {
                     Ok(transaction::TransactionOutput::Session(output))
                 })
         } else {
-            // The remaining transaction are applied through the document model
+            // The remaining transaction are applied through the data model
             // This is because they need to be synced with other session.
             let session_uuid = self.session.borrow().session_uuid;
-            let ref_cell = &self.document_model_ref.upgrade().unwrap();
-            let mut internal_doc = ref_cell.borrow_mut();
+            let ref_cell = &self.data_model_ref.upgrade().unwrap();
+            let mut internal_data = ref_cell.borrow_mut();
             match args {
-                Self::Args::Document(doc_args) => internal_doc
-                    .apply_document(doc_args, session_uuid)
+                Self::Args::Persistent(data_args) => internal_data
+                    .apply_persistent(data_args, session_uuid)
                     .map_or_else(Result::Err, |output| {
-                        Ok(transaction::TransactionOutput::Document(output))
+                        Ok(transaction::TransactionOutput::Persistent(output))
                     }),
-                Self::Args::User(user_args) => internal_doc
+                Self::Args::PersistentUser(user_args) => internal_data
                     .apply_user(user_args, session_uuid)
                     .map_or_else(Result::Err, |output| {
-                        Ok(transaction::TransactionOutput::User(output))
+                        Ok(transaction::TransactionOutput::PersistentUser(output))
                     }),
-                Self::Args::Shared(shared_args) => internal_doc
+                Self::Args::Shared(shared_args) => internal_data
                     .apply_shared(&shared_args, session_uuid)
                     .map_or_else(Result::Err, |output| {
                         Ok(transaction::TransactionOutput::Shared(output))

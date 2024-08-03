@@ -2,7 +2,7 @@ mod common;
 
 use common::test_module::*;
 
-use project::document::transaction::TransactionArgs;
+use project::data::transaction::TransactionArgs;
 use project::*;
 use serde::de::DeserializeSeed;
 use utils::Transaction;
@@ -10,30 +10,32 @@ use utils::Transaction;
 #[test]
 fn test_serde_project_json() {
     let doc_uuid;
+    let data_uuid;
     let json;
 
     {
-        let project = Project::new("Project".to_string());
-        doc_uuid = project.create_document::<TestModule>();
+        let project = Project::new("Project".to_string()).create_session();
+        doc_uuid = project.create_document();
+        let doc = project.open_document(doc_uuid).unwrap();
+        data_uuid = doc.create_data::<TestModule>();
 
-        let mut doc = project.open_document::<TestModule>(doc_uuid).unwrap();
+        let mut data = doc.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
         let transaction = TestTransaction::SetWord("Test".to_string());
 
-        assert!(doc
-            .apply(TransactionArgs::Document(transaction.clone()))
+        assert!(data
+            .apply(TransactionArgs::Persistent(transaction.clone()))
             .is_ok());
-        assert!(doc
-            .apply(TransactionArgs::User(transaction.clone()))
+        assert!(data
+            .apply(TransactionArgs::PersistentUser(transaction.clone()))
             .is_ok());
-        assert!(doc
+        assert!(data
             .apply(TransactionArgs::Session(transaction.clone()))
             .is_ok());
-        assert!(doc.apply(TransactionArgs::Shared(transaction)).is_ok());
+        assert!(data.apply(TransactionArgs::Shared(transaction)).is_ok());
 
         // First serialize, then close sessions
         json = serde_json::to_string_pretty(&project).unwrap();
         println!("{}", json);
-        // return;
     }
 
     {
@@ -46,17 +48,18 @@ fn test_serde_project_json() {
         };
 
         let deserializer = &mut serde_json::Deserializer::from_str(&json);
-        let project: Project = seed.deserialize(deserializer).unwrap();
+        let project: ProjectSession = seed.deserialize(deserializer).unwrap().create_session();
 
-        let doc = project.open_document::<TestModule>(doc_uuid).unwrap();
-        let snapshot = doc.snapshot();
+        let document = project.open_document(doc_uuid).unwrap();
+        let data = document.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
+        let snapshot = data.snapshot();
 
         assert_eq!(
-            snapshot.document.single_word, "Test",
-            "Document data should be shared"
+            snapshot.persistent.single_word, "Test",
+            "Persistent data should be shared"
         );
         assert_eq!(
-            snapshot.user.single_word, "Test",
+            snapshot.persistent_user.single_word, "Test",
             "User data should be shared"
         );
         assert_eq!(

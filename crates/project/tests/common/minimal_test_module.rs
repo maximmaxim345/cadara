@@ -1,9 +1,6 @@
 // A second minimal test module, to test multiple different modules
-use document::Module;
-use project::transaction::DocumentTransaction;
-use project::*;
+use module::{DataTransaction, Module, ReversibleDataTransaction};
 use serde::{Deserialize, Serialize};
-use transaction::ReversibleDocumentTransaction;
 use uuid::Uuid;
 
 #[derive(Clone, Default, Debug, PartialEq)]
@@ -14,15 +11,14 @@ pub struct TestDataSection {
     pub num: i32,
 }
 
-impl DocumentTransaction for TestDataSection {
+impl DataTransaction for TestDataSection {
     type Args = i32;
     type Error = ();
     type Output = ();
 
     fn apply(&mut self, args: Self::Args) -> Result<Self::Output, Self::Error> {
         // Use the undoable transaction to implement this
-        <Self as ReversibleDocumentTransaction>::apply(self, args)
-            .map(|(output, _undo_data)| output)
+        <Self as ReversibleDataTransaction>::apply(self, args).map(|(output, _undo_data)| output)
     }
 
     fn undo_history_name(args: &Self::Args) -> String {
@@ -30,7 +26,7 @@ impl DocumentTransaction for TestDataSection {
     }
 }
 
-impl ReversibleDocumentTransaction for TestDataSection {
+impl ReversibleDataTransaction for TestDataSection {
     type UndoData = i32;
     fn apply(&mut self, args: Self::Args) -> Result<(Self::Output, Self::UndoData), Self::Error> {
         let old_num = self.num;
@@ -43,8 +39,8 @@ impl ReversibleDocumentTransaction for TestDataSection {
 }
 
 impl Module for MinimalTestModule {
-    type DocumentData = TestDataSection;
-    type UserData = TestDataSection;
+    type PersistentData = TestDataSection;
+    type PersistentUserData = TestDataSection;
     type SessionData = TestDataSection;
     type SharedData = TestDataSection;
 
@@ -62,12 +58,12 @@ impl Module for MinimalTestModule {
 pub fn test_minimal_test_module() {
     let mut data_section = TestDataSection::default();
     assert_eq!(data_section.num, 0);
-    assert!(DocumentTransaction::apply(&mut data_section, 4).is_ok());
+    assert!(DataTransaction::apply(&mut data_section, 4).is_ok());
     assert_eq!(data_section.num, 4);
-    let undo_data = ReversibleDocumentTransaction::apply(&mut data_section, 40)
+    let undo_data = ReversibleDataTransaction::apply(&mut data_section, 40)
         .unwrap()
         .1;
     assert_eq!(data_section.num, 40);
-    ReversibleDocumentTransaction::undo(&mut data_section, undo_data);
+    ReversibleDataTransaction::undo(&mut data_section, undo_data);
     assert_eq!(data_section.num, 4);
 }
