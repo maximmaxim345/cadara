@@ -38,6 +38,7 @@ exceptions = [
   #{ allow = ["Zlib"], crate = "adler32" },
   { allow = ["AGPL-3.0"], crate = "cadara" },
 ]
+private = { ignore = true }
 
 [bans]
 # Lint level for when multiple versions of the same crate are detected
