@@ -21,3 +21,5 @@ jobs:
 
       - name: Cargo deny
         uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          command: check bans licenses sources
