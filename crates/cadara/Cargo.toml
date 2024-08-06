@@ -2,6 +2,7 @@
 name = "cadara"
 version = "0.1.0"
 edition = "2021"
+license = "AGPL-3.0-only"
 
 [dependencies]
 iced = "0.12.1"
