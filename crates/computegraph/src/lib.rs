@@ -718,6 +718,7 @@ impl ComputeGraph {
         }
 
         // Run the node with the computed inputs
+        let dependency_results: Vec<&Box<dyn Any>> = dependency_results.iter().collect();
         let output_result = output_node.node.run(&dependency_results);
         // check if the result has the correct type
         if output_result
@@ -1041,7 +1042,7 @@ pub trait ExecutableNode: std::fmt::Debug + DynClone + Send + Sync {
     ///
     /// A vector of boxed dynamic values representing the output data.
     // TODO: add error handling
-    fn run(&self, input: &[Box<dyn Any>]) -> Vec<Box<dyn Any>>;
+    fn run(&self, input: &[&Box<dyn Any>]) -> Vec<Box<dyn Any>>;
 }
 
 dyn_clone::clone_trait_object!(ExecutableNode);
