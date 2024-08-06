@@ -36,6 +36,7 @@ exceptions = [
   # Each entry is the crate and version constraint, and its specific allow
   # list
   #{ allow = ["Zlib"], crate = "adler32" },
+  { allow = ["AGPL-3.0"], crate = "cadara" },
 ]
 
 [bans]
