@@ -1,0 +1,15 @@
+[package]
+name = "modeling-workspace"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+publish = false
+
+[dependencies]
+workspace = { path = "../workspace" }
+viewport = { path = "../viewport" }
+computegraph = { path = "../computegraph" }
+project = { path = "../project" }
+iced = { version = "0.12.1", features = ["advanced"] }
+bytemuck = "1.17.0"
+glam = { version = "0.29.0", features = ["bytemuck"] }
