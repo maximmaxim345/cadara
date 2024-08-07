@@ -1,5 +1,5 @@
 use computegraph::{node, ExecutableNode, NodeFactory};
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 
 #[test]
 fn test_macro_node() {
@@ -84,7 +84,13 @@ fn test_macro_node() {
         <Node5 as NodeFactory>::outputs(),
         vec![("output", TypeId::of::<usize>())]
     );
-    let res = ExecutableNode::run(&Node6 {}, &[Box::new("hi".to_string()), Box::new(3_usize)]);
+    let res = ExecutableNode::run(
+        &Node6 {},
+        &[
+            &(Box::new("hi".to_string()) as Box<dyn Any>),
+            &(Box::new(3_usize) as Box<dyn Any>),
+        ],
+    );
     assert_eq!(res.len(), 1);
     assert_eq!(res[0].downcast_ref::<String>().unwrap(), "hihihi");
 
@@ -99,7 +105,13 @@ fn test_macro_node() {
         <Node6 as NodeFactory>::outputs(),
         vec![("output", TypeId::of::<String>())]
     );
-    let res = ExecutableNode::run(&Node6 {}, &[Box::new("hi".to_string()), Box::new(3_usize)]);
+    let res = ExecutableNode::run(
+        &Node6 {},
+        &[
+            &(Box::new("hi".to_string()) as Box<dyn Any>),
+            &(Box::new(3_usize) as Box<dyn Any>),
+        ],
+    );
     assert_eq!(res.len(), 1);
     assert_eq!(res[0].downcast_ref::<String>().unwrap(), "hihihi");
 }
