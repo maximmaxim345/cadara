@@ -256,6 +256,97 @@ where
     }
 }
 
+#[derive(Debug)]
+struct InputPortValue {
+    port: InputPortUntyped,
+    value: Box<dyn Any>,
+}
+
+/// Set predefined values for [`ComputeGraph::compute_with_context`].
+///
+/// Use this container to:
+/// - Override values passed to [`InputPort`]s
+/// - Set fallback values for unconnected [`InputPort`]s
+///
+/// To be used with [`ComputeGraph::compute_with_context`] and [`ComputeGraph::compute_untyped_with_context`].
+#[derive(Debug, Default)]
+pub struct ComputationContext {
+    overrides: Vec<InputPortValue>,
+    default_values: Vec<(TypeId, Box<dyn Any>)>,
+}
+
+impl ComputationContext {
+    /// Create a new empty computation context.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Manually override the connection of a [`InputPort`] with the specified value.
+    ///
+    /// Overriding the [`InputPort`] will pass `value` to the the node of `port`,
+    /// no matter if it was connected or not.
+    ///
+    /// If the type is not known at compile time, use [`ComputationContext::set_override_untyped`] instead.
+    ///
+    /// # Arguments
+    ///
+    /// * `port` - The port to override.
+    /// * `value` - The value which should be used instead
+    pub fn set_override<T: Any>(&mut self, port: InputPort<T>, value: T) {
+        let port = port.into();
+
+        self.overrides.retain(|o| o.port != port);
+        self.overrides.push(InputPortValue {
+            port,
+            value: Box::new(value),
+        });
+    }
+
+    /// Manually override the connection of a [`InputPortUntyped`] with the specified boxed value.
+    ///
+    /// Dynamic version of [`ComputationContext::set_override`].
+    ///
+    /// # Arguments
+    ///
+    /// * `port` - The port to override.
+    /// * `value` - The boxed value which should be used instead
+    pub fn set_override_untyped(&mut self, port: InputPortUntyped, value: Box<dyn Any>) {
+        self.overrides.retain(|o| o.port != port);
+        self.overrides.push(InputPortValue { port, value });
+    }
+
+    /// Provide a fallback value to all unconnected [`InputPort`]s with the type 'T'
+    ///
+    /// This fallback will only be used if a [`InputPort`] required for the computation
+    /// was unconnected, but required.
+    ///
+    /// If the type is not known at compile time, use [`ComputationContext::set_fallback_untyped`] instead.
+    ///
+    /// # Arguments
+    ///
+    /// * `value`: The value to use for all unconnected [`InputPort`]s of the given type.
+    pub fn set_fallback<T: Any>(&mut self, value: T) {
+        let type_id = value.type_id();
+        self.default_values.retain(|v| v.0 != type_id);
+        self.default_values.push((type_id, Box::new(value)));
+    }
+
+    /// Provide a fallback value to all unconnected [`InputPortUntyped`]s with the contained type.
+    ///
+    /// Dynamic version of [`ComputationContext::set_override`].
+    /// This will set the fallback to all [`InputPort`]s of the type contained in the box.
+    ///
+    /// # Arguments
+    ///
+    /// * `value`: The value to use for all unconnected [`InputPort`]s of the type.
+    pub fn set_fallback_untyped(&mut self, value: Box<dyn Any>) {
+        let type_id = (*value).type_id();
+        self.default_values.retain(|v| v.0 != type_id);
+        self.default_values.push((type_id, value));
+    }
+}
+
 /// A container for storing and managing metadata associated with nodes in a computation graph.
 ///
 /// The `Metadata` struct allows for the storage of arbitrary data types, identified by their type IDs.
@@ -619,7 +710,40 @@ impl ComputeGraph {
     /// - A error occurs during computation (e.g. type returned by the node does not match the expected type).
     pub fn compute_untyped(&self, output: OutputPortUntyped) -> Result<Box<dyn Any>, ComputeError> {
         let mut visited = HashSet::new();
-        self.compute_recursive(output, &mut visited)
+        self.compute_recursive(output, &mut visited, None)
+    }
+
+    /// Computes the result for a given output port using the provided context, returning a boxed value.
+    ///
+    /// This function is the untyped version of [`ComputeGraph::compute_with_context`].
+    ///
+    /// This function behaves similarly to [`ComputeGraph::compute_untyped`], but uses
+    /// the values given in the context as described in [`ComputationContext`].
+    ///
+    /// # Arguments
+    ///
+    /// * `output` - The output port to compute.
+    /// * `context` - Collection of values used to perform the computation.
+    ///
+    /// # Returns
+    ///
+    /// A result containing the computed boxed value or an error.
+    ///
+    /// # Errors
+    ///
+    /// An error is returned if:
+    /// - The node is not found.
+    /// - The node has the incorrect output type
+    /// - An input port of the node or a dependency of the node are not connected, and
+    ///   no value is provided via the context
+    /// - A cycle is detected in the graph.
+    pub fn compute_untyped_with_context(
+        &self,
+        output: OutputPortUntyped,
+        context: &ComputationContext,
+    ) -> Result<Box<dyn Any>, ComputeError> {
+        let mut visited = HashSet::new();
+        self.compute_recursive(output, &mut visited, Some(context))
     }
 
     /// Computes the result for a given output port.
@@ -637,10 +761,46 @@ impl ComputeGraph {
     /// An error is returned if:
     /// - The node is not found.
     /// - The node has the incorrect output type
-    /// - An input port of the node ar a dependency of the node are not connected.
+    /// - An input port of the node or a dependency of the node are not connected.
     /// - A cycle is detected in the graph.
     pub fn compute<T: 'static>(&self, output: OutputPort<T>) -> Result<T, ComputeError> {
         let res = self.compute_untyped(output.port.clone())?;
+        let res = res
+            .downcast::<T>()
+            .map_err(|_| ComputeError::OutputTypeMismatch {
+                node: output.port.node,
+            })?;
+        Ok(*res)
+    }
+
+    /// Computes the result for a given output port using the provided context
+    ///
+    /// This function behaves similarly to [`ComputeGraph::compute`], but uses
+    /// the values given in the context as described in [`ComputationContext`].
+    ///
+    /// # Arguments
+    ///
+    /// * `output` - The output port to compute.
+    /// * `context` - Collection of values used to perform the computation,
+    ///
+    /// # Returns
+    ///
+    /// A result containing the computed boxed value or an error.
+    ///
+    /// # Errors
+    ///
+    /// An error is returned if:
+    /// - The node is not found.
+    /// - The node has the incorrect output type
+    /// - An input port of the node or a dependency of the node are not connected, and
+    ///   no value is provided via the context
+    /// - A cycle is detected in the graph.
+    pub fn compute_with_context<T: 'static>(
+        &self,
+        output: OutputPort<T>,
+        context: &ComputationContext,
+    ) -> Result<T, ComputeError> {
+        let res = self.compute_untyped_with_context(output.port.clone(), context)?;
         let res = res
             .downcast::<T>()
             .map_err(|_| ComputeError::OutputTypeMismatch {
@@ -653,7 +813,20 @@ impl ComputeGraph {
         &self,
         output: OutputPortUntyped,
         visited: &mut HashSet<NodeHandle>,
+        context: Option<&ComputationContext>,
     ) -> Result<Box<dyn Any>, ComputeError> {
+        enum OwnedOrBorrowed<'a, T: 'a> {
+            Owned(T),
+            Borrowed(&'a T),
+        }
+        impl<'a, T> OwnedOrBorrowed<'a, T> {
+            const fn as_ref(&self) -> &T {
+                match self {
+                    OwnedOrBorrowed::Owned(t) => t,
+                    OwnedOrBorrowed::Borrowed(t) => t,
+                }
+            }
+        }
         // For now we use a simple, but more inefficient approach for computing the result:
         // Here we simply recursively compute the dependencies of the requested node in breadth first order.
         //
@@ -697,29 +870,54 @@ impl ComputeGraph {
             })?;
 
         // Compute all dependencies recursively
-        let mut dependency_results = vec![];
+        let mut dependencies = vec![];
 
         for input in &output_node.inputs {
+            if let Some(context) = context {
+                // Check if we should use a override instead
+                if let Some(port_value) = context
+                    .overrides
+                    .iter()
+                    .find(|v| v.port.input_name == input.0)
+                {
+                    // Override was specified, use it instead
+                    dependencies.push(OwnedOrBorrowed::Borrowed(&port_value.value));
+                    continue;
+                }
+            }
             // Find the connection that provides the input
             let connection = self
                 .edges
                 .iter()
-                .find(|c| c.to.node == output_handle && c.to.input_name == input.0)
-                .ok_or_else(|| {
-                    ComputeError::InputPortNotConnected(InputPortUntyped {
-                        node: output_handle.clone(),
-                        input_name: input.0,
-                    })
-                })?;
+                .find(|c| c.to.node == output_handle && c.to.input_name == input.0);
+            let connection = if let Some(connection) = connection {
+                Ok(connection)
+            } else {
+                // Check if the context has a fallback value for this type
+                if let Some(context) = context {
+                    if let Some(v) = context.default_values.iter().find(|v| v.0 == input.1) {
+                        // Found a fallback, we use that instead
+                        dependencies.push(OwnedOrBorrowed::Borrowed(&v.1));
+                        continue;
+                    }
+                }
+                Err(ComputeError::InputPortNotConnected(InputPortUntyped {
+                    node: output_handle.clone(),
+                    input_name: input.0,
+                }))
+            }?;
 
             // Compute the result of the input
-            let result = self.compute_recursive(connection.from.clone(), visited)?;
-            dependency_results.push(result);
+            let result = self.compute_recursive(connection.from.clone(), visited, context)?;
+            dependencies.push(OwnedOrBorrowed::Owned(result));
         }
 
+        // The introduction of OwnedOrBorrowed is necessary, since otherwise the computed dependencies
+        // would be destroyed after each loop iteration. This converts the list back into the required format
+        let dependencies: Vec<&Box<dyn Any>> =
+            dependencies.iter().map(OwnedOrBorrowed::as_ref).collect();
         // Run the node with the computed inputs
-        let dependency_results: Vec<&Box<dyn Any>> = dependency_results.iter().collect();
-        let output_result = output_node.node.run(&dependency_results);
+        let output_result = output_node.node.run(&dependencies);
         // check if the result has the correct type
         if output_result
             .iter()
