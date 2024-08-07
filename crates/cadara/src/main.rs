@@ -4,24 +4,47 @@
 #![allow(clippy::cognitive_complexity)]
 
 use iced::Sandbox;
+use modeling_module::ModelingModule;
+use project::data::transaction::TransactionArgs;
+use utils::Transaction;
+use workspace::Workspace;
 
-struct App {}
+struct App {
+    viewport: viewport::Viewport,
+}
 
 impl iced::Sandbox for App {
     type Message = ();
 
     fn new() -> Self {
-        Self {}
+        let project = project::Project::new("project".to_string()).create_session();
+        let doc = project.create_document();
+        let doc = project.open_document(doc).unwrap();
+        let data = doc.create_data::<ModelingModule>();
+        let mut data = doc.open_data_by_uuid::<ModelingModule>(data).unwrap();
+
+        data.apply(TransactionArgs::Persistent(()))
+            .expect("apply transaction");
+        let mut viewport = viewport::Viewport::new(project);
+        let workspace = modeling_workspace::ModelingWorkspace::default();
+        // TODO: this should dynamically select the first fitting plugin
+        let plugin = workspace.viewport_plugins()[0].clone();
+        viewport.pipeline.add_dynamic_plugin(plugin).unwrap();
+        Self { viewport }
     }
 
     fn title(&self) -> String {
-        "Hello".to_string()
+        "CADara".to_string()
     }
 
     fn update(&mut self, _message: Self::Message) {}
 
     fn view(&self) -> iced::Element<'_, Self::Message> {
-        iced::widget::button("Hello").into()
+        let viewport_shader = iced::widget::shader(&self.viewport)
+            .width(iced::Length::Fill)
+            .height(iced::Length::Fill);
+
+        iced::widget::column!(iced::widget::text("Viewport:"), viewport_shader).into()
     }
 }
 
