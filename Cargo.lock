@@ -2099,6 +2099,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "modeling-module"
+version = "0.1.0"
+dependencies = [
+ "module",
+ "serde",
+ "uuid",
+]
+
+[[package]]
+name = "modeling-workspace"
+version = "0.1.0"
+dependencies = [
+ "computegraph",
+ "iced",
+ "viewport",
+ "workspace",
+]
+
+[[package]]
 name = "module"
 version = "0.1.0"
 dependencies = [
