@@ -9,5 +9,6 @@ members = [
   "crates/computegraph_macros",
   "crates/cadara",
   "crates/module",
+  "crates/workspace",
 ]
 resolver = "2"
