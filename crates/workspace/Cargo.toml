@@ -1,0 +1,10 @@
+[package]
+name = "workspace"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+publish = false
+
+[dependencies]
+viewport = { path = "../viewport" }
+computegraph = { path = "../computegraph" }
