@@ -1,4 +1,4 @@
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 
 use computegraph::{
     ComputationContext, ComputeGraph, DynamicNode, InputPort, InputPortUntyped, NodeFactory,
@@ -120,6 +120,11 @@ impl<T> From<SceneGraphBuilder<T>> for SceneGraph {
 pub struct ViewportPipeline {
     graph: ComputeGraph,
     nodes: Vec<ViewportPluginNode>,
+}
+
+#[derive(Default, Debug)]
+pub struct ViewportPipelineState {
+    state: Option<Box<dyn Any + Send>>,
 }
 
 /// Represents the position of a plugin in the viewport pipeline.
@@ -421,20 +426,50 @@ impl ViewportPipeline {
         Ok(scene)
     }
 
+    pub(crate) fn update(&self, state: &mut ViewportPipelineState) -> Result<(), ExecuteError> {
+        let scene = self.compute_scene()?;
+
+        let s = state.state.take();
+        let s = match s {
+            Some(s) => s,
+            None => scene.graph.compute_untyped(scene.init_state).unwrap(),
+        };
+
+        let mut ctx = ComputationContext::default();
+        ctx.set_override_untyped(scene.render_state_in.clone(), s);
+        ctx.set_override(scene.update_events_in, InputEvents {});
+
+        let result = scene
+            .graph
+            .compute_untyped_with_context(scene.update_state_out, &ctx)
+            .map_err(ExecuteError::ComputeError)?;
+        state.state = Some(result);
+        Ok(())
+    }
+
     pub(crate) fn compute_primitive(
         &self,
+        state: &mut ViewportPipelineState,
     ) -> Result<Box<dyn iced::widget::shader::Primitive>, ExecuteError> {
         let scene = self.compute_scene()?;
 
-        let a = scene.graph.compute_untyped(scene.init_state).unwrap();
+        let s = state.state.take();
+        let s = match s {
+            Some(s) => s,
+            None => scene.graph.compute_untyped(scene.init_state).unwrap(),
+        };
 
         let mut ctx = ComputationContext::default();
-        ctx.set_override_untyped(scene.render_state_in, a);
+        ctx.set_override_untyped(scene.render_state_in.clone(), s);
 
-        scene
+        let result = scene
             .graph
             .compute_with_context(scene.render_primitive_out, &ctx)
-            .map_err(ExecuteError::ComputeError)
+            .map_err(ExecuteError::ComputeError);
+        let a = ctx.get_override_untyped_wip(&scene.render_state_in);
+        debug_assert!(a.is_some());
+        state.state = a;
+        result
     }
 
     /// Returns the number of plugins in the viewport pipeline.

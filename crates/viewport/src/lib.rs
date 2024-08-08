@@ -42,10 +42,13 @@
 //! the output and graph from the previous plugin. The final [`computegraph::ComputeGraph`] returned by the last plugin
 //! is than executed by the viewport to render to the screen.
 
+use std::sync::{Arc, Mutex};
+
 use iced::widget::shader;
 
 mod pipeline;
 
+use pipeline::ViewportPipelineState;
 #[doc(inline)]
 pub use pipeline::{
     DynamicViewportPlugin, ExecuteError, PipelineAddError, RenderNodePorts, SceneGraph,
@@ -56,44 +59,80 @@ pub use pipeline::{
 #[derive(Debug)]
 pub struct InputEvents {}
 
-#[derive(Debug, Default)]
-struct SomeState {}
+#[derive(Clone, Debug, Default)]
+pub struct SomeState {
+    state: Arc<Mutex<ViewportPipelineState>>,
+}
 
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub struct Viewport {
     pub pipeline: ViewportPipeline,
-    // pub session: Box<dyn std::any::Any>,
+}
+
+impl Clone for Viewport {
+    fn clone(&self) -> Self {
+        Self {
+            pipeline: self.pipeline.clone(),
+        }
+    }
 }
 
 impl Viewport {
     pub fn new() -> Self {
         Viewport {
             pipeline: ViewportPipeline::default(),
-            // session: Box::new(session as std::any::Any),
         }
     }
 }
 
 impl<Message> shader::Program<Message> for Viewport {
-    type State = ();
+    type State = SomeState;
 
     type Primitive = ShaderPrimitive;
 
     fn draw(
         &self,
-        _state: &Self::State,
+        state: &Self::State,
         _cursor: iced::advanced::mouse::Cursor,
         _bounds: iced::Rectangle,
     ) -> Self::Primitive {
         ShaderPrimitive {
             pipeline: self.pipeline.clone(),
+            state: state.clone(),
         }
+    }
+
+    fn update(
+        &self,
+        _state: &mut Self::State,
+        _event: shader::Event,
+        _bounds: iced::Rectangle,
+        _cursor: iced::advanced::mouse::Cursor,
+        _shell: &mut iced::advanced::Shell<'_, Message>,
+    ) -> (
+        iced::advanced::graphics::core::event::Status,
+        Option<Message>,
+    ) {
+        (iced::advanced::graphics::core::event::Status::Ignored, None)
+    }
+
+    fn mouse_interaction(
+        &self,
+        state: &Self::State,
+        _bounds: iced::Rectangle,
+        _cursor: iced::advanced::mouse::Cursor,
+    ) -> iced::advanced::mouse::Interaction {
+        self.pipeline
+            .update(&mut state.state.lock().unwrap())
+            .unwrap();
+        iced::advanced::mouse::Interaction::default()
     }
 }
 
 #[derive(Debug)]
 pub struct ShaderPrimitive {
     pub pipeline: ViewportPipeline,
+    pub state: SomeState,
 }
 
 impl shader::Primitive for ShaderPrimitive {
@@ -107,7 +146,10 @@ impl shader::Primitive for ShaderPrimitive {
         scale_factor: f32,
         storage: &mut shader::Storage,
     ) {
-        let a = self.pipeline.compute_primitive().unwrap();
+        let a = self
+            .pipeline
+            .compute_primitive(&mut self.state.state.lock().unwrap())
+            .unwrap();
         a.prepare(
             format,
             device,
@@ -127,7 +169,10 @@ impl shader::Primitive for ShaderPrimitive {
         viewport: iced::Rectangle<u32>,
         encoder: &mut wgpu::CommandEncoder,
     ) {
-        let a = self.pipeline.compute_primitive().unwrap();
+        let a = self
+            .pipeline
+            .compute_primitive(&mut self.state.state.lock().unwrap())
+            .unwrap();
         a.render(storage, target, target_size, viewport, encoder)
     }
 }
