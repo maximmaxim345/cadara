@@ -316,6 +316,13 @@ impl ComputationContext {
         self.overrides.push(InputPortValue { port, value });
     }
 
+    pub fn get_override_untyped_wip(&mut self, port: &InputPortUntyped) -> Option<Box<dyn Any>> {
+        self.overrides
+            .iter()
+            .position(|o| &o.port == port)
+            .map(|index| self.overrides.swap_remove(index).value)
+    }
+
     /// Provide a fallback value to all unconnected [`InputPort`]s with the type 'T'
     ///
     /// This fallback will only be used if a [`InputPort`] required for the computation
@@ -344,6 +351,23 @@ impl ComputationContext {
         let type_id = (*value).type_id();
         self.default_values.retain(|v| v.0 != type_id);
         self.default_values.push((type_id, value));
+    }
+
+    pub fn get_fallback_wip<T: 'static>(&mut self) -> Option<T> {
+        let type_id = TypeId::of::<T>();
+        self.default_values
+            .iter()
+            .position(|o| o.0 == type_id)
+            .map(|index| self.default_values.swap_remove(index).1)
+            .and_then(|b| b.downcast::<T>().ok())
+            .map(|b| *b)
+    }
+
+    pub fn get_fallback_untyped_wip(&mut self, type_id: std::any::TypeId) -> Option<Box<dyn Any>> {
+        self.default_values
+            .iter()
+            .position(|o| o.0 == type_id)
+            .map(|index| self.default_values.swap_remove(index).1)
     }
 }
 
