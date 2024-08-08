@@ -259,7 +259,7 @@ where
 #[derive(Debug)]
 struct InputPortValue {
     port: InputPortUntyped,
-    value: Box<dyn Any>,
+    value: Box<dyn Any + Send>,
 }
 
 /// Set predefined values for [`ComputeGraph::compute_with_context`].
@@ -272,7 +272,7 @@ struct InputPortValue {
 #[derive(Debug, Default)]
 pub struct ComputationContext {
     overrides: Vec<InputPortValue>,
-    default_values: Vec<(TypeId, Box<dyn Any>)>,
+    default_values: Vec<(TypeId, Box<dyn Any + Send>)>,
 }
 
 impl ComputationContext {
@@ -293,7 +293,7 @@ impl ComputationContext {
     ///
     /// * `port` - The port to override.
     /// * `value` - The value which should be used instead
-    pub fn set_override<T: Any>(&mut self, port: InputPort<T>, value: T) {
+    pub fn set_override<T: Any + Send>(&mut self, port: InputPort<T>, value: T) {
         let port = port.into();
 
         self.overrides.retain(|o| o.port != port);
@@ -311,7 +311,7 @@ impl ComputationContext {
     ///
     /// * `port` - The port to override.
     /// * `value` - The boxed value which should be used instead
-    pub fn set_override_untyped(&mut self, port: InputPortUntyped, value: Box<dyn Any>) {
+    pub fn set_override_untyped(&mut self, port: InputPortUntyped, value: Box<dyn Any + Send>) {
         self.overrides.retain(|o| o.port != port);
         self.overrides.push(InputPortValue { port, value });
     }
@@ -326,7 +326,7 @@ impl ComputationContext {
     /// # Arguments
     ///
     /// * `value`: The value to use for all unconnected [`InputPort`]s of the given type.
-    pub fn set_fallback<T: Any>(&mut self, value: T) {
+    pub fn set_fallback<T: Any + Send>(&mut self, value: T) {
         let type_id = value.type_id();
         self.default_values.retain(|v| v.0 != type_id);
         self.default_values.push((type_id, Box::new(value)));
@@ -340,7 +340,7 @@ impl ComputationContext {
     /// # Arguments
     ///
     /// * `value`: The value to use for all unconnected [`InputPort`]s of the type.
-    pub fn set_fallback_untyped(&mut self, value: Box<dyn Any>) {
+    pub fn set_fallback_untyped(&mut self, value: Box<dyn Any + Send>) {
         let type_id = (*value).type_id();
         self.default_values.retain(|v| v.0 != type_id);
         self.default_values.push((type_id, value));
@@ -357,7 +357,10 @@ impl ComputationContext {
     /// # Returns
     ///
     /// An [`Option`] containing the override value if found, or `None` otherwise.
-    pub fn remove_override_untyped(&mut self, port: &InputPortUntyped) -> Option<Box<dyn Any>> {
+    pub fn remove_override_untyped(
+        &mut self,
+        port: &InputPortUntyped,
+    ) -> Option<Box<dyn Any + Send>> {
         self.overrides
             .iter()
             .position(|o| &o.port == port)
@@ -427,7 +430,7 @@ impl ComputationContext {
     /// # Returns
     ///
     /// An [`Option`] containing the fallback value if found, or `None` otherwise.
-    pub fn remove_fallback_untyped(&mut self, type_id: TypeId) -> Option<Box<dyn Any>> {
+    pub fn remove_fallback_untyped(&mut self, type_id: TypeId) -> Option<Box<dyn Any + Send>> {
         self.default_values
             .iter()
             .position(|o| o.0 == type_id)
@@ -796,7 +799,10 @@ impl ComputeGraph {
     /// - An input port of the node ar a dependency of the node are not connected.
     /// - A cycle is detected in the graph.
     /// - A error occurs during computation (e.g. type returned by the node does not match the expected type).
-    pub fn compute_untyped(&self, output: OutputPortUntyped) -> Result<Box<dyn Any>, ComputeError> {
+    pub fn compute_untyped(
+        &self,
+        output: OutputPortUntyped,
+    ) -> Result<Box<dyn Any + Send>, ComputeError> {
         let mut visited = HashSet::new();
         self.compute_recursive(output, &mut visited, None)
     }
@@ -829,7 +835,7 @@ impl ComputeGraph {
         &self,
         output: OutputPortUntyped,
         context: &ComputationContext,
-    ) -> Result<Box<dyn Any>, ComputeError> {
+    ) -> Result<Box<dyn Any + Send>, ComputeError> {
         let mut visited = HashSet::new();
         self.compute_recursive(output, &mut visited, Some(context))
     }
@@ -902,12 +908,12 @@ impl ComputeGraph {
         output: OutputPortUntyped,
         visited: &mut HashSet<NodeHandle>,
         context: Option<&ComputationContext>,
-    ) -> Result<Box<dyn Any>, ComputeError> {
-        enum OwnedOrBorrowed<'a, T: 'a> {
+    ) -> Result<Box<dyn Any + Send>, ComputeError> {
+        enum OwnedOrBorrowed<'a, T: 'a + Send> {
             Owned(T),
             Borrowed(&'a T),
         }
-        impl<'a, T> OwnedOrBorrowed<'a, T> {
+        impl<'a, T: Send> OwnedOrBorrowed<'a, T> {
             const fn as_ref(&self) -> &T {
                 match self {
                     OwnedOrBorrowed::Owned(t) => t,
@@ -1002,7 +1008,7 @@ impl ComputeGraph {
 
         // The introduction of OwnedOrBorrowed is necessary, since otherwise the computed dependencies
         // would be destroyed after each loop iteration. This converts the list back into the required format
-        let dependencies: Vec<&Box<dyn Any>> =
+        let dependencies: Vec<&Box<dyn Any + Send>> =
             dependencies.iter().map(OwnedOrBorrowed::as_ref).collect();
         // Run the node with the computed inputs
         let output_result = output_node.node.run(&dependencies);
@@ -1328,7 +1334,7 @@ pub trait ExecutableNode: std::fmt::Debug + DynClone + Send + Sync {
     ///
     /// A vector of boxed dynamic values representing the output data.
     // TODO: add error handling
-    fn run(&self, input: &[&Box<dyn Any>]) -> Vec<Box<dyn Any>>;
+    fn run(&self, input: &[&Box<dyn Any + Send>]) -> Vec<Box<dyn Any + Send>>;
 }
 
 dyn_clone::clone_trait_object!(ExecutableNode);

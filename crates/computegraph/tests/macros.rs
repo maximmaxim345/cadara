@@ -87,8 +87,8 @@ fn test_macro_node() {
     let res = ExecutableNode::run(
         &Node6 {},
         &[
-            &(Box::new("hi".to_string()) as Box<dyn Any>),
-            &(Box::new(3_usize) as Box<dyn Any>),
+            &(Box::new("hi".to_string()) as Box<dyn Any + Send>),
+            &(Box::new(3_usize) as Box<dyn Any + Send>),
         ],
     );
     assert_eq!(res.len(), 1);
@@ -108,8 +108,8 @@ fn test_macro_node() {
     let res = ExecutableNode::run(
         &Node6 {},
         &[
-            &(Box::new("hi".to_string()) as Box<dyn Any>),
-            &(Box::new(3_usize) as Box<dyn Any>),
+            &(Box::new("hi".to_string()) as Box<dyn Any + Send>),
+            &(Box::new(3_usize) as Box<dyn Any + Send>),
         ],
     );
     assert_eq!(res.len(), 1);
