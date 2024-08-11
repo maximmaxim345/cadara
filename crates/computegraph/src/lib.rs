@@ -345,6 +345,94 @@ impl ComputationContext {
         self.default_values.retain(|v| v.0 != type_id);
         self.default_values.push((type_id, value));
     }
+
+    /// Remove a previously set override value, returning it in a box
+    ///
+    /// This method removes and returns a override, previously added using [`ComputationContext::set_override_untyped`].
+    ///
+    /// # Arguments
+    ///
+    /// * `port` - The untyped input port used to add the override
+    ///
+    /// # Returns
+    ///
+    /// An [`Option`] containing the override value if found, or `None` otherwise.
+    pub fn remove_override_untyped(&mut self, port: &InputPortUntyped) -> Option<Box<dyn Any>> {
+        self.overrides
+            .iter()
+            .position(|o| &o.port == port)
+            .map(|index| self.overrides.swap_remove(index).value)
+    }
+
+    /// Remove a previously set override value, returning it
+    ///
+    /// This method removes and returns a override, previously added using [`ComputationContext::set_override`].
+    ///
+    /// # Arguments
+    ///
+    /// * `port` - The input port used to add the override
+    ///
+    /// # Returns
+    ///
+    /// An [`Option`] containing the override value if found, or `None` otherwise.
+    pub fn remove_override<T: 'static>(&mut self, port: &InputPort<T>) -> Option<T> {
+        let index = self.overrides.iter().position(|o| o.port == port.port)?;
+        let override_value = self.overrides.swap_remove(index);
+        match override_value.value.downcast::<T>() {
+            Ok(boxed) => Some(*boxed),
+            Err(value) => {
+                // Type mismatch, undo the removal
+                self.overrides.push(InputPortValue {
+                    value,
+                    ..override_value
+                });
+                None
+            }
+        }
+    }
+
+    /// Remove a previously set fallback value, returning it
+    ///
+    /// This method removes and returns a fallback, previously added using [`ComputationContext::set_fallback`].
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - The type of the fallback value to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// An [`Option`] containing the fallback value if found, or `None` otherwise.
+    pub fn remove_fallback<T: 'static>(&mut self) -> Option<T> {
+        let type_id = TypeId::of::<T>();
+        let index = self.default_values.iter().position(|o| o.0 == type_id)?;
+        let (id, value) = self.default_values.swap_remove(index);
+        match value.downcast::<T>() {
+            Ok(boxed) => Some(*boxed),
+            Err(value) => {
+                // Type mismatch, undo the removal
+                self.default_values.push((id, value));
+                None
+            }
+        }
+    }
+
+    /// Remove a previously set fallback value, returning it in a box
+    ///
+    /// This method removes and returns a fallback, previously added using [`ComputationContext::set_fallback_untyped`].
+    ///
+    /// # Arguments
+    ///
+    /// * `type_id` - The `TypeId` of the fallback value to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// An [`Option`] containing the fallback value if found, or `None` otherwise.
+    pub fn remove_fallback_untyped(&mut self, type_id: TypeId) -> Option<Box<dyn Any>> {
+        self.default_values
+            .iter()
+            .position(|o| o.0 == type_id)
+            .map(|index| self.default_values.swap_remove(index).1)
+    }
 }
 
 /// A container for storing and managing metadata associated with nodes in a computation graph.

@@ -3,6 +3,7 @@ mod common;
 use anyhow::Result;
 use common::*;
 use computegraph::*;
+use std::any::TypeId;
 
 #[test]
 fn test_context_override() -> Result<()> {
@@ -57,6 +58,17 @@ fn test_context_override_skip_dependencies() -> Result<()> {
         15
     );
 
+    let input_port_with_wrong_type: InputPort<String> =
+        InputPortUntyped::from(addition.input_a()).to_typed();
+    assert_eq!(ctx.remove_override(&input_port_with_wrong_type), None);
+
+    assert_eq!(
+        ctx.remove_override(&addition.input_a()),
+        Some(5),
+        "remove_override should keep the value if the type is incorrect"
+    );
+    assert_eq!(ctx.remove_override(&addition.input_a()), None);
+
     Ok(())
 }
 
@@ -78,6 +90,9 @@ fn test_context_fallback() -> Result<()> {
             .unwrap(),
         20
     );
+
+    assert_eq!(ctx.remove_fallback::<usize>(), Some(10));
+    assert_eq!(ctx.remove_fallback::<usize>(), None);
 
     Ok(())
 }
@@ -102,6 +117,15 @@ fn test_context_priority() -> Result<()> {
         1,
         "priortiy should be override > connected > fallback"
     );
+
+    assert!(ctx
+        .remove_override_untyped(&addition.input_b().into())
+        .is_some());
+    assert!(ctx
+        .remove_override_untyped(&addition.input_b().into())
+        .is_none());
+    assert!(ctx.remove_fallback_untyped(TypeId::of::<usize>()).is_some());
+    assert!(ctx.remove_fallback_untyped(TypeId::of::<usize>()).is_none());
 
     Ok(())
 }
