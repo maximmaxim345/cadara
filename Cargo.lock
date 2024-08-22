@@ -2099,6 +2099,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "modeling-module"
+version = "0.1.0"
+dependencies = [
+ "module",
+ "serde",
+ "uuid",
+]
+
+[[package]]
 name = "module"
 version = "0.1.0"
 dependencies = [
