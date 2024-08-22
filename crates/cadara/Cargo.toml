@@ -6,3 +6,4 @@ license = "AGPL-3.0-only"
 
 [dependencies]
 iced = "0.12.1"
+icara = { path = "../icara"}
