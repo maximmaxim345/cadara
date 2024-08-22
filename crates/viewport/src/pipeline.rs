@@ -1,11 +1,9 @@
-use std::any::TypeId;
-
+use crate::ViewportEvent;
 use computegraph::{
     ComputationContext, ComputeGraph, DynamicNode, InputPort, InputPortUntyped, NodeFactory,
     NodeHandle, OutputPort, OutputPortUntyped,
 };
-
-use crate::InputEvents;
+use std::any::{Any, TypeId};
 
 /// Errors that can occur when creating a new [`ViewportPlugin`] or [`DynamicViewportPlugin`]
 #[derive(thiserror::Error, Debug)]
@@ -76,8 +74,8 @@ pub struct RenderNodePorts<T> {
 
 #[derive(Clone)]
 pub struct UpdateNodePorts<T> {
-    // events in
-    pub events_in: InputPort<InputEvents>,
+    // event in
+    pub event_in: InputPort<ViewportEvent>,
     // state in
     pub state_in: InputPort<T>,
     // state out
@@ -90,6 +88,9 @@ pub struct SceneGraph {
     init_state: OutputPortUntyped,
     render_state_in: InputPortUntyped,
     render_primitive_out: OutputPort<Box<dyn iced::widget::shader::Primitive>>,
+    update_event_in: InputPort<ViewportEvent>,
+    update_state_in: InputPortUntyped,
+    update_state_out: OutputPortUntyped,
 }
 
 impl<T> From<SceneGraphBuilder<T>> for SceneGraph {
@@ -99,6 +100,9 @@ impl<T> From<SceneGraphBuilder<T>> for SceneGraph {
             init_state: scene_graph.initial_state.into(),
             render_state_in: scene_graph.render_node.state_in.into(),
             render_primitive_out: scene_graph.render_node.primitive_out,
+            update_event_in: scene_graph.update_node.event_in,
+            update_state_in: scene_graph.update_node.state_in.into(),
+            update_state_out: scene_graph.update_node.state_out.into(),
         }
     }
 }
@@ -114,6 +118,11 @@ impl<T> From<SceneGraphBuilder<T>> for SceneGraph {
 pub struct ViewportPipeline {
     graph: ComputeGraph,
     nodes: Vec<ViewportPluginNode>,
+}
+
+#[derive(Default, Debug)]
+pub struct ViewportPipelineState {
+    state: Option<Box<dyn Any + Send>>,
 }
 
 /// Represents the position of a plugin in the viewport pipeline.
@@ -461,20 +470,54 @@ impl ViewportPipeline {
         Ok(scene)
     }
 
+    pub(crate) fn update(
+        &self,
+        state: &mut ViewportPipelineState,
+        events: ViewportEvent,
+    ) -> Result<(), ExecuteError> {
+        let scene = self.compute_scene()?;
+
+        let s = state.state.take();
+        let s = match s {
+            Some(s) => s,
+            None => scene.graph.compute_untyped(scene.init_state).unwrap(),
+        };
+
+        let mut ctx = ComputationContext::default();
+        ctx.set_override_untyped(scene.update_state_in.clone(), s);
+        ctx.set_override(scene.update_event_in, events);
+
+        let result = scene
+            .graph
+            .compute_untyped_with_context(scene.update_state_out, &ctx)
+            .map_err(ExecuteError::ComputeError)?;
+        state.state = Some(result);
+        Ok(())
+    }
+
     pub(crate) fn compute_primitive(
         &self,
+        state: &mut ViewportPipelineState,
     ) -> Result<Box<dyn iced::widget::shader::Primitive>, ExecuteError> {
         let scene = self.compute_scene()?;
 
-        let a = scene.graph.compute_untyped(scene.init_state).unwrap();
+        let s = state.state.take();
+        let s = match s {
+            Some(s) => s,
+            None => scene.graph.compute_untyped(scene.init_state).unwrap(),
+        };
 
         let mut ctx = ComputationContext::default();
-        ctx.set_override_untyped(scene.render_state_in, a);
+        ctx.set_override_untyped(scene.render_state_in.clone(), s);
 
-        scene
+        let result = scene
             .graph
             .compute_with_context(scene.render_primitive_out, &ctx)
-            .map_err(ExecuteError::ComputeError)
+            .map_err(ExecuteError::ComputeError);
+        let a = ctx.remove_override_untyped(&scene.render_state_in);
+        debug_assert!(a.is_some());
+        state.state = a;
+        result
     }
 
     /// Returns the number of plugins in the viewport pipeline.

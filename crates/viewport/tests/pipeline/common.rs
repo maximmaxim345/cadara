@@ -1,7 +1,8 @@
 use computegraph::{node, ComputeGraph};
 use iced::widget::shader::Primitive;
 use viewport::{
-    InputEvents, RenderNodePorts, SceneGraph, SceneGraphBuilder, UpdateNodePorts, ViewportPipeline,
+    RenderNodePorts, SceneGraph, SceneGraphBuilder, UpdateNodePorts, ViewportEvent,
+    ViewportPipeline,
 };
 
 #[derive(Clone)]
@@ -50,7 +51,7 @@ fn run(&self, _state: &State) -> Box<dyn Primitive> {
 #[derive(Debug, Clone)]
 pub struct UpdateNode();
 #[node(UpdateNode)]
-fn run(&self, state: &State, _events: &InputEvents) -> State {
+fn run(&self, state: &State, _event: &ViewportEvent) -> State {
     (*state).clone()
 }
 
@@ -90,7 +91,7 @@ fn run(&self) -> (SceneGraph, CounterState) {
             },
             update_node: UpdateNodePorts {
                 state_in: update_node.input_state(),
-                events_in: update_node.input_events(),
+                event_in: update_node.input_event(),
                 state_out: update_node.output(),
             },
         }
