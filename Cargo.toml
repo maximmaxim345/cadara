@@ -10,5 +10,6 @@ members = [
   "crates/cadara",
   "crates/module",
   "crates/workspace",
+  "crates/modeling-module",
 ]
 resolver = "2"
