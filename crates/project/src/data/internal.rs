@@ -2,9 +2,8 @@ use crate::{data::transaction::TransactionError, user::User};
 use module::{DataTransaction, Module, ReversibleDataTransaction};
 use serde::{Deserialize, Serialize};
 use std::{
-    cell::RefCell,
     collections::{HashMap, VecDeque},
-    rc::Weak,
+    sync::{Mutex, Weak},
 };
 use uuid::Uuid;
 
@@ -74,7 +73,7 @@ pub struct InternalData<M: Module> {
     pub(crate) shared_data: Option<M::SharedData>,
     /// List of all currently open sessions of this document.
     #[serde(skip)]
-    pub sessions: Vec<(Uuid, Weak<RefCell<InternalDataSession<M>>>)>,
+    pub sessions: Vec<(Uuid, Weak<Mutex<InternalDataSession<M>>>)>,
     /// UUID of the module implementing the document.
     // TODO: remove duplicate in serialization
     pub module_uuid: Uuid,
@@ -102,7 +101,7 @@ impl<M: Module> InternalData<M> {
         for session in &self.sessions {
             let session = session.1.upgrade().unwrap();
             ReversibleDataTransaction::apply_unchecked(
-                &mut session.borrow_mut().persistent,
+                &mut session.lock().unwrap().persistent,
                 args.clone(),
             );
         }
@@ -144,7 +143,7 @@ impl<M: Module> InternalData<M> {
         for session in &self.sessions {
             let session = session.1.upgrade().unwrap();
             ReversibleDataTransaction::apply_unchecked(
-                &mut session.borrow_mut().persistent_user,
+                &mut session.lock().unwrap().persistent_user,
                 args.clone(),
             );
         }
@@ -185,7 +184,8 @@ impl<M: Module> InternalData<M> {
         for session in &self.sessions {
             let session = session.1.upgrade().unwrap();
             session
-                .borrow_mut()
+                .lock()
+                .unwrap()
                 .shared_data
                 .apply_unchecked(args.clone());
         }

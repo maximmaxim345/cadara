@@ -9,6 +9,8 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::cognitive_complexity)]
+#![allow(clippy::missing_panics_doc)] // TODO: delete this asap
+
 // TODO: allow too many lines (remove allow on functions)
 
 // TODO: make InternalDataSession private
@@ -33,7 +35,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::path::PathBuf;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use user::User;
 use uuid::Uuid;
 
@@ -42,7 +44,7 @@ use uuid::Uuid;
 /// This trait allows for the storage of any [`DataModel`] type while providing
 /// mechanisms to recover the specific type through downcasting. It also facilitates
 /// serialization of data without knowing their concrete types.
-trait DataModelTrait: erased_serde::Serialize + Debug {
+trait DataModelTrait: erased_serde::Serialize + Debug + Send {
     /// Retrieves a mutable reference to the underlying type as a trait object.
     /// This is used for downcasting to the concrete [`DataModel`] type.
     fn as_any(&mut self) -> &mut dyn Any;
@@ -55,7 +57,7 @@ erased_serde::serialize_trait_object!(DataModelTrait);
 /// shared ownership and mutability across different parts of the code. It is designed to work
 /// with data models that implement the [`Module`] trait.
 #[derive(Clone, Debug, Deserialize)]
-struct DataModel<M: Module>(Rc<RefCell<InternalData<M>>>);
+struct DataModel<M: Module>(Arc<Mutex<InternalData<M>>>);
 
 // We use this thread local storage to pass data to the deserialize function through
 // automatically derived implementations of `Deserialize`. Alternatively, we could
@@ -98,7 +100,7 @@ impl<M: Module> Serialize for DataModel<M> {
     where
         S: Serializer,
     {
-        self.0.borrow().serialize(serializer)
+        self.0.lock().unwrap().serialize(serializer)
     }
 }
 
@@ -378,7 +380,7 @@ struct InternalProject {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Project {
     /// Encapsulates the internal representation of the project, including documents and metadata.
-    project: Rc<RefCell<InternalProject>>,
+    project: Arc<Mutex<InternalProject>>,
 }
 
 impl Project {
@@ -399,7 +401,7 @@ impl Project {
     #[must_use]
     pub fn new(name: String) -> Self {
         Self {
-            project: Rc::new(RefCell::new(InternalProject {
+            project: Arc::new(Mutex::new(InternalProject {
                 data: HashMap::new(),
                 documents: HashMap::new(),
                 name,
@@ -414,7 +416,7 @@ impl Project {
     #[must_use]
     pub fn new_with_path(name: String, _user: User, path: PathBuf) -> Self {
         Self {
-            project: Rc::new(RefCell::new(InternalProject {
+            project: Arc::new(Mutex::new(InternalProject {
                 data: HashMap::new(),
                 documents: HashMap::new(),
                 name,
@@ -429,7 +431,7 @@ impl Project {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ProjectSession {
     /// Encapsulates the internal representation of the project, including documents and metadata.
-    project: Rc<RefCell<InternalProject>>,
+    project: Arc<Mutex<InternalProject>>,
     /// The user currently interacting with the project.
     user: User,
 }
@@ -446,8 +448,7 @@ impl ProjectSession {
     /// An `Option` containing a [`DocumentSession`] if the document could be opened, or `None` otherwise.
     #[must_use]
     pub fn open_document(&self, document_uuid: DocumentUuid) -> Option<DocumentSession> {
-        let project = self.project.borrow_mut();
-        let _ = project.documents.get(&document_uuid)?;
+        let _ = self.project.lock().unwrap().documents.get(&document_uuid)?;
         Some(DocumentSession {
             document: document_uuid,
             project: self.project.clone(),
@@ -464,7 +465,7 @@ impl ProjectSession {
     pub fn create_document(&self) -> DocumentUuid {
         let new_doc_uuid = DocumentUuid::new_v4();
 
-        let mut project = self.project.borrow_mut();
+        let mut project = self.project.lock().unwrap();
         project
             .documents
             .insert(new_doc_uuid, DocumentRecord { data: Vec::new() });
@@ -484,12 +485,13 @@ impl ProjectSession {
     ///
     /// An `Option` containing a `DataSession` if found, or `None` otherwise.
     #[must_use]
+    #[allow(clippy::significant_drop_tightening)] // This lint broken here, want's to delete a used variable
     pub fn open_data<M: Module>(&self, data_uuid: DataUuid) -> Option<DataSession<M>> {
         // TODO: Option -> Result
         let project = &self.project;
 
         // first, we get the document model from the project (if it exists)
-        let mut mut_project = project.borrow_mut();
+        let mut mut_project = project.lock().unwrap();
         let data_model = mut_project
             .data
             .get_mut(&data_uuid)?
@@ -502,7 +504,7 @@ impl ProjectSession {
         let session = InternalDataSession::new(data_model, project, data_uuid, self.user);
         Some(DataSession {
             session,
-            data_model_ref: Rc::downgrade(&data_model.0),
+            data_model_ref: Arc::downgrade(&data_model.0),
         })
     }
 }

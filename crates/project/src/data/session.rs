@@ -6,10 +6,7 @@ use super::{
 };
 use internal::InternalDataSession;
 use module::{DataTransaction, Module, ReversibleDataTransaction};
-use std::{
-    cell::RefCell,
-    rc::{Rc, Weak},
-};
+use std::sync::{Arc, Mutex, Weak};
 use utils::Transaction;
 
 /// Represents a snapshot of a data sections state in a session.
@@ -45,8 +42,8 @@ pub struct Snapshot<M: Module> {
 #[derive(Clone, Debug)]
 pub struct DataSession<M: Module> {
     /// The internal implementation of this session.
-    pub(crate) session: Rc<RefCell<InternalDataSession<M>>>,
-    pub(crate) data_model_ref: Weak<RefCell<InternalData<M>>>,
+    pub(crate) session: Arc<Mutex<InternalDataSession<M>>>,
+    pub(crate) data_model_ref: Weak<Mutex<InternalData<M>>>,
 }
 
 impl<M: Module> DataSession<M> {
@@ -59,7 +56,7 @@ impl<M: Module> DataSession<M> {
     /// A [`Snapshot<M>`] that encapsulates the session's current state.
     #[must_use]
     pub fn snapshot(&self) -> Snapshot<M> {
-        let session = self.session.borrow();
+        let session = self.session.lock().unwrap();
         Snapshot {
             persistent: session.persistent.clone(),
             persistent_user: session.persistent_user.clone(),
@@ -74,7 +71,7 @@ impl<M: Module> DataSession<M> {
         args: <M::SessionData as DataTransaction>::Args,
     ) -> Result<<M::SessionData as DataTransaction>::Output, transaction::SessionApplyError<M>>
     {
-        let mut internal = self.session.borrow_mut();
+        let mut internal = self.session.lock().unwrap();
         // We do not need to replicate the transaction to other sessions.
         internal.session_data.apply(args).map_or_else(
             |error| {
@@ -112,10 +109,9 @@ impl<M: Module> DataSession<M> {
     /// This function is not expected to panic under normal circumstances.
     #[must_use]
     pub fn undo_redo_list(&self) -> (Vec<String>, usize) {
-        let session_uuid = self.session.borrow().session_uuid;
+        let session_uuid = self.session.lock().unwrap().session_uuid;
         let ref_cell = self.data_model_ref.upgrade().unwrap();
-        let internal_data = ref_cell.borrow();
-        let history = &internal_data.transaction_history;
+        let history = &ref_cell.lock().unwrap().transaction_history;
 
         let mut undo_list = Vec::new();
         let mut position = 0;
@@ -177,9 +173,9 @@ impl<M: Module> DataSession<M> {
             should_redo: bool,
         }
 
-        let session_uuid = self.session.borrow().session_uuid;
+        let session_uuid = self.session.lock().unwrap().session_uuid;
         let ref_cell = self.data_model_ref.upgrade().unwrap();
-        let mut internal_data = ref_cell.borrow_mut();
+        let mut internal_data = ref_cell.lock().unwrap();
 
         // This algorithm is a bit tricky, since multi user editing is allowed.
         // Here is an explanation of how it works:
@@ -515,8 +511,8 @@ impl<M: Module> DataSession<M> {
         // Copy the data to all sessions
         for session in &internal_data.sessions {
             let session = session.1.upgrade().unwrap();
-            session.borrow_mut().persistent = internal_data.persistent_data.clone();
-            session.borrow_mut().persistent_user = internal_data.user_data.clone();
+            session.lock().unwrap().persistent = internal_data.persistent_data.clone();
+            session.lock().unwrap().persistent_user = internal_data.user_data.clone();
         }
     }
 
@@ -557,9 +553,9 @@ impl<M: Module> DataSession<M> {
             // should_redo: bool,
         }
 
-        let session_uuid = self.session.borrow().session_uuid;
+        let session_uuid = self.session.lock().unwrap().session_uuid;
         let ref_cell = self.data_model_ref.upgrade().unwrap();
-        let mut internal_data = ref_cell.borrow_mut();
+        let mut internal_data = ref_cell.lock().unwrap();
         // let _history = &internal_data.transaction_history;
 
         // This algorithm is for redoing transactions in a multi-user editing system.
@@ -812,8 +808,8 @@ impl<M: Module> DataSession<M> {
         // Copy the data to all sessions
         for session in &internal_data.sessions {
             let session = session.1.upgrade().unwrap();
-            session.borrow_mut().persistent = internal_data.persistent_data.clone();
-            session.borrow_mut().persistent_user = internal_data.user_data.clone();
+            session.lock().unwrap().persistent = internal_data.persistent_data.clone();
+            session.lock().unwrap().persistent_user = internal_data.user_data.clone();
         }
     }
 }
@@ -833,9 +829,9 @@ impl<M: Module> Transaction for DataSession<M> {
         } else {
             // The remaining transaction are applied through the data model
             // This is because they need to be synced with other session.
-            let session_uuid = self.session.borrow().session_uuid;
+            let session_uuid = self.session.lock().unwrap().session_uuid;
             let ref_cell = &self.data_model_ref.upgrade().unwrap();
-            let mut internal_data = ref_cell.borrow_mut();
+            let mut internal_data = ref_cell.lock().unwrap();
             match args {
                 Self::Args::Persistent(data_args) => internal_data
                     .apply_persistent(data_args, session_uuid)

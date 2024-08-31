@@ -9,7 +9,10 @@ use crate::{
 };
 use module::Module;
 use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 use uuid::Uuid;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -17,7 +20,7 @@ pub struct DocumentSession {
     /// Identifier of this document
     pub(crate) document: DocumentUuid,
     /// Encapsulates the internal representation of the project, including documents and metadata.
-    pub(crate) project: Rc<RefCell<InternalProject>>,
+    pub(crate) project: Arc<Mutex<InternalProject>>,
     /// The user currently interacting with the project.
     pub(crate) user: User,
 }
@@ -53,7 +56,7 @@ impl DocumentSession {
     /// An `Option` containing a `DataSession` if the data section exists, or `None` otherwise.
     #[must_use]
     pub fn open_data_by_uuid<M: Module>(&self, data_uuid: DataUuid) -> Option<DataSession<M>> {
-        if self.project.borrow().documents[&self.document]
+        if self.project.lock().unwrap().documents[&self.document]
             .data
             .iter()
             .any(|u| *u == data_uuid)
@@ -75,7 +78,7 @@ impl DocumentSession {
     #[must_use]
     pub fn open_data_by_type<M: Module>(&self) -> Vec<DataSession<M>> {
         let a = {
-            let p = self.project.borrow();
+            let p = self.project.lock().unwrap();
             p.documents[&self.document].data.clone()
         };
         a.iter()
@@ -105,7 +108,7 @@ impl DocumentSession {
     pub fn create_data<M: Module>(&self) -> DataUuid {
         let new_data_uuid = DataUuid::new_v4();
 
-        let mut project = self.project.borrow_mut();
+        let mut project = self.project.lock().unwrap();
         let data = InternalData::<M> {
             persistent_data: M::PersistentData::default(),
             user_data: M::PersistentUserData::default(),
@@ -115,7 +118,7 @@ impl DocumentSession {
             transaction_history: std::collections::VecDeque::new(),
             session_to_user: HashMap::new(),
         };
-        let data_model: DataModel<M> = DataModel(Rc::new(RefCell::new(data)));
+        let data_model: DataModel<M> = DataModel(Arc::new(Mutex::new(data)));
         project.data.insert(
             new_data_uuid,
             ErasedDataModel {
