@@ -48,6 +48,7 @@
 //! is than executed by the viewport to render to the screen.
 
 use iced::widget::shader;
+use project::ProjectSession;
 use std::sync::{Arc, Mutex};
 
 mod pipeline;
@@ -71,16 +72,18 @@ pub struct ViewportState {
     state: Arc<Mutex<pipeline::ViewportPipelineState>>,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Viewport {
     pub pipeline: ViewportPipeline,
+    pub project_session: ProjectSession,
 }
 
 impl Viewport {
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(project_session: ProjectSession) -> Self {
         Self {
             pipeline: ViewportPipeline::default(),
+            project_session,
         }
     }
 }
@@ -99,6 +102,7 @@ impl<Message> shader::Program<Message> for Viewport {
         ShaderPrimitive {
             pipeline: self.pipeline.clone(),
             state: state.clone(),
+            project_session: self.project_session.clone(),
         }
     }
 
@@ -119,7 +123,11 @@ impl<Message> shader::Program<Message> for Viewport {
             cursor,
         };
         self.pipeline
-            .update(&mut state.state.lock().unwrap(), event)
+            .update(
+                &mut state.state.lock().unwrap(),
+                event,
+                self.project_session.clone(),
+            )
             .unwrap();
         (iced::advanced::graphics::core::event::Status::Ignored, None)
     }
@@ -138,6 +146,7 @@ impl<Message> shader::Program<Message> for Viewport {
 pub struct ShaderPrimitive {
     pub pipeline: ViewportPipeline,
     pub state: ViewportState,
+    pub project_session: ProjectSession,
 }
 
 impl shader::Primitive for ShaderPrimitive {
@@ -153,7 +162,10 @@ impl shader::Primitive for ShaderPrimitive {
     ) {
         let a = self
             .pipeline
-            .compute_primitive(&mut self.state.state.lock().unwrap())
+            .compute_primitive(
+                &mut self.state.state.lock().unwrap(),
+                self.project_session.clone(),
+            )
             .unwrap();
         a.prepare(
             format,
@@ -176,7 +188,10 @@ impl shader::Primitive for ShaderPrimitive {
     ) {
         let a = self
             .pipeline
-            .compute_primitive(&mut self.state.state.lock().unwrap())
+            .compute_primitive(
+                &mut self.state.state.lock().unwrap(),
+                self.project_session.clone(),
+            )
             .unwrap();
         a.render(storage, target, target_size, viewport, encoder);
     }
