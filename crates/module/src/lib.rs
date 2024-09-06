@@ -16,11 +16,11 @@ use uuid::Uuid;
 pub trait DataTransaction {
     // TODO: add Debug, Clone, ... to these types
     /// The type of arguments required to apply the transaction.
-    type Args: Clone + Debug + PartialEq + Hash;
+    type Args: Clone + Debug + PartialEq + Hash + Send;
     /// The type of error that can occur when applying the transaction.
-    type Error: Clone + Debug + PartialEq;
+    type Error: Clone + Debug + PartialEq + Send;
     /// The type of the successful output of the transaction.
-    type Output: Clone + Debug + PartialEq;
+    type Output: Clone + Debug + PartialEq + Send;
 
     /// Applies the transaction to the object.
     ///
@@ -75,7 +75,7 @@ pub trait DataTransaction {
 /// A trait for transactions that can be reversed.
 pub trait ReversibleDataTransaction: DataTransaction {
     /// The type of data required to undo the transaction.
-    type UndoData: Clone + Debug + PartialEq + Hash;
+    type UndoData: Clone + Debug + PartialEq + Hash + Send;
 
     /// Applies the transaction and returns the necessary data to undo it.
     ///
@@ -134,7 +134,7 @@ pub trait ReversibleDataTransaction: DataTransaction {
 /// A module is responsible for defining the following aspects of a data section:
 /// - Data Structure: The data that is stored for each section, separated into four categories.
 /// - Transactions: How transactions are applied to each of the four data structures, which is used to modify the data.
-pub trait Module: Clone + Default + Debug + 'static {
+pub trait Module: Clone + Default + Debug + Send + 'static {
     /// Data structure used for persistent storage of the data.
     ///
     /// # Notes
@@ -145,6 +145,7 @@ pub trait Module: Clone + Default + Debug + 'static {
         + Debug
         + PartialEq
         + Serialize
+        + Send
         + for<'a> Deserialize<'a>;
     /// Data structure used for persistent storage of the user's state.
     ///
@@ -158,13 +159,14 @@ pub trait Module: Clone + Default + Debug + 'static {
         + Debug
         + PartialEq
         + Serialize
+        + Send
         + for<'a> Deserialize<'a>;
     /// Data structure used for data which persists until the user closes the session.
     ///
     /// # Notes
     /// - This data is not shared between users.
     /// - This data is not saved to disk.
-    type SessionData: DataTransaction + Clone + Default + Debug + PartialEq;
+    type SessionData: DataTransaction + Clone + Default + Debug + PartialEq + Send;
     /// Data structure used for data, which is shared between all sessions/users.
     ///
     /// # Notes
@@ -175,6 +177,7 @@ pub trait Module: Clone + Default + Debug + 'static {
         + Default
         + Debug
         + PartialEq
+        + Send
         + Serialize
         + for<'a> Deserialize<'a>;
 
