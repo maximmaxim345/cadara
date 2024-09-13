@@ -1,5 +1,6 @@
 use computegraph::node;
 use iced::widget::shader;
+use project::data::transaction::TransactionArgs;
 use viewport::ViewportEvent;
 
 use super::{rendering::RenderPrimitive, state::ViewportState};
@@ -15,6 +16,10 @@ fn run(
     state: &ViewportState,
     project: &project::ProjectSession,
 ) -> Box<dyn shader::Primitive> {
+    let data_session: project::data::DataSession<modeling_module::ModelingModule> =
+        project.open_data(self.data_uuid).unwrap();
+    let shape = data_session.snapshot().persistent.shape();
+    let _mesh = shape.mesh();
     Box::new(RenderPrimitive {
         state: (*state).clone(),
     })
@@ -32,10 +37,19 @@ fn run(
     state: &ViewportState,
     project: &project::ProjectSession,
 ) -> ViewportState {
+    use utils::Transaction;
+
     let mut state = (*state).clone();
+    let mut data_session: project::data::DataSession<modeling_module::ModelingModule> =
+        project.open_data(self.data_uuid).unwrap();
     if let shader::Event::Mouse(m) = event.event {
         match m {
             iced::mouse::Event::ButtonPressed(iced::mouse::Button::Left) => {
+                data_session.apply(TransactionArgs::Shared(())).unwrap();
+                let persistent = data_session.snapshot().persistent;
+                let s = persistent.shape();
+                println!("mesh len: {:?}", s.mesh().vertices().len());
+                println!("persistent: {persistent:?}");
                 state.l_button_pressed = true;
             }
             iced::mouse::Event::ButtonReleased(iced::mouse::Button::Left) => {
