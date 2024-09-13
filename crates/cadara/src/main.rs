@@ -35,7 +35,7 @@ impl iced::Sandbox for App {
         ))
         .expect("apply transaction");
         let mut viewport = viewport::Viewport::new(project);
-        let workspace = modeling_workspace::ModelingWorkspace::default();
+        let workspace = modeling_workspace::ModelingWorkspace { data_uuid };
         // TODO: this should dynamically select the first fitting plugin
         let plugin = workspace.viewport_plugins()[0].clone();
         viewport.pipeline.add_dynamic_plugin(plugin).unwrap();
