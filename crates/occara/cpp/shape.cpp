@@ -86,7 +86,6 @@ Mesh Shape::mesh() const {
 
   // Perform meshing
   BRepMesh_IncrementalMesh mesher(shape, meshParams);
-  std::cout << "Mesh called\n";
 
   // Collect vertices and indices
   std::vector<geom::Point> vertices;
@@ -95,13 +94,11 @@ Mesh Shape::mesh() const {
   TopExp_Explorer faceExplorer(shape, TopAbs_FACE);
   for (; faceExplorer.More(); faceExplorer.Next()) {
     TopoDS_Face face = TopoDS::Face(faceExplorer.Current());
-    std::cerr << "Face\n";
     TopLoc_Location loc;
     Handle(Poly_Triangulation) triangulation =
         BRep_Tool::Triangulation(face, loc);
 
     if (triangulation.IsNull()) {
-      std::cerr << "Triangulation is null for face\n";
       continue;
     }
 
