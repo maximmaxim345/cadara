@@ -9,3 +9,4 @@ publish = false
 module = { path = "../module" }
 uuid = { version = "1.6.1", features = ["v4", "serde"] }
 serde = { version = "1.0.195", features = ["derive", "alloc", "rc"] }
+occara = { path = "../occara" }

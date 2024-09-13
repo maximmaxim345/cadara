@@ -20,11 +20,20 @@ impl iced::Sandbox for App {
         let project = project::Project::new("project".to_string()).create_session();
         let doc = project.create_document();
         let doc = project.open_document(doc).unwrap();
-        let data = doc.create_data::<ModelingModule>();
-        let mut data = doc.open_data_by_uuid::<ModelingModule>(data).unwrap();
+        let data_uuid = doc.create_data::<ModelingModule>();
+        let mut data = doc.open_data_by_uuid::<ModelingModule>(data_uuid).unwrap();
 
-        data.apply(TransactionArgs::Persistent(()))
-            .expect("apply transaction");
+        data.apply(TransactionArgs::Persistent(
+            modeling_module::persistent_data::ModelingTransaction::Create(
+                modeling_module::persistent_data::Create {
+                    before: None,
+                    operation: modeling_module::operation::ModelingOperation::Sketch(
+                        modeling_module::operation::sketch::Sketch,
+                    ),
+                },
+            ),
+        ))
+        .expect("apply transaction");
         let mut viewport = viewport::Viewport::new(project);
         let workspace = modeling_workspace::ModelingWorkspace::default();
         // TODO: this should dynamically select the first fitting plugin
