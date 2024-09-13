@@ -8,8 +8,10 @@ mod state;
 #[derive(Clone, Debug)]
 pub struct ModelingViewportPluginOutput {}
 
-#[derive(Clone, Default, Debug)]
-pub struct ModelingViewportPlugin {}
+#[derive(Clone, Debug)]
+pub struct ModelingViewportPlugin {
+    pub data_uuid: project::data::DataUuid,
+}
 
 #[node(ModelingViewportPlugin -> (scene, output))]
 fn run(
@@ -18,10 +20,20 @@ fn run(
 ) -> (viewport::SceneGraph, ModelingViewportPluginOutput) {
     let mut graph = ComputeGraph::new();
     let render_node = graph
-        .add_node(scene_nodes::RenderNode {}, "render".to_string())
+        .add_node(
+            scene_nodes::RenderNode {
+                data_uuid: self.data_uuid,
+            },
+            "render".to_string(),
+        )
         .unwrap();
     let update_node = graph
-        .add_node(scene_nodes::UpdateStateNode {}, "update".to_string())
+        .add_node(
+            scene_nodes::UpdateStateNode {
+                data_uuid: self.data_uuid,
+            },
+            "update".to_string(),
+        )
         .unwrap();
     let init_node = graph
         .add_node(scene_nodes::InitStateNode {}, "init".to_string())

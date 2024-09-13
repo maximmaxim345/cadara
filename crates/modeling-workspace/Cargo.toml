@@ -7,8 +7,10 @@ publish = false
 
 [dependencies]
 workspace = { path = "../workspace" }
+modeling-module = { path = "../modeling-module" }
 viewport = { path = "../viewport" }
 computegraph = { path = "../computegraph" }
 project = { path = "../project" }
 iced = { version = "0.12.1", features = ["advanced"] }
 bytemuck = "1.17.0"
+utils = { path = "../utils" }

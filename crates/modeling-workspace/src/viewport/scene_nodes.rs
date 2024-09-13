@@ -5,7 +5,9 @@ use viewport::ViewportEvent;
 use super::{rendering::RenderPrimitive, state::ViewportState};
 
 #[derive(Clone, Debug)]
-pub struct RenderNode {}
+pub struct RenderNode {
+    pub data_uuid: project::data::DataUuid,
+}
 
 #[node(RenderNode)]
 fn run(
@@ -19,14 +21,16 @@ fn run(
 }
 
 #[derive(Clone, Debug)]
-pub struct UpdateStateNode {}
+pub struct UpdateStateNode {
+    pub data_uuid: project::data::DataUuid,
+}
 
 #[node(UpdateStateNode)]
 fn run(
     &self,
     event: &ViewportEvent,
     state: &ViewportState,
-    _project: &project::ProjectSession,
+    project: &project::ProjectSession,
 ) -> ViewportState {
     let mut state = (*state).clone();
     if let shader::Event::Mouse(m) = event.event {

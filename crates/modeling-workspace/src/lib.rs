@@ -7,8 +7,10 @@ mod viewport;
 
 use ::viewport::DynamicViewportPlugin;
 
-#[derive(Debug, Default)]
-pub struct ModelingWorkspace {}
+#[derive(Debug)]
+pub struct ModelingWorkspace {
+    pub data_uuid: project::data::DataUuid,
+}
 
 impl workspace::Workspace for ModelingWorkspace {
     fn tools(&self) -> Vec<workspace::Toolgroup> {
@@ -23,8 +25,12 @@ impl workspace::Workspace for ModelingWorkspace {
     }
 
     fn viewport_plugins(&self) -> Vec<DynamicViewportPlugin> {
-        vec![
-            DynamicViewportPlugin::new(viewport::ModelingViewportPlugin::default().into()).unwrap(),
-        ]
+        vec![DynamicViewportPlugin::new(
+            viewport::ModelingViewportPlugin {
+                data_uuid: self.data_uuid,
+            }
+            .into(),
+        )
+        .unwrap()]
     }
 }
