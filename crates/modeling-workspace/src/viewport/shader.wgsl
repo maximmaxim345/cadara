@@ -9,11 +9,17 @@ struct VertexOutput {
     @location(0) tex_coords: vec2<f32>,
 };
 
+struct Vertex {
+    @location(0) pos: vec3<f32>,
+}
+
 @vertex
-fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
+fn vs_main(@builtin(vertex_index) in_vertex_index: u32, vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
-    let x = f32(1 - i32(in_vertex_index & 1u) * 2) + uniforms.x;
-    let y = f32(1 - i32(in_vertex_index >> 1u) * 2) + uniforms.y;
+    var x = f32(1 - i32(in_vertex_index & 1u) * 2) + uniforms.x;
+    var y = f32(1 - i32(in_vertex_index >> 1u) * 2) + uniforms.y;
+    x = vertex.pos.x + uniforms.x;
+    y = vertex.pos.y + uniforms.y;
     out.clip_position = vec4<f32>(x, y, 0.0, 1.0);
     out.tex_coords = vec2<f32>(
         f32(in_vertex_index & 1u),

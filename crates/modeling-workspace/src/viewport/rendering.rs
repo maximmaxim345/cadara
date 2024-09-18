@@ -1,12 +1,19 @@
 #![allow(clippy::cast_precision_loss)]
 
-use iced::widget::shader::{self, wgpu};
+use iced::widget::shader::{
+    self,
+    wgpu::{
+        self,
+        util::{BufferInitDescriptor, DeviceExt},
+    },
+};
 
-use super::state::{Uniforms, ViewportState};
+use super::state::{Uniforms, Vertex, ViewportState};
 
 #[derive(Debug)]
 pub struct RenderPrimitive {
     pub(crate) state: ViewportState,
+    pub(crate) mesh: occara::shape::Mesh,
 }
 
 impl shader::Primitive for RenderPrimitive {
@@ -24,7 +31,20 @@ impl shader::Primitive for RenderPrimitive {
             storage.store(RenderPipeline::new(device, queue, format, target_size));
         }
         let pipeline = storage.get_mut::<RenderPipeline>().unwrap();
-        pipeline.update(device, queue, bounds, target_size, scale_factor, self);
+        let mut a = Vec::new();
+        let indices = self.mesh.indices();
+        let vertices = self.mesh.vertices();
+        for i in indices {
+            let v = Vertex {
+                pos: glam::Vec3::new(
+                    vertices[i].x() as f32,
+                    vertices[i].y() as f32,
+                    vertices[i].z() as f32,
+                ),
+            };
+            a.push(v);
+        }
+        pipeline.update(device, queue, bounds, target_size, scale_factor, self, &a);
     }
 
     fn render(
@@ -46,6 +66,7 @@ struct RenderPipeline {
     pipeline: wgpu::RenderPipeline,
     camera_bind_group: wgpu::BindGroup,
     uniforms: wgpu::Buffer,
+    mesh_buffer: Option<wgpu::Buffer>,
 }
 
 impl RenderPipeline {
@@ -104,7 +125,7 @@ impl RenderPipeline {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[],
+                buffers: &[Vertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -125,23 +146,32 @@ impl RenderPipeline {
             pipeline,
             camera_bind_group,
             uniforms,
+            mesh_buffer: None,
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn update(
-        &self,
-        _device: &wgpu::Device,
+        &mut self,
+        device: &wgpu::Device,
         queue: &wgpu::Queue,
         bounds: iced::Rectangle,
         _target_size: iced::Size<u32>,
         _scale_factor: f32,
         primitive: &RenderPrimitive,
+        v: &[Vertex],
     ) {
         let p = primitive.state.camera_offset;
         let x = ((p.x - bounds.x) / bounds.width).mul_add(2.0, -1.0);
         let y = ((p.y - bounds.y) / bounds.height).mul_add(-2.0, 1.0);
         let uniforms = Uniforms { x, y };
         queue.write_buffer(&self.uniforms, 0, bytemuck::cast_slice(&[uniforms]));
+        let mesh_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("mesh_buffer"),
+            usage: wgpu::BufferUsages::VERTEX,
+            contents: bytemuck::cast_slice(v),
+        });
+        self.mesh_buffer = Some(mesh_buffer);
     }
 
     fn render(
@@ -175,6 +205,8 @@ impl RenderPipeline {
             1.0,
         );
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-        render_pass.draw(0..3, 0..1);
+        let m = self.mesh_buffer.as_ref().unwrap();
+        render_pass.set_vertex_buffer(0, m.slice(..));
+        render_pass.draw(0..1884, 0..1);
     }
 }

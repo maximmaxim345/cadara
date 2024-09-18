@@ -90,6 +90,12 @@ impl PersistentData {
                 &Edge::line(&p4, &p1),
             ])
         };
-        wire.face().extrude(&Vector::new(0.0, 0.0, 1.0))
+        let b = wire.face().extrude(&Vector::new(0.0, 0.0, 1.0));
+
+        let mut f = b.fillet();
+        for e in b.edges() {
+            f.add(0.2, &e);
+        }
+        f.build()
     }
 }

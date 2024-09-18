@@ -19,9 +19,10 @@ fn run(
     let data_session: project::data::DataSession<modeling_module::ModelingModule> =
         project.open_data(self.data_uuid).unwrap();
     let shape = data_session.snapshot().persistent.shape();
-    let _mesh = shape.mesh();
+    let mesh = shape.mesh();
     Box::new(RenderPrimitive {
         state: (*state).clone(),
+        mesh,
     })
 }
 

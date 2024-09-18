@@ -58,5 +58,6 @@ impl iced::Sandbox for App {
 }
 
 fn main() -> iced::Result {
+    env_logger::init();
     App::run(iced::Settings::default())
 }

@@ -1,6 +1,7 @@
 use super::ffi::occara::shape as ffi_shape;
 use crate::geom;
 use autocxx::prelude::*;
+use std::fmt::Debug;
 use std::io::Write;
 use std::{fs::File, path::Path, pin::Pin};
 
@@ -90,6 +91,15 @@ impl Clone for Shape {
 }
 
 pub struct Mesh(pub(crate) Pin<Box<ffi_shape::Mesh>>);
+
+unsafe impl Send for Mesh {}
+unsafe impl Sync for Mesh {}
+
+impl Debug for Mesh {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Mesh").finish()
+    }
+}
 
 impl Mesh {
     #[must_use]
