@@ -5,7 +5,7 @@ edition = "2021"
 license = "AGPL-3.0-only"
 
 [dependencies]
-iced = "0.12.1"
+iced = "0.13.1"
 viewport = { path = "../viewport" }
 computegraph = { path = "../computegraph" }
 workspace = { path = "../workspace" }

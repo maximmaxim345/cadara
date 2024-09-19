@@ -10,7 +10,7 @@ publish = false
 [dependencies]
 bytemuck = "1.15.0"
 glam = { version = "0.27.0", features = ["bytemuck"] }
-iced = { version = "0.12.1", features = ["advanced"] }
+iced = { version = "0.13.1", features = ["advanced"] }
 image = "0.25.1"
 rand = "0.8.5"
 wgpu = "0.19.4"

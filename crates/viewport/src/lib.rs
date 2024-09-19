@@ -152,13 +152,12 @@ pub struct ShaderPrimitive {
 impl shader::Primitive for ShaderPrimitive {
     fn prepare(
         &self,
-        format: wgpu::TextureFormat,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        bounds: iced::Rectangle,
-        target_size: iced::Size<u32>,
-        scale_factor: f32,
+        format: wgpu::TextureFormat,
         storage: &mut shader::Storage,
+        bounds: &iced::Rectangle,
+        viewport: &iced::widget::shader::Viewport,
     ) {
         let a = self
             .pipeline
@@ -167,24 +166,15 @@ impl shader::Primitive for ShaderPrimitive {
                 self.project_session.clone(),
             )
             .unwrap();
-        a.prepare(
-            format,
-            device,
-            queue,
-            bounds,
-            target_size,
-            scale_factor,
-            storage,
-        );
+        a.prepare(device, queue, format, storage, bounds, viewport);
     }
 
     fn render(
         &self,
+        encoder: &mut wgpu::CommandEncoder,
         storage: &shader::Storage,
         target: &wgpu::TextureView,
-        target_size: iced::Size<u32>,
-        viewport: iced::Rectangle<u32>,
-        encoder: &mut wgpu::CommandEncoder,
+        clip_bounds: &iced::Rectangle<u32>,
     ) {
         let a = self
             .pipeline
@@ -193,6 +183,6 @@ impl shader::Primitive for ShaderPrimitive {
                 self.project_session.clone(),
             )
             .unwrap();
-        a.render(storage, target, target_size, viewport, encoder);
+        a.render(encoder, storage, target, clip_bounds);
     }
 }

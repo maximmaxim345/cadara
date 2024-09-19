@@ -19,16 +19,20 @@ pub struct RenderPrimitive {
 impl shader::Primitive for RenderPrimitive {
     fn prepare(
         &self,
-        format: wgpu::TextureFormat,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        bounds: iced::Rectangle,
-        target_size: iced::Size<u32>,
-        scale_factor: f32,
+        format: wgpu::TextureFormat,
         storage: &mut shader::Storage,
+        bounds: &iced::Rectangle,
+        viewport: &iced::widget::shader::Viewport,
     ) {
         if !storage.has::<RenderPipeline>() {
-            storage.store(RenderPipeline::new(device, queue, format, target_size));
+            storage.store(RenderPipeline::new(
+                device,
+                queue,
+                format,
+                viewport.physical_size(),
+            ));
         }
         let pipeline = storage.get_mut::<RenderPipeline>().unwrap();
         let mut a = Vec::new();
@@ -44,20 +48,27 @@ impl shader::Primitive for RenderPrimitive {
             };
             a.push(v);
         }
-        pipeline.update(device, queue, bounds, target_size, scale_factor, self, &a);
+        pipeline.update(
+            device,
+            queue,
+            *bounds,
+            viewport.physical_size(),
+            viewport.scale_factor() as f32,
+            self,
+            &a,
+        );
     }
 
     fn render(
         &self,
+        encoder: &mut wgpu::CommandEncoder,
         storage: &shader::Storage,
         target: &wgpu::TextureView,
-        _target_size: iced::Size<u32>,
-        viewport: iced::Rectangle<u32>,
-        encoder: &mut wgpu::CommandEncoder,
+        clip_bounds: &iced::Rectangle<u32>,
     ) {
         let pipeline = storage.get::<RenderPipeline>().unwrap();
 
-        pipeline.render(encoder, target, viewport);
+        pipeline.render(encoder, target, *clip_bounds);
     }
 }
 
