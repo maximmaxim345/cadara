@@ -14,3 +14,4 @@ modeling-module = { path = "../modeling-module" }
 module = { path = "../module" }
 project = { path = "../project" }
 utils = { path = "../utils" }
+env_logger = "0.11.5"
