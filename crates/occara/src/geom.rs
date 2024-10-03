@@ -85,6 +85,15 @@ impl Direction {
     pub fn z() -> Self {
         Self::new(0.0, 0.0, 1.0)
     }
+    // TODO: maybe rename x/y/z to new_x/new_y/new_z and add x() -> f64
+
+    #[must_use]
+    pub fn get_components(&self) -> (f64, f64, f64) {
+        let (mut x, mut y, mut z) = (0.0, 0.0, 0.0);
+        self.0
+            .get_components(Pin::new(&mut x), Pin::new(&mut y), Pin::new(&mut z));
+        (x, y, z)
+    }
 }
 
 impl Clone for Direction {
@@ -107,6 +116,16 @@ impl Axis {
     #[must_use]
     pub fn new(location: &Point, direction: &Direction) -> Self {
         Self(ffi_geom::Axis::create(&location.0, &direction.0).within_box())
+    }
+
+    #[must_use]
+    pub fn location(&self) -> Point {
+        Point(self.0.location().within_box())
+    }
+
+    #[must_use]
+    pub fn direction(&self) -> Direction {
+        Direction(self.0.direction().within_box())
     }
 }
 
@@ -191,6 +210,13 @@ impl Direction2D {
     pub fn y() -> Self {
         Self::new(0.0, 1.0)
     }
+
+    #[must_use]
+    pub fn get_components(&self) -> (f64, f64) {
+        let (mut x, mut y) = (0.0, 0.0);
+        self.0.get_components(Pin::new(&mut x), Pin::new(&mut y));
+        (x, y)
+    }
 }
 
 impl Clone for Direction2D {
@@ -213,6 +239,16 @@ impl Axis2D {
     #[must_use]
     pub fn new(location: &Point2D, direction: &Direction2D) -> Self {
         Self(ffi_geom::Axis2D::create(&location.0, &direction.0).within_box())
+    }
+
+    #[must_use]
+    pub fn location(&self) -> Point2D {
+        Point2D(self.0.location().within_box())
+    }
+
+    #[must_use]
+    pub fn direction(&self) -> Direction2D {
+        Direction2D(self.0.direction().within_box())
     }
 }
 
@@ -237,6 +273,16 @@ impl PlaneAxis {
     pub fn new(location: &Point, direction: &Direction) -> Self {
         Self(ffi_geom::PlaneAxis::create(&location.0, &direction.0).within_box())
     }
+
+    #[must_use]
+    pub fn location(&self) -> Point {
+        Point(self.0.location().within_box())
+    }
+
+    #[must_use]
+    pub fn direction(&self) -> Direction {
+        Direction(self.0.direction().within_box())
+    }
 }
 
 impl Clone for PlaneAxis {
@@ -259,6 +305,16 @@ impl SpaceAxis {
     #[must_use]
     pub fn new(location: &Point, direction: &Direction) -> Self {
         Self(ffi_geom::SpaceAxis::create(&location.0, &direction.0).within_box())
+    }
+
+    #[must_use]
+    pub fn location(&self) -> Point {
+        Point(self.0.location().within_box())
+    }
+
+    #[must_use]
+    pub fn direction(&self) -> Direction {
+        Direction(self.0.direction().within_box())
     }
 }
 

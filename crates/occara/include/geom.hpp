@@ -70,6 +70,9 @@ struct Direction {
 
   static Direction create(Standard_Real x, Standard_Real y, Standard_Real z);
   Direction clone() const;
+
+  void get_components(Standard_Real &x, Standard_Real &y,
+                      Standard_Real &z) const;
 };
 
 struct Direction2D {
@@ -77,6 +80,8 @@ struct Direction2D {
 
   static Direction2D create(Standard_Real x, Standard_Real y);
   Direction2D clone() const;
+
+  void get_components(Standard_Real &x, Standard_Real &y) const;
 };
 
 struct Axis {
@@ -84,6 +89,9 @@ struct Axis {
 
   static Axis create(const Point &origin, const Direction &direction);
   Axis clone() const;
+
+  Point location() const;
+  Direction direction() const;
 };
 
 struct Axis2D {
@@ -91,6 +99,9 @@ struct Axis2D {
 
   static Axis2D create(const Point2D &origin, const Direction2D &direction);
   Axis2D clone() const;
+
+  Point2D location() const;
+  Direction2D direction() const;
 };
 
 struct PlaneAxis {
@@ -98,6 +109,9 @@ struct PlaneAxis {
 
   static PlaneAxis create(const Point &origin, const Direction &direction);
   PlaneAxis clone() const;
+
+  Point location() const;
+  Direction direction() const;
 };
 
 struct SpaceAxis {
@@ -105,6 +119,9 @@ struct SpaceAxis {
 
   static SpaceAxis create(const Point &origin, const Direction &direction);
   SpaceAxis clone() const;
+
+  Point location() const;
+  Direction direction() const;
 };
 
 struct TrimmedCurve {
