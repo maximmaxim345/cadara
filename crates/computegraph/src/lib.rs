@@ -232,18 +232,18 @@ pub enum AddError {
     DuplicateName(String),
 }
 
-trait ClonableAny: Any + DynClone + fmt::Debug + Send + Sync {
+trait CloneableAny: Any + DynClone + fmt::Debug + Send + Sync {
     fn as_any(&self) -> &dyn Any;
     fn as_mut_any(&mut self) -> &mut dyn Any;
 }
 
-impl Clone for Box<dyn ClonableAny> {
+impl Clone for Box<dyn CloneableAny> {
     fn clone(&self) -> Self {
         dyn_clone::clone_box(self.as_ref())
     }
 }
 
-impl<T> ClonableAny for T
+impl<T> CloneableAny for T
 where
     T: Any + DynClone + fmt::Debug + Send + Sync,
 {
@@ -444,7 +444,7 @@ impl ComputationContext {
 /// This enables the attachment of various types of metadata to nodes in a type-safe manner.
 #[derive(Debug, Default, Clone)]
 pub struct Metadata {
-    data: BTreeMap<TypeId, Box<dyn ClonableAny>>,
+    data: BTreeMap<TypeId, Box<dyn CloneableAny>>,
 }
 
 impl Metadata {
