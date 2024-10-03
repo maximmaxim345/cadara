@@ -1,6 +1,7 @@
 use super::ffi::occara::shape as ffi_shape;
 use crate::geom;
 use autocxx::prelude::*;
+use std::fmt;
 use std::io::Write;
 use std::{fs::File, path::Path, pin::Pin};
 
@@ -41,6 +42,24 @@ impl Vertex {
 impl Clone for Vertex {
     fn clone(&self) -> Self {
         Self(self.0.clone().within_box())
+    }
+}
+
+impl fmt::Display for Vertex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (x, y, z) = self.get_coordinates();
+        write!(f, "Vertex({x:.6}, {y:.6}, {z:.6})")
+    }
+}
+
+impl fmt::Debug for Vertex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (x, y, z) = self.get_coordinates();
+        f.debug_struct("Vertex")
+            .field("x", &x)
+            .field("y", &y)
+            .field("z", &z)
+            .finish()
     }
 }
 
@@ -136,6 +155,22 @@ impl Clone for Shape {
     }
 }
 
+impl fmt::Display for Shape {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Shape({})", self.shape_type().to_str())
+    }
+}
+
+impl fmt::Debug for Shape {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Shape")
+            .field("type", &self.shape_type().to_str())
+            .field("is_null", &self.is_null())
+            .field("is_closed", &self.is_closed())
+            .finish()
+    }
+}
+
 // SAFETY: Safe because the underlying C++ type contains no thread-local state
 // and all internal data is properly encapsulated.
 unsafe impl Send for Shape {}
@@ -204,6 +239,15 @@ impl Mesh {
     }
 }
 
+impl fmt::Debug for Mesh {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Mesh")
+            .field("vertices", &self.0.as_ref().vertices_size())
+            .field("indices", &self.0.as_ref().indices_size())
+            .finish()
+    }
+}
+
 // SAFETY: Safe because the underlying C++ type contains no thread-local state
 // and all internal data is properly encapsulated.
 unsafe impl Send for Mesh {}
@@ -230,6 +274,13 @@ impl Iterator for EdgeIterator {
 impl Clone for EdgeIterator {
     fn clone(&self) -> Self {
         Self(self.0.clone().within_box())
+    }
+}
+
+impl fmt::Debug for EdgeIterator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("EdgeIterator").finish()
     }
 }
 
@@ -262,6 +313,13 @@ impl Clone for FaceIterator {
     }
 }
 
+impl fmt::Debug for FaceIterator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("FaceIterator").finish()
+    }
+}
+
 // SAFETY: Safe because the underlying C++ type contains no thread-local state
 // and all internal data is properly encapsulated.
 unsafe impl Send for FaceIterator {}
@@ -285,6 +343,13 @@ impl FilletBuilder {
 impl Clone for FilletBuilder {
     fn clone(&self) -> Self {
         Self(self.0.clone().within_box())
+    }
+}
+
+impl fmt::Debug for FilletBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("FilletBuilder").finish()
     }
 }
 
@@ -327,6 +392,13 @@ impl Clone for ShellBuilder {
     }
 }
 
+impl fmt::Debug for ShellBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("ShellBuilder").finish()
+    }
+}
+
 // SAFETY: Safe because the underlying C++ type contains no thread-local state
 // and all internal data is properly encapsulated.
 unsafe impl Send for ShellBuilder {}
@@ -366,6 +438,13 @@ impl From<geom::TrimmedCurve> for Edge {
     }
 }
 
+impl fmt::Debug for Edge {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("Edge").finish()
+    }
+}
+
 // SAFETY: Safe because the underlying C++ type contains no thread-local state
 // and all internal data is properly encapsulated.
 unsafe impl Send for Edge {}
@@ -391,6 +470,13 @@ impl Face {
 impl Clone for Face {
     fn clone(&self) -> Self {
         Self(self.0.clone().within_box())
+    }
+}
+
+impl fmt::Debug for Face {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("Face").finish()
     }
 }
 
@@ -431,6 +517,13 @@ impl Wire {
 impl Clone for Wire {
     fn clone(&self) -> Self {
         Self(self.0.clone().within_box())
+    }
+}
+
+impl fmt::Debug for Wire {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("Wire").finish()
     }
 }
 
@@ -497,6 +590,13 @@ impl Clone for Loft {
     }
 }
 
+impl fmt::Debug for Loft {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("Loft").finish()
+    }
+}
+
 // SAFETY: Safe because the underlying C++ type contains no thread-local state
 // and all internal data is properly encapsulated.
 unsafe impl Send for Loft {}
@@ -528,6 +628,14 @@ impl Compound {
         Shape(self.0.as_mut().build().within_box())
     }
 }
+
+impl fmt::Debug for Compound {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("Loft").finish()
+    }
+}
+
 // SAFETY: Safe because the underlying C++ type contains no thread-local state
 // and all internal data is properly encapsulated.
 unsafe impl Send for Compound {}

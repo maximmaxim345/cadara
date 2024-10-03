@@ -1,6 +1,6 @@
 use crate::ffi::occara::geom as ffi_geom;
 use autocxx::prelude::*;
-use std::pin::Pin;
+use std::{fmt, pin::Pin};
 
 pub struct Point(pub(crate) Pin<Box<ffi_geom::Point>>);
 
@@ -55,6 +55,24 @@ impl Clone for Point {
     }
 }
 
+impl fmt::Display for Point {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (x, y, z) = self.get_coordinates();
+        write!(f, "Vertex({x:.6}, {y:.6}, {z:.6})")
+    }
+}
+
+impl fmt::Debug for Point {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (x, y, z) = self.get_coordinates();
+        f.debug_struct("Vertex")
+            .field("x", &x)
+            .field("y", &y)
+            .field("z", &z)
+            .finish()
+    }
+}
+
 // SAFETY: Safe because the underlying C++ type contains no thread-local state
 // and all internal data is properly encapsulated.
 unsafe impl Send for Point {}
@@ -102,6 +120,24 @@ impl Clone for Direction {
     }
 }
 
+impl fmt::Display for Direction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (x, y, z) = self.get_components();
+        write!(f, "Vertex({x:.6}, {y:.6}, {z:.6})")
+    }
+}
+
+impl fmt::Debug for Direction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (x, y, z) = self.get_components();
+        f.debug_struct("Direction")
+            .field("x", &x)
+            .field("y", &y)
+            .field("z", &z)
+            .finish()
+    }
+}
+
 // SAFETY: Safe because the underlying C++ type contains no thread-local state
 // and all internal data is properly encapsulated.
 unsafe impl Send for Direction {}
@@ -132,6 +168,27 @@ impl Axis {
 impl Clone for Axis {
     fn clone(&self) -> Self {
         Self(self.0.clone().within_box())
+    }
+}
+
+impl fmt::Display for Axis {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let loc = self.location().get_coordinates();
+        let dir = self.direction().get_components();
+        write!(
+            f,
+            "Axis(loc: ({:.2}, {:.2}, {:.2}), dir: ({:.2}, {:.2}, {:.2}))",
+            loc.0, loc.1, loc.2, dir.0, dir.1, dir.2,
+        )
+    }
+}
+
+impl fmt::Debug for Axis {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Axis")
+            .field("location", &self.location())
+            .field("direction", &self.direction())
+            .finish()
     }
 }
 
@@ -185,6 +242,23 @@ impl Clone for Point2D {
     }
 }
 
+impl fmt::Display for Point2D {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (x, y) = self.get_coordinates();
+        write!(f, "Point2D({x:.6}, {y:.6})")
+    }
+}
+
+impl fmt::Debug for Point2D {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (x, y) = self.get_coordinates();
+        f.debug_struct("Point2D")
+            .field("x", &x)
+            .field("y", &y)
+            .finish()
+    }
+}
+
 // SAFETY: Safe because the underlying C++ type contains no thread-local state
 // and all internal data is properly encapsulated.
 unsafe impl Send for Point2D {}
@@ -225,6 +299,23 @@ impl Clone for Direction2D {
     }
 }
 
+impl fmt::Display for Direction2D {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (x, y) = self.get_components();
+        write!(f, "Direction2D({x:.6}, {y:.6})")
+    }
+}
+
+impl fmt::Debug for Direction2D {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (x, y) = self.get_components();
+        f.debug_struct("Direction2D")
+            .field("x", &x)
+            .field("y", &y)
+            .finish()
+    }
+}
+
 // SAFETY: Safe because the underlying C++ type contains no thread-local state
 // and all internal data is properly encapsulated.
 unsafe impl Send for Direction2D {}
@@ -255,6 +346,27 @@ impl Axis2D {
 impl Clone for Axis2D {
     fn clone(&self) -> Self {
         Self(self.0.clone().within_box())
+    }
+}
+
+impl fmt::Display for Axis2D {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let loc = self.location().get_coordinates();
+        let dir = self.direction().get_components();
+        write!(
+            f,
+            "Axis2D(loc: ({:.2}, {:.2}), dir: ({:.2}, {:.2}))",
+            loc.0, loc.1, dir.0, dir.1,
+        )
+    }
+}
+
+impl fmt::Debug for Axis2D {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Axis2D")
+            .field("location", &self.location())
+            .field("direction", &self.direction())
+            .finish()
     }
 }
 
@@ -291,6 +403,27 @@ impl Clone for PlaneAxis {
     }
 }
 
+impl fmt::Display for PlaneAxis {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let loc = self.location().get_coordinates();
+        let dir = self.direction().get_components();
+        write!(
+            f,
+            "PlaneAxis(loc: ({:.2}, {:.2}, {:.2}), dir: ({:.2}, {:.2}, {:.2}))",
+            loc.0, loc.1, loc.2, dir.0, dir.1, dir.2,
+        )
+    }
+}
+
+impl fmt::Debug for PlaneAxis {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PlaneAxis")
+            .field("location", &self.location())
+            .field("direction", &self.direction())
+            .finish()
+    }
+}
+
 // SAFETY: Safe because the underlying C++ type contains no thread-local state
 // and all internal data is properly encapsulated.
 unsafe impl Send for PlaneAxis {}
@@ -321,6 +454,27 @@ impl SpaceAxis {
 impl Clone for SpaceAxis {
     fn clone(&self) -> Self {
         Self(self.0.clone().within_box())
+    }
+}
+
+impl fmt::Display for SpaceAxis {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let loc = self.location().get_coordinates();
+        let dir = self.direction().get_components();
+        write!(
+            f,
+            "SpaceAxis(loc: ({:.2}, {:.2}, {:.2}), dir: ({:.2}, {:.2}, {:.2}))",
+            loc.0, loc.1, loc.2, dir.0, dir.1, dir.2,
+        )
+    }
+}
+
+impl fmt::Debug for SpaceAxis {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SpaceAxis")
+            .field("location", &self.location())
+            .field("direction", &self.direction())
+            .finish()
     }
 }
 
@@ -367,6 +521,13 @@ impl Clone for TrimmedCurve2D {
     }
 }
 
+impl fmt::Debug for TrimmedCurve2D {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("TrimmedCurve2D").finish()
+    }
+}
+
 // SAFETY: Safe because the underlying C++ type contains no thread-local state
 // and all internal data is properly encapsulated.
 unsafe impl Send for TrimmedCurve2D {}
@@ -394,6 +555,13 @@ impl From<&TrimmedCurve2D> for Curve2D {
 impl Clone for Curve2D {
     fn clone(&self) -> Self {
         Self(self.0.clone().within_box())
+    }
+}
+
+impl fmt::Debug for Curve2D {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("Curve2D").finish()
     }
 }
 
@@ -431,6 +599,13 @@ impl Clone for Ellipse2D {
     }
 }
 
+impl fmt::Debug for Ellipse2D {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("Ellipse2D").finish()
+    }
+}
+
 // SAFETY: Safe because the underlying C++ type contains no thread-local state
 // and all internal data is properly encapsulated.
 unsafe impl Send for Ellipse2D {}
@@ -452,6 +627,13 @@ impl Plane {
 impl Clone for Plane {
     fn clone(&self) -> Self {
         Self(self.0.clone().within_box())
+    }
+}
+
+impl fmt::Debug for Plane {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("Plane").finish()
     }
 }
 
@@ -486,6 +668,13 @@ impl Surface {
 impl Clone for Surface {
     fn clone(&self) -> Self {
         Self(self.0.clone().within_box())
+    }
+}
+
+impl fmt::Debug for Surface {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("Surface").finish()
     }
 }
 
@@ -524,6 +713,13 @@ impl Clone for Transformation {
     }
 }
 
+impl fmt::Debug for Transformation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("Transformation").finish()
+    }
+}
+
 // SAFETY: Safe because the underlying C++ type contains no thread-local state
 // and all internal data is properly encapsulated.
 unsafe impl Send for Transformation {}
@@ -544,6 +740,13 @@ impl Vector {
 impl Clone for Vector {
     fn clone(&self) -> Self {
         Self(self.0.clone().within_box())
+    }
+}
+
+impl fmt::Debug for Vector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("Vector").finish()
     }
 }
 
@@ -569,6 +772,14 @@ impl Clone for CylindricalSurface {
         Self(self.0.clone().within_box())
     }
 }
+
+impl fmt::Debug for CylindricalSurface {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("CylindricalSurface").finish()
+    }
+}
+
 // SAFETY: Safe because the underlying C++ type contains no thread-local state
 // and all internal data is properly encapsulated.
 unsafe impl Send for CylindricalSurface {}
