@@ -44,6 +44,14 @@ impl Clone for Vertex {
     }
 }
 
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Vertex {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Vertex {}
+
 pub struct Shape(pub(crate) Pin<Box<ffi_shape::Shape>>);
 
 impl Shape {
@@ -88,6 +96,14 @@ impl Clone for Shape {
         Self(self.0.clone().within_box())
     }
 }
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Shape {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Shape {}
 
 pub struct Mesh(pub(crate) Pin<Box<ffi_shape::Mesh>>);
 
@@ -149,6 +165,14 @@ impl Mesh {
     }
 }
 
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Mesh {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Mesh {}
+
 pub struct EdgeIterator(pub(crate) Pin<Box<ffi_shape::EdgeIterator>>);
 
 impl Iterator for EdgeIterator {
@@ -169,6 +193,14 @@ impl Clone for EdgeIterator {
         Self(self.0.clone().within_box())
     }
 }
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for EdgeIterator {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for EdgeIterator {}
 
 pub struct FaceIterator(pub(crate) Pin<Box<ffi_shape::FaceIterator>>);
 
@@ -191,6 +223,14 @@ impl Clone for FaceIterator {
     }
 }
 
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for FaceIterator {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for FaceIterator {}
+
 pub struct FilletBuilder(pub(crate) Pin<Box<ffi_shape::FilletBuilder>>);
 
 impl FilletBuilder {
@@ -208,6 +248,14 @@ impl Clone for FilletBuilder {
         Self(self.0.clone().within_box())
     }
 }
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for FilletBuilder {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for FilletBuilder {}
 
 pub struct ShellBuilder(pub(crate) Pin<Box<ffi_shape::ShellBuilder>>);
 
@@ -240,6 +288,14 @@ impl Clone for ShellBuilder {
     }
 }
 
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for ShellBuilder {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for ShellBuilder {}
+
 pub struct Edge(pub(crate) Pin<Box<ffi_shape::Edge>>);
 
 impl Edge {
@@ -271,6 +327,14 @@ impl From<geom::TrimmedCurve> for Edge {
     }
 }
 
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Edge {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Edge {}
+
 pub struct Face(pub(crate) Pin<Box<ffi_shape::Face>>);
 
 impl Face {
@@ -290,6 +354,14 @@ impl Clone for Face {
         Self(self.0.clone().within_box())
     }
 }
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Face {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Face {}
 
 pub struct Wire(pub(crate) Pin<Box<ffi_shape::Wire>>);
 
@@ -322,6 +394,14 @@ impl Clone for Wire {
         Self(self.0.clone().within_box())
     }
 }
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Wire {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Wire {}
 
 impl geom::Transformable for Wire {
     fn transform(&self, transformation: &geom::Transformation) -> Self {
@@ -378,6 +458,14 @@ impl Clone for Loft {
     }
 }
 
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Loft {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Loft {}
+
 pub struct Compound(pub(crate) Pin<Box<ffi_shape::Compound>>);
 
 impl Default for Compound {
@@ -401,3 +489,10 @@ impl Compound {
         Shape(self.0.as_mut().build().within_box())
     }
 }
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Compound {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Compound {}

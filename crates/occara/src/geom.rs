@@ -55,6 +55,14 @@ impl Clone for Point {
     }
 }
 
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Point {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Point {}
+
 pub struct Direction(pub(crate) Pin<Box<ffi_geom::Direction>>);
 
 impl Direction {
@@ -85,6 +93,14 @@ impl Clone for Direction {
     }
 }
 
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Direction {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Direction {}
+
 pub struct Axis(pub(crate) Pin<Box<ffi_geom::Axis>>);
 
 impl Axis {
@@ -99,6 +115,14 @@ impl Clone for Axis {
         Self(self.0.clone().within_box())
     }
 }
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Axis {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Axis {}
 
 pub struct Point2D(pub(crate) Pin<Box<ffi_geom::Point2D>>);
 
@@ -142,6 +166,14 @@ impl Clone for Point2D {
     }
 }
 
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Point2D {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Point2D {}
+
 pub struct Direction2D(pub(crate) Pin<Box<ffi_geom::Direction2D>>);
 
 impl Direction2D {
@@ -167,6 +199,14 @@ impl Clone for Direction2D {
     }
 }
 
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Direction2D {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Direction2D {}
+
 pub struct Axis2D(pub(crate) Pin<Box<ffi_geom::Axis2D>>);
 
 impl Axis2D {
@@ -181,6 +221,14 @@ impl Clone for Axis2D {
         Self(self.0.clone().within_box())
     }
 }
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Axis2D {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Axis2D {}
 
 pub struct PlaneAxis(pub(crate) Pin<Box<ffi_geom::PlaneAxis>>);
 
@@ -197,6 +245,14 @@ impl Clone for PlaneAxis {
     }
 }
 
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for PlaneAxis {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for PlaneAxis {}
+
 pub struct SpaceAxis(pub(crate) Pin<Box<ffi_geom::SpaceAxis>>);
 
 impl SpaceAxis {
@@ -211,6 +267,14 @@ impl Clone for SpaceAxis {
         Self(self.0.clone().within_box())
     }
 }
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for SpaceAxis {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for SpaceAxis {}
 
 pub struct TrimmedCurve(pub(crate) Pin<Box<ffi_geom::TrimmedCurve>>);
 
@@ -247,6 +311,14 @@ impl Clone for TrimmedCurve2D {
     }
 }
 
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for TrimmedCurve2D {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for TrimmedCurve2D {}
+
 pub struct Curve2D(pub(crate) Pin<Box<ffi_geom::Curve2D>>);
 
 impl Curve2D {
@@ -268,6 +340,14 @@ impl Clone for Curve2D {
         Self(self.0.clone().within_box())
     }
 }
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Curve2D {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Curve2D {}
 
 pub struct Ellipse2D(pub(crate) Pin<Box<ffi_geom::Ellipse2D>>);
 
@@ -295,6 +375,14 @@ impl Clone for Ellipse2D {
     }
 }
 
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Ellipse2D {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Ellipse2D {}
+
 pub struct Plane(pub(crate) Pin<Box<ffi_geom::Plane>>);
 
 impl Plane {
@@ -310,6 +398,14 @@ impl Clone for Plane {
         Self(self.0.clone().within_box())
     }
 }
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Plane {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Plane {}
 
 pub struct Surface(pub(crate) Pin<Box<ffi_geom::Surface>>);
 
@@ -336,6 +432,14 @@ impl Clone for Surface {
         Self(self.0.clone().within_box())
     }
 }
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Surface {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Surface {}
 
 pub trait Transformable {
     #[must_use]
@@ -364,6 +468,14 @@ impl Clone for Transformation {
     }
 }
 
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Transformation {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Transformation {}
+
 pub struct Vector(pub(crate) Pin<Box<ffi_geom::Vector>>);
 
 impl Vector {
@@ -379,6 +491,14 @@ impl Clone for Vector {
     }
 }
 
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Vector {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Vector {}
+
 pub struct CylindricalSurface(pub(crate) Pin<Box<ffi_geom::CylindricalSurface>>);
 
 impl CylindricalSurface {
@@ -393,3 +513,10 @@ impl Clone for CylindricalSurface {
         Self(self.0.clone().within_box())
     }
 }
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for CylindricalSurface {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for CylindricalSurface {}

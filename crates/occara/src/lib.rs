@@ -2,6 +2,9 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::cognitive_complexity)]
+// We can not implement Send on the underlying autocxx managed raw pointer, therefore this
+// lint is not applicable here.
+#![allow(clippy::non_send_fields_in_send_ty)]
 
 mod ffi;
 
