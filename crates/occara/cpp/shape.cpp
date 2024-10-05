@@ -1,7 +1,9 @@
 #include "shape.hpp"
 #include "BRepAlgoAPI_Fuse.hxx"
 #include "BRepPrimAPI_MakeCylinder.hxx"
+#include <BRepGProp.hxx>
 #include <BRepLib.hxx>
+#include <GProp_GProps.hxx>
 
 namespace occara::shape {
 
@@ -131,6 +133,12 @@ ShapeType Shape::shape_type() const {
 Standard_Boolean Shape::is_null() const { return shape.IsNull(); }
 
 Standard_Boolean Shape::is_closed() const { return shape.Closed(); }
+
+Standard_Real Shape::mass() const {
+  GProp_GProps props;
+  BRepGProp::VolumeProperties(shape, props);
+  return props.Mass();
+}
 
 // Edge
 

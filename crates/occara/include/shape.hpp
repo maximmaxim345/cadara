@@ -95,6 +95,7 @@ struct Shape {
   ShapeType shape_type() const;
   Standard_Boolean is_null() const;
   Standard_Boolean is_closed() const;
+  Standard_Real mass() const;
 };
 
 struct Edge {

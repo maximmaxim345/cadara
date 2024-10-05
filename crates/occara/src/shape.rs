@@ -123,6 +123,11 @@ impl Shape {
     pub fn is_closed(&self) -> bool {
         ffi_shape::Shape::is_closed(&self.0)
     }
+
+    #[must_use]
+    pub fn mass(&self) -> f64 {
+        ffi_shape::Shape::mass(&self.0)
+    }
 }
 
 impl Clone for Shape {
