@@ -54,6 +54,25 @@ unsafe impl Sync for Vertex {}
 
 pub struct Shape(pub(crate) Pin<Box<ffi_shape::Shape>>);
 
+pub use crate::shape::ffi_shape::ShapeType;
+
+impl ShapeType {
+    #[must_use]
+    pub const fn to_str(&self) -> &'static str {
+        match self {
+            Self::Compound => "Compound",
+            Self::CompoundSolid => "CompoundSolid",
+            Self::Solid => "Solid",
+            Self::Shell => "Shell",
+            Self::Face => "Face",
+            Self::Wire => "Wire",
+            Self::Edge => "Edge",
+            Self::Vertex => "Vertex",
+            Self::Shape => "Shape",
+        }
+    }
+}
+
 impl Shape {
     #[must_use]
     pub fn fillet(&self) -> FilletBuilder {
@@ -88,6 +107,11 @@ impl Shape {
     #[must_use]
     pub fn mesh(&self) -> Mesh {
         Mesh(ffi_shape::Shape::mesh(&self.0).within_box())
+    }
+
+    #[must_use]
+    pub fn shape_type(&self) -> ShapeType {
+        ffi_shape::Shape::shape_type(&self.0)
     }
 }
 

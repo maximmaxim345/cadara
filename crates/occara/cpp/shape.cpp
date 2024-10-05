@@ -124,6 +124,10 @@ Mesh Shape::mesh() const {
   };
 }
 
+ShapeType Shape::shape_type() const {
+  return static_cast<ShapeType>(shape.ShapeType());
+}
+
 // Edge
 
 Edge Edge::from_curve(const occara::geom::TrimmedCurve &curve) {

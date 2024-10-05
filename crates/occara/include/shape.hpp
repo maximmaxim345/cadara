@@ -69,6 +69,19 @@ struct ShellBuilder {
   Shape build();
 };
 
+// This is equal to TopAbs_ShapeEnum
+enum class ShapeType {
+  Compound,
+  CompoundSolid,
+  Solid,
+  Shell,
+  Face,
+  Wire,
+  Edge,
+  Vertex,
+  Shape
+};
+
 struct Shape {
   TopoDS_Shape shape;
 
@@ -79,6 +92,7 @@ struct Shape {
   static Shape cylinder(const occara::geom::PlaneAxis &axis,
                         Standard_Real radius, Standard_Real height);
   Mesh mesh() const;
+  ShapeType shape_type() const;
 };
 
 struct Edge {
