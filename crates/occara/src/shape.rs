@@ -114,6 +114,16 @@ impl Shape {
     }
 
     #[must_use]
+    pub fn subtract(&self, other: &Self) -> Self {
+        Self(self.0.subtract(&other.0).within_box())
+    }
+
+    #[must_use]
+    pub fn intersect(&self, other: &Self) -> Self {
+        Self(self.0.intersect(&other.0).within_box())
+    }
+
+    #[must_use]
     pub fn shell(&self) -> ShellBuilder {
         ShellBuilder(ffi_shape::ShellBuilder::create(&self.0).within_box())
     }

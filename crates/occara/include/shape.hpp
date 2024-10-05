@@ -89,6 +89,8 @@ struct Shape {
 
   FilletBuilder fillet() const;
   Shape fuse(const Shape &other) const;
+  Shape subtract(const Shape &other) const;
+  Shape intersect(const Shape &other) const;
   static Shape cylinder(const occara::geom::PlaneAxis &axis,
                         Standard_Real radius, Standard_Real height);
   Mesh mesh() const;

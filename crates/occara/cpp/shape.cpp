@@ -1,4 +1,6 @@
 #include "shape.hpp"
+#include "BRepAlgoAPI_Common.hxx"
+#include "BRepAlgoAPI_Cut.hxx"
 #include "BRepAlgoAPI_Fuse.hxx"
 #include "BRepPrimAPI_MakeCylinder.hxx"
 #include <BRepGProp.hxx>
@@ -64,6 +66,14 @@ FilletBuilder Shape::fillet() const {
 
 Shape Shape::fuse(const Shape &other) const {
   return Shape{BRepAlgoAPI_Fuse(shape, other.shape).Shape()};
+}
+
+Shape Shape::subtract(const Shape &other) const {
+  return Shape{BRepAlgoAPI_Cut(shape, other.shape).Shape()};
+}
+
+Shape Shape::intersect(const Shape &other) const {
+  return Shape{BRepAlgoAPI_Common(shape, other.shape).Shape()};
 }
 
 Shape Shape::cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
