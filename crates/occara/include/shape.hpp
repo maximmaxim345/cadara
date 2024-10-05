@@ -94,6 +94,7 @@ struct Shape {
   Mesh mesh() const;
   ShapeType shape_type() const;
   Standard_Boolean is_null() const;
+  Standard_Boolean is_closed() const;
 };
 
 struct Edge {

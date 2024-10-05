@@ -130,6 +130,8 @@ ShapeType Shape::shape_type() const {
 
 Standard_Boolean Shape::is_null() const { return shape.IsNull(); }
 
+Standard_Boolean Shape::is_closed() const { return shape.Closed(); }
+
 // Edge
 
 Edge Edge::from_curve(const occara::geom::TrimmedCurve &curve) {
