@@ -93,6 +93,7 @@ struct Shape {
                         Standard_Real radius, Standard_Real height);
   Mesh mesh() const;
   ShapeType shape_type() const;
+  Standard_Boolean is_null() const;
 };
 
 struct Edge {

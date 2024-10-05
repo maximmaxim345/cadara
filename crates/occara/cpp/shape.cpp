@@ -128,6 +128,8 @@ ShapeType Shape::shape_type() const {
   return static_cast<ShapeType>(shape.ShapeType());
 }
 
+Standard_Boolean Shape::is_null() const { return shape.IsNull(); }
+
 // Edge
 
 Edge Edge::from_curve(const occara::geom::TrimmedCurve &curve) {

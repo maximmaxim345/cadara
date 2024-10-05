@@ -113,6 +113,11 @@ impl Shape {
     pub fn shape_type(&self) -> ShapeType {
         ffi_shape::Shape::shape_type(&self.0)
     }
+
+    #[must_use]
+    pub fn is_null(&self) -> bool {
+        ffi_shape::Shape::is_null(&self.0)
+    }
 }
 
 impl Clone for Shape {
