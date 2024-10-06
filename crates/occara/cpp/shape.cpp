@@ -1,7 +1,11 @@
 #include "shape.hpp"
+#include "BRepAlgoAPI_Common.hxx"
+#include "BRepAlgoAPI_Cut.hxx"
 #include "BRepAlgoAPI_Fuse.hxx"
 #include "BRepPrimAPI_MakeCylinder.hxx"
+#include <BRepGProp.hxx>
 #include <BRepLib.hxx>
+#include <GProp_GProps.hxx>
 
 namespace occara::shape {
 
@@ -64,6 +68,14 @@ Shape Shape::fuse(const Shape &other) const {
   return Shape{BRepAlgoAPI_Fuse(shape, other.shape).Shape()};
 }
 
+Shape Shape::subtract(const Shape &other) const {
+  return Shape{BRepAlgoAPI_Cut(shape, other.shape).Shape()};
+}
+
+Shape Shape::intersect(const Shape &other) const {
+  return Shape{BRepAlgoAPI_Common(shape, other.shape).Shape()};
+}
+
 Shape Shape::cylinder(const occara::geom::PlaneAxis &axis, Standard_Real radius,
                       Standard_Real height) {
   BRepPrimAPI_MakeCylinder cylinder(axis.axis, radius, height);
@@ -86,7 +98,6 @@ Mesh Shape::mesh() const {
 
   // Perform meshing
   BRepMesh_IncrementalMesh mesher(shape, meshParams);
-  std::cout << "Mesh called\n";
 
   // Collect vertices and indices
   std::vector<geom::Point> vertices;
@@ -95,13 +106,11 @@ Mesh Shape::mesh() const {
   TopExp_Explorer faceExplorer(shape, TopAbs_FACE);
   for (; faceExplorer.More(); faceExplorer.Next()) {
     TopoDS_Face face = TopoDS::Face(faceExplorer.Current());
-    std::cerr << "Face\n";
     TopLoc_Location loc;
     Handle(Poly_Triangulation) triangulation =
         BRep_Tool::Triangulation(face, loc);
 
     if (triangulation.IsNull()) {
-      std::cerr << "Triangulation is null for face\n";
       continue;
     }
 
@@ -125,6 +134,20 @@ Mesh Shape::mesh() const {
       indices,
       vertices,
   };
+}
+
+ShapeType Shape::shape_type() const {
+  return static_cast<ShapeType>(shape.ShapeType());
+}
+
+Standard_Boolean Shape::is_null() const { return shape.IsNull(); }
+
+Standard_Boolean Shape::is_closed() const { return shape.Closed(); }
+
+Standard_Real Shape::mass() const {
+  GProp_GProps props;
+  BRepGProp::VolumeProperties(shape, props);
+  return props.Mass();
 }
 
 // Edge

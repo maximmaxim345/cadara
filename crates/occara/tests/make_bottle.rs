@@ -5,6 +5,8 @@ use occara::geom::{
 use occara::shape::{Compound, Edge, Loft, Shape, Wire};
 use ordered_float::OrderedFloat;
 use std::f64::consts::PI;
+use std::sync::Arc;
+use std::thread;
 
 fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
     // Define first half of the profile
@@ -119,15 +121,29 @@ fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
 }
 
 #[test]
+#[ignore] // Don't run this test by default, since its quite slow
 fn test_make_bottle() {
     use occara::internal::make_bottle_cpp;
 
-    let width = 50.0;
-    let height = 70.0;
-    let thickness = 30.0;
+    const WIDTH: f64 = 50.0;
+    const HEIGHT: f64 = 70.0;
+    const THICKNESS: f64 = 30.0;
+    const EPSILON: f64 = 1e-6;
 
-    let _bottle_rust = make_bottle_rust(width, height, thickness);
-    let _result_cpp = make_bottle_cpp(width, height, thickness);
+    let bottle_rust = thread::spawn(move || make_bottle_rust(WIDTH, HEIGHT, THICKNESS));
+    let bottle_cpp = thread::spawn(move || make_bottle_cpp(WIDTH, HEIGHT, THICKNESS));
 
-    // TODO: Compare the two shapes
+    let bottle_rust = bottle_rust.join().unwrap();
+    let bottle_cpp = bottle_cpp.join().unwrap();
+
+    let bottle_rust = Arc::new(bottle_rust);
+    let bottle_rust2 = bottle_rust.clone();
+    let bottle_cpp = Arc::new(bottle_cpp);
+    let bottle_cpp2 = bottle_cpp.clone();
+
+    let error_rust_cpp = thread::spawn(move || bottle_rust.subtract(&bottle_cpp).mass());
+    let error_cpp_rust = thread::spawn(move || bottle_cpp2.subtract(&bottle_rust2).mass());
+
+    assert!(error_rust_cpp.join().unwrap() < EPSILON);
+    assert!(error_cpp_rust.join().unwrap() < EPSILON);
 }

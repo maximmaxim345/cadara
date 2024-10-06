@@ -54,6 +54,13 @@ Direction Direction::create(Standard_Real x, Standard_Real y, Standard_Real z) {
 
 Direction Direction::clone() const { return *this; }
 
+void Direction::get_components(Standard_Real &x, Standard_Real &y,
+                               Standard_Real &z) const {
+  x = direction.X();
+  y = direction.Y();
+  z = direction.Z();
+}
+
 // Direction2D
 
 Direction2D Direction2D::create(Standard_Real x, Standard_Real y) {
@@ -61,6 +68,11 @@ Direction2D Direction2D::create(Standard_Real x, Standard_Real y) {
 }
 
 Direction2D Direction2D::clone() const { return *this; }
+
+void Direction2D::get_components(Standard_Real &x, Standard_Real &y) const {
+  x = direction.X();
+  y = direction.Y();
+}
 
 // Axis
 
@@ -70,6 +82,10 @@ Axis Axis::create(const Point &origin, const Direction &direction) {
 
 Axis Axis::clone() const { return *this; }
 
+Point Axis::location() const { return Point{axis.Location()}; }
+
+Direction Axis::direction() const { return Direction{axis.Direction()}; }
+
 // Axis2D
 
 Axis2D Axis2D::create(const Point2D &origin, const Direction2D &direction) {
@@ -77,6 +93,10 @@ Axis2D Axis2D::create(const Point2D &origin, const Direction2D &direction) {
 }
 
 Axis2D Axis2D::clone() const { return *this; }
+
+Point2D Axis2D::location() const { return Point2D{axis.Location()}; }
+
+Direction2D Axis2D::direction() const { return Direction2D{axis.Direction()}; }
 
 // PlaneAxis
 
@@ -86,6 +106,10 @@ PlaneAxis PlaneAxis::create(const Point &origin, const Direction &direction) {
 
 PlaneAxis PlaneAxis::clone() const { return *this; }
 
+Point PlaneAxis::location() const { return Point{axis.Location()}; }
+
+Direction PlaneAxis::direction() const { return Direction{axis.Direction()}; }
+
 // SpaceAxis
 
 SpaceAxis SpaceAxis::create(const Point &origin, const Direction &direction) {
@@ -93,6 +117,10 @@ SpaceAxis SpaceAxis::create(const Point &origin, const Direction &direction) {
 }
 
 SpaceAxis SpaceAxis::clone() const { return *this; }
+
+Point SpaceAxis::location() const { return Point{axis.Location()}; }
+
+Direction SpaceAxis::direction() const { return Direction{axis.Direction()}; }
 
 // TrimmedCurve
 

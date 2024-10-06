@@ -1,6 +1,7 @@
 use super::ffi::occara::shape as ffi_shape;
 use crate::geom;
 use autocxx::prelude::*;
+use std::fmt;
 use std::io::Write;
 use std::{fs::File, path::Path, pin::Pin};
 
@@ -44,7 +45,52 @@ impl Clone for Vertex {
     }
 }
 
+impl fmt::Display for Vertex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (x, y, z) = self.get_coordinates();
+        write!(f, "Vertex({x:.6}, {y:.6}, {z:.6})")
+    }
+}
+
+impl fmt::Debug for Vertex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (x, y, z) = self.get_coordinates();
+        f.debug_struct("Vertex")
+            .field("x", &x)
+            .field("y", &y)
+            .field("z", &z)
+            .finish()
+    }
+}
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Vertex {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Vertex {}
+
 pub struct Shape(pub(crate) Pin<Box<ffi_shape::Shape>>);
+
+pub use crate::shape::ffi_shape::ShapeType;
+
+impl ShapeType {
+    #[must_use]
+    pub const fn to_str(&self) -> &'static str {
+        match self {
+            Self::Compound => "Compound",
+            Self::CompoundSolid => "CompoundSolid",
+            Self::Solid => "Solid",
+            Self::Shell => "Shell",
+            Self::Face => "Face",
+            Self::Wire => "Wire",
+            Self::Edge => "Edge",
+            Self::Vertex => "Vertex",
+            Self::Shape => "Shape",
+        }
+    }
+}
 
 impl Shape {
     #[must_use]
@@ -68,6 +114,16 @@ impl Shape {
     }
 
     #[must_use]
+    pub fn subtract(&self, other: &Self) -> Self {
+        Self(self.0.subtract(&other.0).within_box())
+    }
+
+    #[must_use]
+    pub fn intersect(&self, other: &Self) -> Self {
+        Self(self.0.intersect(&other.0).within_box())
+    }
+
+    #[must_use]
     pub fn shell(&self) -> ShellBuilder {
         ShellBuilder(ffi_shape::ShellBuilder::create(&self.0).within_box())
     }
@@ -81,6 +137,26 @@ impl Shape {
     pub fn mesh(&self) -> Mesh {
         Mesh(ffi_shape::Shape::mesh(&self.0).within_box())
     }
+
+    #[must_use]
+    pub fn shape_type(&self) -> ShapeType {
+        ffi_shape::Shape::shape_type(&self.0)
+    }
+
+    #[must_use]
+    pub fn is_null(&self) -> bool {
+        ffi_shape::Shape::is_null(&self.0)
+    }
+
+    #[must_use]
+    pub fn is_closed(&self) -> bool {
+        ffi_shape::Shape::is_closed(&self.0)
+    }
+
+    #[must_use]
+    pub fn mass(&self) -> f64 {
+        ffi_shape::Shape::mass(&self.0)
+    }
 }
 
 impl Clone for Shape {
@@ -88,6 +164,30 @@ impl Clone for Shape {
         Self(self.0.clone().within_box())
     }
 }
+
+impl fmt::Display for Shape {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Shape({})", self.shape_type().to_str())
+    }
+}
+
+impl fmt::Debug for Shape {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Shape")
+            .field("type", &self.shape_type().to_str())
+            .field("is_null", &self.is_null())
+            .field("is_closed", &self.is_closed())
+            .finish()
+    }
+}
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Shape {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Shape {}
 
 pub struct Mesh(pub(crate) Pin<Box<ffi_shape::Mesh>>);
 
@@ -149,6 +249,23 @@ impl Mesh {
     }
 }
 
+impl fmt::Debug for Mesh {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Mesh")
+            .field("vertices", &self.0.as_ref().vertices_size())
+            .field("indices", &self.0.as_ref().indices_size())
+            .finish()
+    }
+}
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Mesh {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Mesh {}
+
 pub struct EdgeIterator(pub(crate) Pin<Box<ffi_shape::EdgeIterator>>);
 
 impl Iterator for EdgeIterator {
@@ -169,6 +286,21 @@ impl Clone for EdgeIterator {
         Self(self.0.clone().within_box())
     }
 }
+
+impl fmt::Debug for EdgeIterator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("EdgeIterator").finish()
+    }
+}
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for EdgeIterator {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for EdgeIterator {}
 
 pub struct FaceIterator(pub(crate) Pin<Box<ffi_shape::FaceIterator>>);
 
@@ -191,6 +323,21 @@ impl Clone for FaceIterator {
     }
 }
 
+impl fmt::Debug for FaceIterator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("FaceIterator").finish()
+    }
+}
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for FaceIterator {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for FaceIterator {}
+
 pub struct FilletBuilder(pub(crate) Pin<Box<ffi_shape::FilletBuilder>>);
 
 impl FilletBuilder {
@@ -208,6 +355,21 @@ impl Clone for FilletBuilder {
         Self(self.0.clone().within_box())
     }
 }
+
+impl fmt::Debug for FilletBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("FilletBuilder").finish()
+    }
+}
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for FilletBuilder {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for FilletBuilder {}
 
 pub struct ShellBuilder(pub(crate) Pin<Box<ffi_shape::ShellBuilder>>);
 
@@ -240,6 +402,21 @@ impl Clone for ShellBuilder {
     }
 }
 
+impl fmt::Debug for ShellBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("ShellBuilder").finish()
+    }
+}
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for ShellBuilder {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for ShellBuilder {}
+
 pub struct Edge(pub(crate) Pin<Box<ffi_shape::Edge>>);
 
 impl Edge {
@@ -271,6 +448,21 @@ impl From<geom::TrimmedCurve> for Edge {
     }
 }
 
+impl fmt::Debug for Edge {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("Edge").finish()
+    }
+}
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Edge {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Edge {}
+
 pub struct Face(pub(crate) Pin<Box<ffi_shape::Face>>);
 
 impl Face {
@@ -290,6 +482,21 @@ impl Clone for Face {
         Self(self.0.clone().within_box())
     }
 }
+
+impl fmt::Debug for Face {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("Face").finish()
+    }
+}
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Face {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Face {}
 
 pub struct Wire(pub(crate) Pin<Box<ffi_shape::Wire>>);
 
@@ -322,6 +529,21 @@ impl Clone for Wire {
         Self(self.0.clone().within_box())
     }
 }
+
+impl fmt::Debug for Wire {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("Wire").finish()
+    }
+}
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Wire {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Wire {}
 
 impl geom::Transformable for Wire {
     fn transform(&self, transformation: &geom::Transformation) -> Self {
@@ -378,6 +600,21 @@ impl Clone for Loft {
     }
 }
 
+impl fmt::Debug for Loft {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("Loft").finish()
+    }
+}
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Loft {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Loft {}
+
 pub struct Compound(pub(crate) Pin<Box<ffi_shape::Compound>>);
 
 impl Default for Compound {
@@ -401,3 +638,18 @@ impl Compound {
         Shape(self.0.as_mut().build().within_box())
     }
 }
+
+impl fmt::Debug for Compound {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // TODO: be more informative
+        f.debug_struct("Loft").finish()
+    }
+}
+
+// SAFETY: Safe because the underlying C++ type contains no thread-local state
+// and all internal data is properly encapsulated.
+unsafe impl Send for Compound {}
+
+// SAFETY: Safe because this type provides no shared mutable access, and the underlying
+// C++ type is designed for thread-safe read operations.
+unsafe impl Sync for Compound {}
