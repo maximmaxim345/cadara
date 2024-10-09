@@ -1,6 +1,6 @@
 use iced::widget::shader::{
     self,
-    wgpu::{self, util::DeviceExt},
+    wgpu::{self, util::DeviceExt, DepthStencilState, RenderPassDepthStencilAttachment},
 };
 
 use super::{
@@ -69,13 +69,13 @@ impl shader::Primitive for RenderPrimitive {
         &self,
         storage: &shader::Storage,
         target: &wgpu::TextureView,
-        _target_size: iced::Size<u32>,
+        target_size: iced::Size<u32>,
         viewport: iced::Rectangle<u32>,
         encoder: &mut wgpu::CommandEncoder,
     ) {
         let pipeline = storage.get::<RenderPipeline>().unwrap();
 
-        pipeline.render(encoder, target, viewport);
+        pipeline.render(encoder, target, target_size, viewport);
     }
 }
 
@@ -86,6 +86,8 @@ struct RenderPipeline {
     camera: wgpu::Buffer,
     mesh_buffer: Option<wgpu::Buffer>,
     vertex_count: u32,
+    depth_texture: wgpu::Texture,
+    depth_texture_view: wgpu::TextureView,
 }
 
 impl RenderPipeline {
@@ -93,7 +95,7 @@ impl RenderPipeline {
         device: &wgpu::Device,
         _queue: &wgpu::Queue,
         format: wgpu::TextureFormat,
-        _target_size: iced::Size<u32>,
+        target_size: iced::Size<u32>,
     ) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
@@ -156,10 +158,33 @@ impl RenderPipeline {
                 })],
             }),
             primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: None,
+            depth_stencil: Some(DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
         });
+
+        let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
+            size: wgpu::Extent3d {
+                width: target_size.width,
+                height: target_size.height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            label: Some("depth_texture"),
+            view_formats: &[],
+        });
+
+        let depth_texture_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         Self {
             pipeline,
@@ -167,6 +192,8 @@ impl RenderPipeline {
             camera,
             mesh_buffer: None,
             vertex_count: 0,
+            depth_texture,
+            depth_texture_view,
         }
     }
 
@@ -176,7 +203,7 @@ impl RenderPipeline {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         bounds: iced::Rectangle,
-        _target_size: iced::Size<u32>,
+        target_size: iced::Size<u32>,
         _scale_factor: f32,
         primitive: &RenderPrimitive,
         v: &[Vertex],
@@ -195,12 +222,37 @@ impl RenderPipeline {
         });
         self.mesh_buffer = Some(mesh_buffer);
         self.vertex_count = v.len() as u32;
+
+        // Update depth texture if target size changed
+        if self.depth_texture.size().width != target_size.width
+            || self.depth_texture.size().height != target_size.height
+        {
+            self.depth_texture = device.create_texture(&wgpu::TextureDescriptor {
+                size: wgpu::Extent3d {
+                    width: target_size.width,
+                    height: target_size.height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Depth32Float,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                    | wgpu::TextureUsages::TEXTURE_BINDING,
+                label: Some("depth_texture"),
+                view_formats: &[],
+            });
+            self.depth_texture_view = self
+                .depth_texture
+                .create_view(&wgpu::TextureViewDescriptor::default());
+        }
     }
 
     fn render(
         &self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
+        _target_size: iced::Size<u32>,
         viewport: iced::Rectangle<u32>,
     ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -213,7 +265,14 @@ impl RenderPipeline {
                     store: wgpu::StoreOp::Store,
                 },
             })],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                view: &self.depth_texture_view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: wgpu::StoreOp::Store,
+                }),
+                stencil_ops: None,
+            }),
             timestamp_writes: None,
             occlusion_query_set: None,
         });
@@ -230,8 +289,9 @@ impl RenderPipeline {
             1.0,
         );
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-        let m = self.mesh_buffer.as_ref().unwrap();
-        render_pass.set_vertex_buffer(0, m.slice(..));
-        render_pass.draw(0..self.vertex_count, 0..1);
+        if let Some(m) = self.mesh_buffer.as_ref() {
+            render_pass.set_vertex_buffer(0, m.slice(..));
+            render_pass.draw(0..self.vertex_count, 0..1);
+        }
     }
 }
