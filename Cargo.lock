@@ -2134,7 +2134,10 @@ dependencies = [
  "computegraph",
  "glam 0.29.0",
  "iced",
+ "modeling-module",
+ "occara",
  "project",
+ "utils",
  "viewport",
  "workspace",
 ]

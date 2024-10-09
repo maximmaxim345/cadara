@@ -9,7 +9,10 @@ publish = false
 workspace = { path = "../workspace" }
 viewport = { path = "../viewport" }
 computegraph = { path = "../computegraph" }
+modeling-module = { path = "../modeling-module" }
+occara = { path = "../occara" }
 project = { path = "../project" }
 iced = { version = "0.12.1", features = ["advanced"] }
 bytemuck = "1.17.0"
+utils = { path = "../utils" }
 glam = { version = "0.29.0", features = ["bytemuck"] }

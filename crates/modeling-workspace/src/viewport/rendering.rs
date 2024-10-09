@@ -1,16 +1,37 @@
-use iced::widget::shader::{self, wgpu};
+use iced::widget::shader::{
+    self,
+    wgpu::{self, util::DeviceExt},
+};
 
-use super::state::ViewportState;
+use super::{
+    camera::{Camera, CameraUniform},
+    state::ViewportState,
+};
 
 #[derive(Debug)]
 pub struct RenderPrimitive {
     pub state: ViewportState,
+    pub mesh: occara::shape::Mesh,
 }
 
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 #[repr(C)]
-pub struct CameraUniform {
-    pub view_pos: glam::Vec2,
+pub struct Vertex {
+    pub pos: glam::Vec3,
+}
+
+impl Vertex {
+    const ATTRIBS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![
+        0 => Float32x3,
+    ];
+
+    pub const fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &Self::ATTRIBS,
+        }
+    }
 }
 
 impl shader::Primitive for RenderPrimitive {
@@ -28,7 +49,20 @@ impl shader::Primitive for RenderPrimitive {
             storage.store(RenderPipeline::new(device, queue, format, target_size));
         }
         let pipeline = storage.get_mut::<RenderPipeline>().unwrap();
-        pipeline.update(device, queue, bounds, target_size, scale_factor, self);
+        let mut a = Vec::new();
+        let indices = self.mesh.indices();
+        let vertices = self.mesh.vertices();
+        for i in indices {
+            let v = Vertex {
+                pos: glam::Vec3::new(
+                    vertices[i].x() as f32,
+                    vertices[i].y() as f32,
+                    vertices[i].z() as f32,
+                ),
+            };
+            a.push(v);
+        }
+        pipeline.update(device, queue, bounds, target_size, scale_factor, self, &a);
     }
 
     fn render(
@@ -49,7 +83,9 @@ impl shader::Primitive for RenderPrimitive {
 struct RenderPipeline {
     pipeline: wgpu::RenderPipeline,
     camera_bind_group: wgpu::BindGroup,
-    uniforms: wgpu::Buffer,
+    camera: wgpu::Buffer,
+    mesh_buffer: Option<wgpu::Buffer>,
+    vertex_count: u32,
 }
 
 impl RenderPipeline {
@@ -80,7 +116,7 @@ impl RenderPipeline {
                     count: None,
                 }],
             });
-        let uniforms = device.create_buffer(&wgpu::BufferDescriptor {
+        let camera = device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
             size: std::mem::size_of::<CameraUniform>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
@@ -92,7 +128,7 @@ impl RenderPipeline {
             layout: &camera_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: uniforms.as_entire_binding(),
+                resource: camera.as_entire_binding(),
             }],
         });
 
@@ -108,7 +144,7 @@ impl RenderPipeline {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[],
+                buffers: &[Vertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -128,26 +164,37 @@ impl RenderPipeline {
         Self {
             pipeline,
             camera_bind_group,
-            uniforms,
+            camera,
+            mesh_buffer: None,
+            vertex_count: 0,
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn update(
-        &self,
-        _device: &wgpu::Device,
+        &mut self,
+        device: &wgpu::Device,
         queue: &wgpu::Queue,
         bounds: iced::Rectangle,
         _target_size: iced::Size<u32>,
         _scale_factor: f32,
         primitive: &RenderPrimitive,
+        v: &[Vertex],
     ) {
-        let p = primitive.state.camera_pos;
-        let x = ((p.x - bounds.x) / bounds.width).mul_add(2.0, -1.0);
-        let y = ((p.y - bounds.y) / bounds.height).mul_add(-2.0, 1.0);
-        let uniforms = CameraUniform {
-            view_pos: glam::Vec2 { x, y },
-        };
-        queue.write_buffer(&self.uniforms, 0, bytemuck::cast_slice(&[uniforms]));
+        let mut camera: Camera = primitive.state.camera.clone();
+        camera.set_aspect(bounds.width, bounds.height);
+        let camera_uniform = CameraUniform::from(&camera);
+
+        queue.write_buffer(&self.camera, 0, bytemuck::cast_slice(&[camera_uniform]));
+
+        // Create and update mesh buffer
+        let mesh_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Mesh Buffer"),
+            contents: bytemuck::cast_slice(v),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        self.mesh_buffer = Some(mesh_buffer);
+        self.vertex_count = v.len() as u32;
     }
 
     fn render(
@@ -183,6 +230,8 @@ impl RenderPipeline {
             1.0,
         );
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-        render_pass.draw(0..3, 0..1);
+        let m = self.mesh_buffer.as_ref().unwrap();
+        render_pass.set_vertex_buffer(0, m.slice(..));
+        render_pass.draw(0..self.vertex_count, 0..1);
     }
 }
