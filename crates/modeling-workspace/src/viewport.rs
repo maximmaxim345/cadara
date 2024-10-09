@@ -1,6 +1,7 @@
 use computegraph::{node, ComputeGraph};
 use viewport::{RenderNodePorts, SceneGraphBuilder, UpdateNodePorts};
 
+mod camera;
 mod rendering;
 mod scene_nodes;
 mod state;
