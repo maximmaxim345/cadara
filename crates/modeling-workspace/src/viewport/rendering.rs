@@ -34,6 +34,12 @@ impl Vertex {
     }
 }
 
+#[derive(Debug)]
+pub struct MeshData {
+    pub vertices: Vec<Vertex>,
+    pub indices: Vec<u32>,
+}
+
 impl shader::Primitive for RenderPrimitive {
     fn prepare(
         &self,
@@ -49,20 +55,25 @@ impl shader::Primitive for RenderPrimitive {
             storage.store(RenderPipeline::new(device, queue, format, target_size));
         }
         let pipeline = storage.get_mut::<RenderPipeline>().unwrap();
-        let mut a = Vec::new();
-        let indices = self.mesh.indices();
-        let vertices = self.mesh.vertices();
-        for i in indices {
-            let v = Vertex {
-                pos: glam::Vec3::new(
-                    vertices[i].x() as f32,
-                    vertices[i].y() as f32,
-                    vertices[i].z() as f32,
-                ),
-            };
-            a.push(v);
-        }
-        pipeline.update(device, queue, bounds, target_size, scale_factor, self, &a);
+        let vertices = self
+            .mesh
+            .vertices()
+            .iter()
+            .map(|p| Vertex {
+                pos: glam::Vec3::new(p.x() as f32, p.y() as f32, p.z() as f32),
+            })
+            .collect();
+        let indices = self.mesh.indices().iter().map(|i| *i as u32).collect();
+        let mesh_data = MeshData { vertices, indices };
+        pipeline.update(
+            device,
+            queue,
+            bounds,
+            target_size,
+            scale_factor,
+            self,
+            &mesh_data,
+        );
     }
 
     fn render(
@@ -84,8 +95,8 @@ struct RenderPipeline {
     pipeline: wgpu::RenderPipeline,
     camera_bind_group: wgpu::BindGroup,
     camera: wgpu::Buffer,
-    mesh_buffer: Option<wgpu::Buffer>,
-    vertex_count: u32,
+    vertex_buffer: Option<wgpu::Buffer>,
+    index_buffer: Option<wgpu::Buffer>,
     depth_texture: wgpu::Texture,
     depth_texture_view: wgpu::TextureView,
 }
@@ -190,8 +201,8 @@ impl RenderPipeline {
             pipeline,
             camera_bind_group,
             camera,
-            mesh_buffer: None,
-            vertex_count: 0,
+            vertex_buffer: None,
+            index_buffer: None,
             depth_texture,
             depth_texture_view,
         }
@@ -206,7 +217,7 @@ impl RenderPipeline {
         target_size: iced::Size<u32>,
         _scale_factor: f32,
         primitive: &RenderPrimitive,
-        v: &[Vertex],
+        mesh_data: &MeshData,
     ) {
         let mut camera: Camera = primitive.state.camera.clone();
         camera.set_aspect(bounds.width, bounds.height);
@@ -214,14 +225,21 @@ impl RenderPipeline {
 
         queue.write_buffer(&self.camera, 0, bytemuck::cast_slice(&[camera_uniform]));
 
-        // Create and update mesh buffer
-        let mesh_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Mesh Buffer"),
-            contents: bytemuck::cast_slice(v),
+        // Create and update vertex buffer
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(&mesh_data.vertices),
             usage: wgpu::BufferUsages::VERTEX,
         });
-        self.mesh_buffer = Some(mesh_buffer);
-        self.vertex_count = v.len() as u32;
+        self.vertex_buffer = Some(vertex_buffer);
+
+        // Create and update index buffer
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(&mesh_data.indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+        self.index_buffer = Some(index_buffer);
 
         // Update depth texture if target size changed
         if self.depth_texture.size().width != target_size.width
@@ -289,9 +307,10 @@ impl RenderPipeline {
             1.0,
         );
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-        if let Some(m) = self.mesh_buffer.as_ref() {
-            render_pass.set_vertex_buffer(0, m.slice(..));
-            render_pass.draw(0..self.vertex_count, 0..1);
+        if let (Some(vb), Some(ib)) = (self.vertex_buffer.as_ref(), self.index_buffer.as_ref()) {
+            render_pass.set_vertex_buffer(0, vb.slice(..));
+            render_pass.set_index_buffer(ib.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.draw_indexed(0..ib.size() as u32 / 4, 0, 0..1);
         }
     }
 }
