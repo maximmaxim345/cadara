@@ -3,7 +3,6 @@ use crate::geom::{
     TrimmedCurve2D, Vector,
 };
 use crate::shape::{Compound, Edge, Loft, Shape, Wire};
-use ordered_float::OrderedFloat;
 use std::f64::consts::PI;
 
 #[doc(hidden)]
@@ -66,12 +65,16 @@ pub fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
     let body = {
         let face_to_remove = body
             .faces()
-            .max_by_key(|face| {
-                if let Some(plane) = face.surface().as_plane() {
-                    OrderedFloat(plane.location().z())
-                } else {
-                    OrderedFloat(f64::NEG_INFINITY)
-                }
+            .max_by(|a, b| {
+                let z_a = a
+                    .surface()
+                    .as_plane()
+                    .map_or(f64::NEG_INFINITY, |plane| plane.location().z());
+                let z_b = b
+                    .surface()
+                    .as_plane()
+                    .map_or(f64::NEG_INFINITY, |plane| plane.location().z());
+                z_a.partial_cmp(&z_b).unwrap_or(std::cmp::Ordering::Equal)
             })
             .unwrap();
 

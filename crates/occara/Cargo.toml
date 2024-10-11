@@ -12,7 +12,6 @@ publish = false
 autocxx = "0.27.0"
 cxx = "1.0.117"
 walkdir = "2.4.0"
-ordered-float = "4.2.0"
 
 [build-dependencies]
 opencascade-sys = { path = "../opencascade-sys" }
