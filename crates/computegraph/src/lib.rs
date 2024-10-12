@@ -232,8 +232,17 @@ pub enum AddError {
     DuplicateName(String),
 }
 
-trait CloneableAny: Any + DynClone + fmt::Debug + Send + Sync {
+/// A more relaxed version of [`Any`] that allows cloning and usage across threads.
+///
+/// This trait allows for dynamic dispatch and cloning of most types.
+pub trait CloneableAny: Any + DynClone + fmt::Debug + Send + Sync {
+    /// Returns a reference to the object as a `dyn Any`.
     fn as_any(&self) -> &dyn Any;
+
+    /// Returns a mutable reference to the object as a `dyn Any`.
+    ///
+    /// This method allows for runtime type checking and downcasting
+    /// with mutable access.
     fn as_mut_any(&mut self) -> &mut dyn Any;
 }
 
