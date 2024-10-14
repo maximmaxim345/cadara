@@ -10,7 +10,7 @@
 autocxx::include_cpp! {
     #include "shape.hpp"
     #include "geom.hpp"
-    #include "MakeBottle.hpp"
+    #include "internal/MakeBottle.hpp"
     safety!(unsafe)
     generate_ns!("occara")
     generate!("MakeBottle")

@@ -21,4 +21,8 @@ autocxx-build = "0.27.0"
 miette = { version = "5", features = ["fancy"] }
 
 [dev-dependencies]
-ordered-float = "4.2.0"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "occara"
+harness = false
