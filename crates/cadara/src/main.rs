@@ -26,5 +26,6 @@ impl iced::Sandbox for App {
 }
 
 fn main() -> iced::Result {
+    tracing_subscriber::fmt::init();
     App::run(iced::Settings::default())
 }
