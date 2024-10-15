@@ -3,7 +3,6 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::cognitive_complexity)]
 
-use iced::Sandbox;
 use modeling_module::ModelingModule;
 use project::data::transaction::TransactionArgs;
 use workspace::Workspace;
@@ -12,9 +11,16 @@ struct App {
     viewport: viewport::Viewport,
 }
 
-impl iced::Sandbox for App {
-    type Message = ();
+impl Default for App {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
+#[derive(Debug)]
+enum Message {}
+
+impl App {
     fn new() -> Self {
         let project = project::Project::new("project".to_string()).create_session();
         let doc = project.create_document();
@@ -41,13 +47,11 @@ impl iced::Sandbox for App {
         Self { viewport }
     }
 
-    fn title(&self) -> String {
-        "CADara".to_string()
-    }
+    #[expect(clippy::unused_self)] // required by `iced::application`
+    #[expect(clippy::needless_pass_by_value)]
+    fn update(&mut self, _message: Message) {}
 
-    fn update(&mut self, _message: Self::Message) {}
-
-    fn view(&self) -> iced::Element<'_, Self::Message> {
+    fn view(&self) -> iced::Element<'_, Message> {
         let viewport_shader = iced::widget::shader(&self.viewport)
             .width(iced::Length::Fill)
             .height(iced::Length::Fill);
@@ -58,5 +62,5 @@ impl iced::Sandbox for App {
 
 fn main() -> iced::Result {
     tracing_subscriber::fmt::init();
-    App::run(iced::Settings::default())
+    iced::application("CADara", App::update, App::view).run()
 }

@@ -27,7 +27,7 @@ workspace = { path = "crates/workspace" }
 modeling-workspace = { path = "crates/modeling-workspace" }
 modeling-module = { path = "crates/modeling-module" }
 
-iced = { version = "0.12", features = ["advanced"] }
+iced = { version = "0.13", features = ["advanced"] }
 tracing-subscriber = "0.3"
 thiserror = "1.0"
 dyn-clone = "1.0"
@@ -50,7 +50,6 @@ erased-serde = "0.4"
 lazy_static = "1.4"
 image = "0.25"
 rand = "0.8"
-wgpu = "0.19"
 anyhow = "1.0"
 
 [workspace.package]

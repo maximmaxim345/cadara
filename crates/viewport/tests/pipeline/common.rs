@@ -1,5 +1,5 @@
 use computegraph::{node, ComputeGraph};
-use iced::widget::shader::Primitive;
+use iced::widget::shader::{wgpu, Primitive};
 use viewport::{
     RenderNodePorts, SceneGraph, SceneGraphBuilder, UpdateNodePorts, ViewportEvent,
     ViewportPipeline,
@@ -13,23 +13,21 @@ pub struct SomePrimitive();
 impl Primitive for SomePrimitive {
     fn prepare(
         &self,
-        _format: wgpu::TextureFormat,
         _device: &wgpu::Device,
         _queue: &wgpu::Queue,
-        _bounds: iced::Rectangle,
-        _target_size: iced::Size<u32>,
-        _scale_factor: f32,
+        _format: wgpu::TextureFormat,
         _storage: &mut iced::widget::shader::Storage,
+        _bounds: &iced::Rectangle,
+        _viewport: &iced::widget::shader::Viewport,
     ) {
     }
 
     fn render(
         &self,
+        _encoder: &mut wgpu::CommandEncoder,
         _storage: &iced::widget::shader::Storage,
         _target: &wgpu::TextureView,
-        _target_size: iced::Size<u32>,
-        _viewport: iced::Rectangle<u32>,
-        _encoder: &mut wgpu::CommandEncoder,
+        _clip_bounds: &iced::Rectangle<u32>,
     ) {
     }
 }

@@ -17,7 +17,6 @@ glam.workspace = true
 iced.workspace = true
 image.workspace = true
 rand.workspace = true
-wgpu.workspace = true
 computegraph.workspace = true
 thiserror.workspace = true
 project.workspace = true
