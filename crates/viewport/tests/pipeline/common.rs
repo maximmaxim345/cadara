@@ -1,5 +1,5 @@
 use computegraph::{node, ComputeGraph};
-use iced::widget::shader::Primitive;
+use iced::widget::shader::{wgpu, Primitive};
 use viewport::{
     RenderNodePorts, SceneGraph, SceneGraphBuilder, UpdateNodePorts, ViewportEvent,
     ViewportPipeline,

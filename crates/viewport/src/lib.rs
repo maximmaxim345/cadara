@@ -49,6 +49,7 @@
 
 use iced::widget::shader;
 use project::ProjectSession;
+use shader::wgpu;
 use std::sync::{Arc, Mutex};
 
 mod pipeline;

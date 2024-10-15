@@ -50,7 +50,6 @@ erased-serde = "0.4"
 lazy_static = "1.4"
 image = "0.25"
 rand = "0.8"
-wgpu = "0.19"
 anyhow = "1.0"
 
 [workspace.package]
