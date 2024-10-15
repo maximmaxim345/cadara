@@ -43,16 +43,20 @@ pub struct MeshData {
 impl shader::Primitive for RenderPrimitive {
     fn prepare(
         &self,
-        format: wgpu::TextureFormat,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        bounds: iced::Rectangle,
-        target_size: iced::Size<u32>,
-        scale_factor: f32,
+        format: wgpu::TextureFormat,
         storage: &mut shader::Storage,
+        bounds: &iced::Rectangle,
+        viewport: &iced::widget::shader::Viewport,
     ) {
         if !storage.has::<RenderPipeline>() {
-            storage.store(RenderPipeline::new(device, queue, format, target_size));
+            storage.store(RenderPipeline::new(
+                device,
+                queue,
+                format,
+                viewport.physical_size(),
+            ));
         }
         let pipeline = storage.get_mut::<RenderPipeline>().unwrap();
         let vertices = self
@@ -68,9 +72,9 @@ impl shader::Primitive for RenderPrimitive {
         pipeline.update(
             device,
             queue,
-            bounds,
-            target_size,
-            scale_factor,
+            *bounds,
+            viewport.physical_size(),
+            viewport.scale_factor() as f32,
             self,
             &mesh_data,
         );
@@ -78,15 +82,14 @@ impl shader::Primitive for RenderPrimitive {
 
     fn render(
         &self,
+        encoder: &mut wgpu::CommandEncoder,
         storage: &shader::Storage,
         target: &wgpu::TextureView,
-        target_size: iced::Size<u32>,
-        viewport: iced::Rectangle<u32>,
-        encoder: &mut wgpu::CommandEncoder,
+        clip_bounds: &iced::Rectangle<u32>,
     ) {
         let pipeline = storage.get::<RenderPipeline>().unwrap();
 
-        pipeline.render(encoder, target, target_size, viewport);
+        pipeline.render(encoder, target, *clip_bounds);
     }
 }
 
@@ -270,7 +273,6 @@ impl RenderPipeline {
         &self,
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::TextureView,
-        _target_size: iced::Size<u32>,
         viewport: iced::Rectangle<u32>,
     ) {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

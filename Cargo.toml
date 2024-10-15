@@ -27,7 +27,7 @@ workspace = { path = "crates/workspace" }
 modeling-workspace = { path = "crates/modeling-workspace" }
 modeling-module = { path = "crates/modeling-module" }
 
-iced = { version = "0.12", features = ["advanced"] }
+iced = { version = "0.13", features = ["advanced"] }
 tracing-subscriber = "0.3"
 thiserror = "1.0"
 dyn-clone = "1.0"
