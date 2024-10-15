@@ -1,12 +1,18 @@
 [package]
 name = "modeling-module"
-version = "0.1.0"
-edition = "2021"
-license = "AGPL-3.0-only"
+description = "CADara module for modeling of 3D objects."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+keywords.workspace = true
 publish = false
 
 [dependencies]
-module = { path = "../module" }
-uuid = { version = "1.6.1", features = ["v4", "serde"] }
-serde = { version = "1.0.195", features = ["derive", "alloc", "rc"] }
-occara = { path = "../occara" }
+module.workspace = true
+uuid.workspace = true
+serde.workspace = true
+occara.workspace = true

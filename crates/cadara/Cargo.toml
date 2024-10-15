@@ -1,16 +1,23 @@
 [package]
 name = "cadara"
-version = "0.1.0"
-edition = "2021"
-license = "AGPL-3.0-only"
+description = "WIP Parametric CAD Software"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+keywords.workspace = true
+publish = false
 
 [dependencies]
-iced = "0.12.1"
-tracing-subscriber = "0.3.18"
-viewport = { path = "../viewport" }
-computegraph = { path = "../computegraph" }
-workspace = { path = "../workspace" }
-modeling-workspace = { path = "../modeling-workspace" }
-modeling-module = { path = "../modeling-module" }
-module = { path = "../module" }
-project = { path = "../project" }
+iced.workspace = true
+tracing-subscriber.workspace = true
+viewport.workspace = true
+computegraph.workspace = true
+workspace.workspace = true
+modeling-workspace.workspace = true
+modeling-module.workspace = true
+module.workspace = true
+project.workspace = true

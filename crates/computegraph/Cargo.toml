@@ -1,14 +1,20 @@
 [package]
 name = "computegraph"
-version = "0.1.0"
-edition = "2021"
-license = "AGPL-3.0-only"
+description = "Library for building and executing directed acyclic compute graphs with parallel execution and caching support."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+keywords.workspace = true
 publish = false
 
 [dependencies]
-thiserror = "1.0.60"
-computegraph_macros = { path = "../computegraph_macros" }
-dyn-clone = "1.0.17"
+thiserror.workspace = true
+computegraph_macros.workspace = true
+dyn-clone.workspace = true
 
 [dev-dependencies]
-anyhow = "1.0.86"
+anyhow.workspace = true

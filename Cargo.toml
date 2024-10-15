@@ -13,3 +13,52 @@ members = [
   "crates/modeling-module",
 ]
 resolver = "2"
+
+[workspace.dependencies]
+project = { path = "crates/project" }
+opencascade-sys = { path = "crates/opencascade-sys" }
+occara = { path = "crates/occara" }
+viewport = { path = "crates/viewport" }
+computegraph = { path = "crates/computegraph" }
+computegraph_macros = { path = "crates/computegraph_macros" }
+cadara = { path = "crates/cadara" }
+module = { path = "crates/module" }
+workspace = { path = "crates/workspace" }
+modeling-workspace = { path = "crates/modeling-workspace" }
+modeling-module = { path = "crates/modeling-module" }
+
+iced = { version = "0.12.1", features = ["advanced"] }
+tracing-subscriber = "0.3.18"
+thiserror = "1.0.60"
+dyn-clone = "1.0.17"
+uuid = { version = "1.6.1", features = ["v4", "serde"] }
+serde = { version = "1.0.195", features = ["derive", "alloc", "rc"] }
+bytemuck = "1.17.0"
+glam = { version = "0.29.0", features = ["bytemuck"] }
+walkdir = "2.4.0"
+
+cxx = "1.0.117"
+cxx-build = { version = "1.0.118", features = ["parallel"] }
+cmake = "0.1.50"
+autocxx = "0.27.0"
+autocxx-build = "0.27.0"
+
+miette = { version = "5", features = ["fancy"] }
+criterion = { version = "0.5", features = ["html_reports"] }
+serde_json = "1.0"
+erased-serde = "0.4"
+lazy_static = "1.4.0"
+image = "0.25.1"
+rand = "0.8.5"
+wgpu = "0.19.4"
+anyhow = "1.0.86"
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Maxim Raznatovski <nda.mr43@gmail.com>"]
+edition = "2021"
+license = "AGPL-3.0-only"
+repository = "https://github.com/maximmaxim345/cadara"
+homepage = "https://github.com/maximmaxim345/cadara"
+categories = ["gui"]
+keywords = ["cad", "gui", "brep", "3d", "iced"]

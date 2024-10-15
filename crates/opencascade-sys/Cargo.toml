@@ -1,12 +1,16 @@
 [package]
 name = "opencascade-sys"
-version = "0.1.0"
-edition = "2021"
-license = "AGPL-3.0-only"
+description = "Helper library for building OpenCASCADE."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+keywords.workspace = true
 publish = false
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-cmake = "0.1.50"
-walkdir = "2.4.0"
+cmake.workspace = true
+walkdir.workspace = true

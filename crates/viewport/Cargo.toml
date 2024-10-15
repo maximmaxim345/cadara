@@ -1,19 +1,23 @@
 [package]
 name = "viewport"
-version = "0.1.0"
-edition = "2021"
-license = "AGPL-3.0-only"
+description = "Modular iced viewport widget for CADara"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+keywords.workspace = true
 publish = false
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-bytemuck = "1.15.0"
-glam = { version = "0.27.0", features = ["bytemuck"] }
-iced = { version = "0.12.1", features = ["advanced"] }
-image = "0.25.1"
-rand = "0.8.5"
-wgpu = "0.19.4"
-computegraph = { path = "../computegraph" }
-thiserror = "1.0.61"
-project = { path = "../project" }
+bytemuck.workspace = true
+glam.workspace = true
+iced.workspace = true
+image.workspace = true
+rand.workspace = true
+wgpu.workspace = true
+computegraph.workspace = true
+thiserror.workspace = true
+project.workspace = true
