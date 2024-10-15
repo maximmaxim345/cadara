@@ -6,7 +6,6 @@
 use iced::Sandbox;
 use modeling_module::ModelingModule;
 use project::data::transaction::TransactionArgs;
-use utils::Transaction;
 use workspace::Workspace;
 
 struct App {

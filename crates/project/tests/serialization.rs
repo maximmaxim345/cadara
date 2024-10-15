@@ -5,7 +5,6 @@ use common::test_module::*;
 use project::data::transaction::TransactionArgs;
 use project::*;
 use serde::de::DeserializeSeed;
-use utils::Transaction;
 
 #[test]
 fn test_serde_project_json() {
