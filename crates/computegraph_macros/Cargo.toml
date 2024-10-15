@@ -1,16 +1,20 @@
 [package]
 name = "computegraph_macros"
-version = "0.1.0"
-edition = "2021"
-license = "AGPL-3.0-only"
+description = "Procedural macros for the ComputeGraph library."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+keywords.workspace = true
 publish = false
 
 [lib]
-name = "computegraph_macros"
-path = "src/lib.rs"
 proc-macro = true
 
 [dependencies]
-quote = "*"
-syn = { version = "*", features = ["extra-traits", "full"] }
-proc-macro2 = "*"
+quote = "1.0"
+syn = { version = "2.0", features = ["extra-traits", "full"] }
+proc-macro2 = "1.0"

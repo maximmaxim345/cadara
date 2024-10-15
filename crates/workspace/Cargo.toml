@@ -1,10 +1,16 @@
 [package]
 name = "workspace"
-version = "0.1.0"
-edition = "2021"
-license = "AGPL-3.0-only"
+description = "Traits for defining CADara workspaces."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+keywords.workspace = true
 publish = false
 
 [dependencies]
-viewport = { path = "../viewport" }
-computegraph = { path = "../computegraph" }
+viewport.workspace = true
+computegraph.workspace = true

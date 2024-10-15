@@ -1,18 +1,22 @@
 [package]
 name = "project"
-version = "0.1.0"
-edition = "2021"
-license = "AGPL-3.0-only"
+description = "Data and dependency management for Projects in CADara"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+keywords.workspace = true
 publish = false
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-uuid = { version = "1.6.1", features = ["v4", "serde"] }
-module = { path = "../module" }
-serde = { version = "1.0.195", features = ["derive", "alloc", "rc"] }
-serde_json = "1.0.111"
-erased-serde = "0.4.2"
+uuid.workspace = true
+module.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+erased-serde.workspace = true
 
 [dev-dependencies]
-lazy_static = "1.4.0"
+lazy_static.workspace = true

@@ -1,27 +1,30 @@
 [package]
 name = "occara"
 description = "High-level Rust bindings to the OpenCASCADE B-Rep library"
-version = "0.1.0"
-edition = "2021"
-license = "AGPL-3.0-only"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+keywords.workspace = true
 publish = false
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-autocxx = "0.27.0"
-cxx = "1.0.117"
-walkdir = "2.4.0"
+autocxx.workspace = true
+cxx.workspace = true
+walkdir.workspace = true
 
 [build-dependencies]
-opencascade-sys = { path = "../opencascade-sys" }
-cxx-build = { version = "1.0.118", features = ["parallel"] }
-walkdir = "2.4.0"
-autocxx-build = "0.27.0"
-miette = { version = "5", features = ["fancy"] }
+opencascade-sys.workspace = true
+cxx-build.workspace = true
+walkdir.workspace = true
+autocxx-build.workspace = true
+miette.workspace = true
 
 [dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion.workspace = true
 
 [[bench]]
 name = "occara"

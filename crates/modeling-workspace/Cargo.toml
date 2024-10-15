@@ -1,17 +1,23 @@
 [package]
 name = "modeling-workspace"
-version = "0.1.0"
-edition = "2021"
-license = "AGPL-3.0-only"
+description = "Workspace for interactive model editing."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+keywords.workspace = true
 publish = false
 
 [dependencies]
-workspace = { path = "../workspace" }
+workspace.workspace = true
 viewport = { path = "../viewport" }
 computegraph = { path = "../computegraph" }
-modeling-module = { path = "../modeling-module" }
-occara = { path = "../occara" }
-project = { path = "../project" }
-iced = { version = "0.12.1", features = ["advanced"] }
-bytemuck = "1.17.0"
-glam = { version = "0.29.0", features = ["bytemuck"] }
+modeling-module.workspace = true
+occara.workspace = true
+project.workspace = true
+iced.workspace = true
+bytemuck.workspace = true
+glam.workspace = true
