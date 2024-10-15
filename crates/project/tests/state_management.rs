@@ -3,7 +3,6 @@ use common::test_module::*;
 
 use project::data::transaction::TransactionArgs;
 use project::*;
-use utils::Transaction;
 
 #[test]
 fn test_document_persistent_data() {

@@ -3,7 +3,6 @@ use common::test_module::*;
 use data::{DataSession, DataUuid};
 use project::data::transaction::TransactionArgs;
 use project::*;
-use utils::Transaction;
 
 fn create_undo_redo_test_setup() -> (
     ProjectSession,

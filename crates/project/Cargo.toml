@@ -9,7 +9,6 @@ publish = false
 
 [dependencies]
 uuid = { version = "1.6.1", features = ["v4", "serde"] }
-utils = { path = "../utils" }
 module = { path = "../module" }
 serde = { version = "1.0.195", features = ["derive", "alloc", "rc"] }
 serde_json = "1.0.111"

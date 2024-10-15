@@ -500,7 +500,6 @@ dependencies = [
  "module",
  "project",
  "tracing-subscriber",
- "utils",
  "viewport",
  "workspace",
 ]
@@ -2243,7 +2242,6 @@ dependencies = [
  "modeling-module",
  "occara",
  "project",
- "utils",
  "viewport",
  "workspace",
 ]
@@ -2948,7 +2946,6 @@ dependencies = [
  "module",
  "serde",
  "serde_json",
- "utils",
  "uuid",
 ]
 

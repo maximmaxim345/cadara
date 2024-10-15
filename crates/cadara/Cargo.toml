@@ -14,4 +14,3 @@ modeling-workspace = { path = "../modeling-workspace" }
 modeling-module = { path = "../modeling-module" }
 module = { path = "../module" }
 project = { path = "../project" }
-utils = { path = "../utils" }

@@ -7,7 +7,6 @@ use super::{
 use internal::InternalDataSession;
 use module::{DataTransaction, Module, ReversibleDataTransaction};
 use std::sync::{Arc, Mutex, Weak};
-use utils::Transaction;
 
 /// Represents a snapshot of a data sections state in a session.
 ///
@@ -36,7 +35,7 @@ pub struct Snapshot<M: Module> {
 /// It maintains a copy of the document's state, allowing for concurrent editing and individual
 /// management of persistent and non-persistent data.
 ///
-/// Modifications to the document are made by passing [`Transaction`]s that describe the desired changes.
+/// Modifications to the document are made by passing [`transaction::TransactionArgs`] through [`DataSession::apply`].
 ///
 /// [`Project`]: crate::Project
 #[derive(Clone, Debug)]
@@ -812,15 +811,36 @@ impl<M: Module> DataSession<M> {
             session.lock().unwrap().persistent_user = internal_data.user_data.clone();
         }
     }
-}
 
-impl<M: Module> Transaction for DataSession<M> {
-    type Args = transaction::TransactionArgs<M>;
-    type Error = transaction::SessionApplyError<M>;
-    type Output = transaction::TransactionOutput<M>;
+    /// Applies a transaction to this data session.
+    ///
+    /// This function handles different types of transactions and applies them to the appropriate
+    /// data section. It ensures that transactions are properly synchronized across sessions when necessary.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - A `TransactionArgs<M>` representing the transaction to be applied.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing the output of the successfully applied transaction.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `SessionApplyError<M>` if the transaction fails to apply to the requested data section.
+    ///
+    /// # Behavior
+    ///
+    /// - For `Session` transactions: Applied directly to the current session without synchronization.
+    /// - For `Persistent`, `PersistentUser`, and `Shared` transactions: Applied through the data model
+    ///   to ensure synchronization across all sessions.
+    pub fn apply(
+        &mut self,
+        args: transaction::TransactionArgs<M>,
+    ) -> Result<transaction::TransactionOutput<M>, transaction::SessionApplyError<M>> {
+        use transaction::TransactionArgs as Args;
 
-    fn apply(&mut self, args: Self::Args) -> Result<Self::Output, Self::Error> {
-        if let Self::Args::Session(session_args) = args {
+        if let Args::Session(session_args) = args {
             // Session data is not synced with other sessions, so we can just directly apply it
             self.apply_session(session_args)
                 .map_or_else(Result::Err, |output| {
@@ -833,23 +853,23 @@ impl<M: Module> Transaction for DataSession<M> {
             let ref_cell = &self.data_model_ref.upgrade().unwrap();
             let mut internal_data = ref_cell.lock().unwrap();
             match args {
-                Self::Args::Persistent(data_args) => internal_data
+                Args::Persistent(data_args) => internal_data
                     .apply_persistent(data_args, session_uuid)
                     .map_or_else(Result::Err, |output| {
                         Ok(transaction::TransactionOutput::Persistent(output))
                     }),
-                Self::Args::PersistentUser(user_args) => internal_data
+                Args::PersistentUser(user_args) => internal_data
                     .apply_user(user_args, session_uuid)
                     .map_or_else(Result::Err, |output| {
                         Ok(transaction::TransactionOutput::PersistentUser(output))
                     }),
-                Self::Args::Shared(shared_args) => internal_data
+                Args::Shared(shared_args) => internal_data
                     .apply_shared(&shared_args, session_uuid)
                     .map_or_else(Result::Err, |output| {
                         Ok(transaction::TransactionOutput::Shared(output))
                     }),
                 // We already handled this case above
-                Self::Args::Session(_) => unreachable!(),
+                Args::Session(_) => unreachable!(),
             }
         }
     }
