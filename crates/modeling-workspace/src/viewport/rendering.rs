@@ -88,13 +88,19 @@ impl shader::Primitive for RenderPrimitive {
 }
 
 #[derive(Debug)]
+struct MeshBuffers {
+    vertex: wgpu::Buffer,
+    index: wgpu::Buffer,
+    /// Corresponds to [`MeshData::id`]
+    id: uuid::Uuid,
+}
+
+#[derive(Debug)]
 struct RenderPipeline {
     pipeline: wgpu::RenderPipeline,
     camera_bind_group: wgpu::BindGroup,
     camera: wgpu::Buffer,
-    vertex_buffer: Option<wgpu::Buffer>,
-    index_buffer: Option<wgpu::Buffer>,
-    uploaded_mesh_id: Option<uuid::Uuid>,
+    mesh: Option<MeshBuffers>,
     depth_texture: wgpu::Texture,
     depth_texture_view: wgpu::TextureView,
 }
@@ -199,9 +205,7 @@ impl RenderPipeline {
             pipeline,
             camera_bind_group,
             camera,
-            vertex_buffer: None,
-            index_buffer: None,
-            uploaded_mesh_id: None,
+            mesh: None,
             depth_texture,
             depth_texture_view,
         }
@@ -225,24 +229,29 @@ impl RenderPipeline {
         queue.write_buffer(&self.camera, 0, bytemuck::cast_slice(&[camera_uniform]));
 
         // Update the vertex/index buffers if the mesh has changed
-        if self.uploaded_mesh_id != Some(mesh_data.id) {
-            // Create and update vertex buffer
-            let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(&mesh_data.vertices),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-            self.vertex_buffer = Some(vertex_buffer);
+        match self.mesh {
+            Some(MeshBuffers { id, .. }) if id == mesh_data.id => {
+                // The mesh did not change, reuse existing buffers
+            }
+            _ => {
+                // Create and update vertex buffer
+                let vertex = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Vertex Buffer"),
+                    contents: bytemuck::cast_slice(&mesh_data.vertices),
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
 
-            // Create and update index buffer
-            let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(&mesh_data.indices),
-                usage: wgpu::BufferUsages::INDEX,
-            });
-            self.index_buffer = Some(index_buffer);
+                // Create and update index buffer
+                let index = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Index Buffer"),
+                    contents: bytemuck::cast_slice(&mesh_data.indices),
+                    usage: wgpu::BufferUsages::INDEX,
+                });
 
-            self.uploaded_mesh_id = Some(mesh_data.id);
+                let id = mesh_data.id;
+
+                self.mesh = Some(MeshBuffers { vertex, index, id });
+            }
         }
 
         // Update depth texture if target size changed
@@ -310,10 +319,10 @@ impl RenderPipeline {
             1.0,
         );
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-        if let (Some(vb), Some(ib)) = (self.vertex_buffer.as_ref(), self.index_buffer.as_ref()) {
-            render_pass.set_vertex_buffer(0, vb.slice(..));
-            render_pass.set_index_buffer(ib.slice(..), wgpu::IndexFormat::Uint32);
-            render_pass.draw_indexed(0..ib.size() as u32 / 4, 0, 0..1);
+        if let Some(mesh) = &self.mesh {
+            render_pass.set_vertex_buffer(0, mesh.vertex.slice(..));
+            render_pass.set_index_buffer(mesh.index.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.draw_indexed(0..mesh.index.size() as u32 / 4, 0, 0..1);
         }
     }
 }
