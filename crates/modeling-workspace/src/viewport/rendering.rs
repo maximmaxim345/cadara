@@ -38,6 +38,10 @@ impl Vertex {
 pub struct MeshData {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
+    /// At construction randomly generated uuid to detect changes.
+    ///
+    /// Two [`MeshData`] objects with the same `id` can be assumed to contain the same data.
+    pub id: uuid::Uuid,
 }
 
 impl shader::Primitive for RenderPrimitive {
@@ -90,6 +94,7 @@ struct RenderPipeline {
     camera: wgpu::Buffer,
     vertex_buffer: Option<wgpu::Buffer>,
     index_buffer: Option<wgpu::Buffer>,
+    uploaded_mesh_id: Option<uuid::Uuid>,
     depth_texture: wgpu::Texture,
     depth_texture_view: wgpu::TextureView,
 }
@@ -196,6 +201,7 @@ impl RenderPipeline {
             camera,
             vertex_buffer: None,
             index_buffer: None,
+            uploaded_mesh_id: None,
             depth_texture,
             depth_texture_view,
         }
@@ -218,21 +224,26 @@ impl RenderPipeline {
 
         queue.write_buffer(&self.camera, 0, bytemuck::cast_slice(&[camera_uniform]));
 
-        // Create and update vertex buffer
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(&mesh_data.vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-        self.vertex_buffer = Some(vertex_buffer);
+        // Update the vertex/index buffers if the mesh has changed
+        if self.uploaded_mesh_id != Some(mesh_data.id) {
+            // Create and update vertex buffer
+            let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(&mesh_data.vertices),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
+            self.vertex_buffer = Some(vertex_buffer);
 
-        // Create and update index buffer
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(&mesh_data.indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-        self.index_buffer = Some(index_buffer);
+            // Create and update index buffer
+            let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Index Buffer"),
+                contents: bytemuck::cast_slice(&mesh_data.indices),
+                usage: wgpu::BufferUsages::INDEX,
+            });
+            self.index_buffer = Some(index_buffer);
+
+            self.uploaded_mesh_id = Some(mesh_data.id);
+        }
 
         // Update depth texture if target size changed
         if self.depth_texture.size().width != target_size.width

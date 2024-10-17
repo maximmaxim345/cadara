@@ -35,7 +35,11 @@ fn run(&self, shape: &occara::shape::Shape) -> MeshData {
         .collect();
     let indices = mesh.indices().iter().map(|i| *i as u32).collect();
 
-    MeshData { vertices, indices }
+    MeshData {
+        vertices,
+        indices,
+        id: uuid::Uuid::new_v4(),
+    }
 }
 
 #[derive(Clone, Debug)]

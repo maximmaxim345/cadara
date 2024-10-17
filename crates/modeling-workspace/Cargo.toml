@@ -21,3 +21,4 @@ project.workspace = true
 iced.workspace = true
 bytemuck.workspace = true
 glam.workspace = true
+uuid.workspace = true
