@@ -11,7 +11,7 @@ use super::{
 #[derive(Debug)]
 pub struct RenderPrimitive {
     pub state: ViewportState,
-    pub mesh: occara::shape::Mesh,
+    pub mesh: MeshData,
 }
 
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -34,7 +34,7 @@ impl Vertex {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MeshData {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
@@ -59,16 +59,6 @@ impl shader::Primitive for RenderPrimitive {
             ));
         }
         let pipeline = storage.get_mut::<RenderPipeline>().unwrap();
-        let vertices = self
-            .mesh
-            .vertices()
-            .iter()
-            .map(|p| Vertex {
-                pos: glam::Vec3::new(p.x() as f32, p.y() as f32, p.z() as f32),
-            })
-            .collect();
-        let indices = self.mesh.indices().iter().map(|i| *i as u32).collect();
-        let mesh_data = MeshData { vertices, indices };
         pipeline.update(
             device,
             queue,
@@ -76,7 +66,7 @@ impl shader::Primitive for RenderPrimitive {
             viewport.physical_size(),
             viewport.scale_factor() as f32,
             self,
-            &mesh_data,
+            &self.mesh,
         );
     }
 
