@@ -20,14 +20,28 @@ fn run(
     _project: &project::ProjectSession,
 ) -> (viewport::SceneGraph, ModelingViewportPluginOutput) {
     let mut graph = ComputeGraph::new();
-    let render_node = graph
+    let model_node = graph
         .add_node(
-            scene_nodes::RenderNode {
+            scene_nodes::ModelNode {
                 data_uuid: self.data_uuid,
             },
-            "render".to_string(),
+            "model".to_string(),
         )
         .unwrap();
+    let meshing_node = graph
+        .add_node(scene_nodes::MeshingNode {}, "meshing".to_string())
+        .unwrap();
+    let render_node = graph
+        .add_node(scene_nodes::RenderNode {}, "render".to_string())
+        .unwrap();
+
+    graph
+        .connect(model_node.output(), meshing_node.input_shape())
+        .expect("just created the nodes");
+    graph
+        .connect(meshing_node.output(), render_node.input_mesh())
+        .expect("just created the nodes");
+
     let update_node = graph
         .add_node(
             scene_nodes::UpdateStateNode {

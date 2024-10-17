@@ -2,26 +2,55 @@ use computegraph::node;
 use iced::widget::shader;
 use viewport::ViewportEvent;
 
-use super::{rendering::RenderPrimitive, state::ViewportState};
+use super::{
+    rendering::{MeshData, RenderPrimitive, Vertex},
+    state::ViewportState,
+};
 
 #[derive(Clone, Debug)]
-pub struct RenderNode {
+pub struct ModelNode {
     pub data_uuid: project::data::DataUuid,
 }
 
-#[node(RenderNode)]
-fn run(
-    &self,
-    state: &ViewportState,
-    project: &project::ProjectSession,
-) -> Box<dyn shader::Primitive> {
+#[node(ModelNode)]
+fn run(&self, project: &project::ProjectSession) -> occara::shape::Shape {
     let data_session: project::data::DataSession<modeling_module::ModelingModule> =
         project.open_data(self.data_uuid).unwrap();
-    let shape = data_session.snapshot().persistent.shape();
+
+    data_session.snapshot().persistent.shape()
+}
+
+#[derive(Clone, Debug)]
+pub struct MeshingNode {}
+
+#[node(MeshingNode)]
+fn run(&self, shape: &occara::shape::Shape) -> MeshData {
     let mesh = shape.mesh();
+    let vertices = mesh
+        .vertices()
+        .iter()
+        .map(|p| Vertex {
+            pos: glam::Vec3::new(p.x() as f32, p.y() as f32, p.z() as f32),
+        })
+        .collect();
+    let indices = mesh.indices().iter().map(|i| *i as u32).collect();
+
+    MeshData {
+        vertices,
+        indices,
+        id: uuid::Uuid::new_v4(),
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct RenderNode {}
+
+#[node(RenderNode)]
+fn run(&self, state: &ViewportState, mesh: &MeshData) -> Box<dyn shader::Primitive> {
+    // TODO: remove cloning to reduce overhead once computegraph allows that
     Box::new(RenderPrimitive {
         state: (*state).clone(),
-        mesh,
+        mesh: (*mesh).clone(),
     })
 }
 

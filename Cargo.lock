@@ -2574,6 +2574,7 @@ dependencies = [
  "modeling-module",
  "occara",
  "project",
+ "uuid",
  "viewport",
  "workspace",
 ]

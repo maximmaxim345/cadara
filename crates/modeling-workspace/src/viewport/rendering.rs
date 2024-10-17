@@ -11,7 +11,7 @@ use super::{
 #[derive(Debug)]
 pub struct RenderPrimitive {
     pub state: ViewportState,
-    pub mesh: occara::shape::Mesh,
+    pub mesh: MeshData,
 }
 
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -34,10 +34,14 @@ impl Vertex {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MeshData {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
+    /// At construction randomly generated uuid to detect changes.
+    ///
+    /// Two [`MeshData`] objects with the same `id` can be assumed to contain the same data.
+    pub id: uuid::Uuid,
 }
 
 impl shader::Primitive for RenderPrimitive {
@@ -59,16 +63,6 @@ impl shader::Primitive for RenderPrimitive {
             ));
         }
         let pipeline = storage.get_mut::<RenderPipeline>().unwrap();
-        let vertices = self
-            .mesh
-            .vertices()
-            .iter()
-            .map(|p| Vertex {
-                pos: glam::Vec3::new(p.x() as f32, p.y() as f32, p.z() as f32),
-            })
-            .collect();
-        let indices = self.mesh.indices().iter().map(|i| *i as u32).collect();
-        let mesh_data = MeshData { vertices, indices };
         pipeline.update(
             device,
             queue,
@@ -76,7 +70,7 @@ impl shader::Primitive for RenderPrimitive {
             viewport.physical_size(),
             viewport.scale_factor() as f32,
             self,
-            &mesh_data,
+            &self.mesh,
         );
     }
 
@@ -94,12 +88,19 @@ impl shader::Primitive for RenderPrimitive {
 }
 
 #[derive(Debug)]
+struct MeshBuffers {
+    vertex: wgpu::Buffer,
+    index: wgpu::Buffer,
+    /// Corresponds to [`MeshData::id`]
+    id: uuid::Uuid,
+}
+
+#[derive(Debug)]
 struct RenderPipeline {
     pipeline: wgpu::RenderPipeline,
     camera_bind_group: wgpu::BindGroup,
     camera: wgpu::Buffer,
-    vertex_buffer: Option<wgpu::Buffer>,
-    index_buffer: Option<wgpu::Buffer>,
+    mesh: Option<MeshBuffers>,
     depth_texture: wgpu::Texture,
     depth_texture_view: wgpu::TextureView,
 }
@@ -204,8 +205,7 @@ impl RenderPipeline {
             pipeline,
             camera_bind_group,
             camera,
-            vertex_buffer: None,
-            index_buffer: None,
+            mesh: None,
             depth_texture,
             depth_texture_view,
         }
@@ -228,21 +228,31 @@ impl RenderPipeline {
 
         queue.write_buffer(&self.camera, 0, bytemuck::cast_slice(&[camera_uniform]));
 
-        // Create and update vertex buffer
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(&mesh_data.vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-        self.vertex_buffer = Some(vertex_buffer);
+        // Update the vertex/index buffers if the mesh has changed
+        match self.mesh {
+            Some(MeshBuffers { id, .. }) if id == mesh_data.id => {
+                // The mesh did not change, reuse existing buffers
+            }
+            _ => {
+                // Create and update vertex buffer
+                let vertex = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Vertex Buffer"),
+                    contents: bytemuck::cast_slice(&mesh_data.vertices),
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
 
-        // Create and update index buffer
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(&mesh_data.indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-        self.index_buffer = Some(index_buffer);
+                // Create and update index buffer
+                let index = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Index Buffer"),
+                    contents: bytemuck::cast_slice(&mesh_data.indices),
+                    usage: wgpu::BufferUsages::INDEX,
+                });
+
+                let id = mesh_data.id;
+
+                self.mesh = Some(MeshBuffers { vertex, index, id });
+            }
+        }
 
         // Update depth texture if target size changed
         if self.depth_texture.size().width != target_size.width
@@ -309,10 +319,10 @@ impl RenderPipeline {
             1.0,
         );
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-        if let (Some(vb), Some(ib)) = (self.vertex_buffer.as_ref(), self.index_buffer.as_ref()) {
-            render_pass.set_vertex_buffer(0, vb.slice(..));
-            render_pass.set_index_buffer(ib.slice(..), wgpu::IndexFormat::Uint32);
-            render_pass.draw_indexed(0..ib.size() as u32 / 4, 0, 0..1);
+        if let Some(mesh) = &self.mesh {
+            render_pass.set_vertex_buffer(0, mesh.vertex.slice(..));
+            render_pass.set_index_buffer(mesh.index.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.draw_indexed(0..mesh.index.size() as u32 / 4, 0, 0..1);
         }
     }
 }
