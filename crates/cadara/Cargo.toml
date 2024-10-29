@@ -21,3 +21,7 @@ modeling-workspace.workspace = true
 modeling-module.workspace = true
 module.workspace = true
 project.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "cadara_lib"
