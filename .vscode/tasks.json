@@ -1,0 +1,178 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build all",
+      "command": "cargo",
+      "args": [
+        "build",
+        "--workspace"
+      ],
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Test all",
+      "command": "cargo",
+      "args": [
+        "test",
+        "--workspace"
+      ],
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Verify all",
+      "command": "cargo",
+      "args": [
+        "make",
+        "verify"
+      ],
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "group": {
+        "kind": "test",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "Verify all (strict)",
+      "command": "cargo",
+      "args": [
+        "make",
+        "verify-strict"
+      ],
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "group": {
+        "kind": "test",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "Run cadara (dev)",
+      "command": "cargo",
+      "args": [
+        "run"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/crates/cadara"
+      },
+      "problemMatcher": [
+        "$rustc"
+      ]
+    },
+    {
+      "label": "Run cadara (release)",
+      "command": "cargo",
+      "args": [
+        "run",
+        "--release"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/crates/cadara"
+      },
+      "problemMatcher": [
+        "$rustc"
+      ]
+    },
+    {
+      "label": "Build cadara for WASM (dev)",
+      "command": "cargo",
+      "args": [
+        "make",
+        "build-wasm-dev"
+      ],
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "group": "build"
+    },
+    {
+      "label": "Build cadara for WASM (with debug info)",
+      "command": "cargo",
+      "args": [
+        "make",
+        "build-wasm-debug"
+      ],
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "group": "build"
+    },
+    {
+      "label": "Build cadara for WASM (release)",
+      "command": "cargo",
+      "args": [
+        "make",
+        "build-wasm-release"
+      ],
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "group": "build"
+    },
+    {
+      "label": "Serve cadara",
+      "command": "cargo",
+      "args": [
+        "make",
+        "serve"
+      ],
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "\\[cargo-make\\] INFO - Execute Command: \"simple-http-server\"",
+          "endsPattern": "^\\s*Address:"
+        }
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      },
+      "hide": true
+    },
+    {
+      "label": "Serve cadara for WASM (dev)",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Build cadara for WASM (dev)",
+        "Serve cadara"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Serve cadara for WASM (with debug info)",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Build cadara for WASM (with debug info)",
+        "Serve cadara"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Serve cadara for WASM (release)",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Build cadara for WASM (release)",
+        "Serve cadara"
+      ],
+      "problemMatcher": []
+    },
+  ]
+}
