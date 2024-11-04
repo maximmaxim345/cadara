@@ -57,6 +57,7 @@ getrandom = { version = "0.2", features = ["js"] }
 console_error_panic_hook = "0.1"
 console_log = "1.0"
 log = "0.4"
+wasm-bindgen = "0.2"
 
 [workspace.package]
 version = "0.1.0"

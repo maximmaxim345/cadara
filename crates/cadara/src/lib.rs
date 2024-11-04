@@ -67,6 +67,7 @@ impl App {
 /// # Panics
 ///
 /// Panics if `iced::application::run` fails.
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen::prelude::wasm_bindgen(start))]
 pub fn run_cadara() {
     #[cfg(target_arch = "wasm32")]
     {

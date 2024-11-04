@@ -31,6 +31,7 @@ wasm-libc.workspace = true
 console_log.workspace = true
 console_log.features = ["wasm-bindgen"]
 console_error_panic_hook.workspace = true
+wasm-bindgen.workspace = true
 
 [lib]
 crate-type = ["cdylib", "rlib"]
