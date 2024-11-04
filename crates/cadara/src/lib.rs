@@ -60,7 +60,14 @@ impl App {
     }
 }
 
-fn main() {
+/// Initializes and runs `CADara`.
+///
+/// Sets up logging and runs the application. This function must only be called once.
+///
+/// # Panics
+///
+/// Panics if `iced::application::run` fails.
+pub fn run_cadara() {
     tracing_subscriber::fmt::init();
     iced::application("CADara", App::update, App::view)
         .run()
