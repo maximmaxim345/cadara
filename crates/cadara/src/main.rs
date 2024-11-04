@@ -60,7 +60,9 @@ impl App {
     }
 }
 
-fn main() -> iced::Result {
+fn main() {
     tracing_subscriber::fmt::init();
-    iced::application("CADara", App::update, App::view).run()
+    iced::application("CADara", App::update, App::view)
+        .run()
+        .unwrap();
 }
