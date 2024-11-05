@@ -1,0 +1,15 @@
+[package]
+name = "wasm-libc"
+description = "Implementations of libc for wasm32-unknown-unknown"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+keywords.workspace = true
+publish = false
+
+[dependencies]
+log.workspace = true
