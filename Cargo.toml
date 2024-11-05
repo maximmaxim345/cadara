@@ -27,7 +27,7 @@ workspace = { path = "crates/workspace" }
 modeling-workspace = { path = "crates/modeling-workspace" }
 modeling-module = { path = "crates/modeling-module" }
 
-iced = { version = "0.13", features = ["advanced"] }
+iced = { version = "0.13", features = ["advanced", "webgl"] }
 tracing-subscriber = "0.3"
 thiserror = "1.0"
 dyn-clone = "1.0"
@@ -51,6 +51,7 @@ lazy_static = "1.4"
 image = "0.25"
 rand = "0.8"
 anyhow = "1.0"
+getrandom = { version = "0.2", features = ["js"] }
 
 [workspace.package]
 version = "0.1.0"
