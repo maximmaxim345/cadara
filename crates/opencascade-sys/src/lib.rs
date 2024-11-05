@@ -138,6 +138,15 @@ impl OpenCascadeSource {
                 config.define("CMAKE_CXX_COMPILER_LAUNCHER", "sccache");
             }
 
+            if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
+                // These are some workarounds for compiling wasm with just clang
+                // installed
+                config
+                    .define("CMAKE_C_COMPILER_WORKS", "TRUE")
+                    .define("CMAKE_CXX_COMPILER_WORKS", "TRUE")
+                    .define("CMAKE_SIZEOF_VOID_P", "4");
+            }
+
             config.build();
 
             // Update/Touch the build marker to indicate that the build was successful
