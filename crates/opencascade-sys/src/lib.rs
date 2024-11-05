@@ -50,7 +50,8 @@ impl OpenCascadeSource {
         }
 
         let current_dir = env::current_dir().expect("Failed to retrieve current directory");
-        let cargo_target_dir = get_cargo_target_dir().expect("target dir could not be determined");
+        let cargo_target_dir =
+            get_cargo_native_target_dir().expect("target dir could not be determined");
 
         let occt_version_lock_path = current_dir.join(OCCT_VERSION_LOCK_FILE);
 
@@ -59,7 +60,14 @@ impl OpenCascadeSource {
 
         let mut config = cmake::Config::new(source_path);
 
-        let build_dir = occt_dir.join(format!("build-{}", config.get_profile()));
+        let build_dir = if std::env::var("TARGET").unwrap() == std::env::var("HOST").unwrap() {
+            // Native build
+            occt_dir.join(format!("build-{}", config.get_profile()))
+        } else {
+            // Cross compilation
+            let target = std::env::var("TARGET").unwrap();
+            occt_dir.join(format!("build-{}-{}", config.get_profile(), target))
+        };
         let lib_dir = build_dir.join(LIB_DIR);
         let include_dir = build_dir.join(INCLUDE_DIR);
         let build_marker = build_dir.join(".built");
@@ -241,6 +249,24 @@ fn get_cargo_target_dir() -> Result<std::path::PathBuf, Box<dyn std::error::Erro
     let target_dir = target_dir.ok_or("not found")?;
     Ok(target_dir.to_path_buf())
 }
+
+fn get_cargo_native_target_dir() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+    let dir = get_cargo_target_dir()?;
+    let file_name = dir
+        .file_name()
+        .and_then(|f| f.to_str())
+        .ok_or("Invalid file name")?;
+    let target = std::env::var("TARGET")?;
+    if file_name == target {
+        Ok(dir
+            .parent()
+            .ok_or("No parent directory found")?
+            .to_path_buf())
+    } else {
+        Ok(dir)
+    }
+}
+
 fn delete_build_dirs(path: &Path) -> std::io::Result<()> {
     for entry in fs::read_dir(path)? {
         let entry = entry?;
