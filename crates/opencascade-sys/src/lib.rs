@@ -272,6 +272,13 @@ fn download_source(
         clone_repository(REPOSITORY, BRANCH, source_path).expect("Failed to clone repository");
         // If build directories already exists, we should remove them, as they might contain old files
         delete_build_dirs(build_subdirs).unwrap();
+    } else if get_remote_url(source_path).map_or(true, |url| url != REPOSITORY)
+        || get_current_commit(source_path).is_err()
+    {
+        // Either something failed, or the url has changed
+        fs::remove_dir_all(source_path).expect("error deleting source code for redownload");
+        download_source(source_path, build_subdirs, occt_version_lock_path);
+        return; // retry
     }
     // If the last_commit file exists, we should use the commit ID from there
     // otherwise, we save the newest commit ID to the file and use that
@@ -326,6 +333,10 @@ fn clone_repository(repository: &str, branch: &str, target_dir: &Path) -> Result
 
 fn fetch_origin(source_dir: &Path, branch: &str) -> Result<(), String> {
     execute_git_command(&["fetch", "origin", branch], source_dir).map(|_| ())
+}
+
+fn get_remote_url(source_dir: &Path) -> Result<String, String> {
+    execute_git_command(&["remote", "get-url", "origin"], source_dir)
 }
 
 fn checkout_commit(source_dir: &Path, commit: &str) -> Result<(), String> {
