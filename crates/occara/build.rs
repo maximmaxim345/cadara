@@ -2,6 +2,20 @@ use walkdir::WalkDir;
 
 fn main() -> miette::Result<()> {
     let build = opencascade_sys::OpenCascadeSource::new().build();
+
+    let target = std::env::var("TARGET").unwrap_or_default();
+    let target_specific_flags = format!("CXXFLAGS_{}", target.replace("-", "_"));
+
+    // Try target-specific flags first, fall back to general CXXFLAGS
+    let cxx_flags = std::env::var(&target_specific_flags)
+        .or_else(|_| std::env::var("CXXFLAGS"))
+        .unwrap_or_default();
+
+    let all_clang_args: Vec<&str> = cxx_flags
+        .split_whitespace()
+        .chain(std::iter::once("-std=c++20"))
+        .collect();
+
     // Find all cpp files in the cpp directory
     let cpp_files: Vec<_> = WalkDir::new("cpp")
         .into_iter()
@@ -48,7 +62,7 @@ fn main() -> miette::Result<()> {
         "src/ffi.rs",
         [&std::path::PathBuf::from("include"), build.include_dir()],
     )
-    .extra_clang_args(&["-std=c++20"])
+    .extra_clang_args(&all_clang_args)
     .build()?;
 
     autocxx_build
