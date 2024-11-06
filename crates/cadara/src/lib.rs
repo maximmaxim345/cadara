@@ -72,6 +72,7 @@ pub fn run_cadara() {
     {
         console_log::init().expect("Initialize logger");
         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+        wasm_libc::init();
     }
 
     #[cfg(not(target_arch = "wasm32"))]
