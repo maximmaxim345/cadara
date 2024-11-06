@@ -231,6 +231,8 @@ script_runner = "@shell"
 script = '''
 WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR="$(pwd)/target/wasm-libcxx/wasm32-unknown-unknown-libcxx" # shell2batch:
 . $WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR/env.sh # shell2batch: call target\wasm-libcxx\wasm32-unknown-unknown-libcxx\env.bat
+cd crates/occara
+rustup run nightly wasm-pack test --node
 '''
 install_crate = "wasm-pack"
 

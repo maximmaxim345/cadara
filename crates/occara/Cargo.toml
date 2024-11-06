@@ -23,8 +23,12 @@ walkdir.workspace = true
 autocxx-build.workspace = true
 miette.workspace = true
 
-[dev-dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 criterion.workspace = true
+
+[dev-dependencies]
+wasm-bindgen-test.workspace = true
+wasm-libc.workspace = true
 
 [[bench]]
 name = "occara"
