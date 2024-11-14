@@ -1,0 +1,110 @@
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+
+[tasks.verify-strict]
+description = "Run all verification tasks with strict warning settings"
+workspace = false
+dependencies = [
+    "run-all-tests",
+    "lint-strict",
+    "docs-strict",
+    "spell-check",
+    "verify-doc-tests",
+    "verify-formatting",
+]
+
+[tasks.verify]
+description = "Run most verification tasks"
+workspace = false
+dependencies = [
+    "run-tests",
+    "lint",
+    "docs",
+    "spell-check",
+    "verify-doc-tests",
+    "verify-formatting",
+]
+
+[tasks.run-tests]
+description = "Run tests using nextest runner for better performance"
+command = "cargo"
+workspace = false
+args = ["nextest", "run", "--workspace", "--all-features"]
+install_crate = "cargo-nextest"
+
+[tasks.run-all-tests]
+description = "Run all tests including ignored ones"
+command = "cargo"
+workspace = false
+args = [
+    "nextest",
+    "run",
+    "--workspace",
+    "--all-features",
+    "--run-ignored",
+    "all",
+]
+install_crate = "cargo-nextest"
+
+[tasks.lint]
+workspace = false
+command = "cargo"
+args = ["clippy", "--workspace", "--tests", "--benches", "--all-features"]
+
+[tasks.docs]
+workspace = false
+command = "cargo"
+args = ["doc", "--workspace", "--no-deps", "--all-features"]
+
+[tasks.spell-check]
+workspace = false
+command = "typos"
+install_crate = "typos-cli"
+
+[tasks.verify-doc-tests]
+workspace = false
+command = "cargo"
+args = ["test", "--workspace", "--doc", "--all-features"]
+
+[tasks.verify-formatting]
+workspace = false
+command = "cargo"
+args = ["fmt", "--check", "--all"]
+
+[tasks.lint-strict]
+description = "Run Clippy with warnings treated as errors"
+workspace = false
+command = "cargo"
+args = [
+    "clippy",
+    "--workspace",
+    "--tests",
+    "--benches",
+    "--all-features",
+    "--",
+    "-D",
+    "warnings",
+]
+
+[tasks.docs-strict]
+description = "Generate documentation with warnings treated as errors"
+workspace = false
+command = "cargo"
+env = { "RUSTDOCFLAGS" = "--deny warnings" }
+args = ["doc", "--workspace", "--no-deps", "--all-features"]
+
+[tasks.help]
+description = "Display help information about available tasks"
+workspace = false
+script_runner = "@rust"
+script = '''
+println!("Available tasks:");
+println!("\nVerification Tasks:");
+println!("  verify          - Run all standard verification tasks");
+println!("  verify-strict   - Run all verification tasks with strict warning settings");
+
+println!("\nUsage:");
+println!("  cargo make <task-name>");
+println!("\nExample:");
+println!("  cargo make verify");
+'''
