@@ -2,9 +2,11 @@ use occara::{
     geom::{Direction, Point},
     shape::Shape,
 };
+use wasm_bindgen_test::*;
 
-#[test]
+#[wasm_bindgen_test(unsupported = test)]
 fn test_mesh_cylinder() {
+    wasm_libc::init();
     let plane = Point::new(0.0, 0.0, 0.0).plane_axis_with(&Direction::z());
     let mesh = Shape::cylinder(&plane, 1.0, 1.0).mesh();
     let vertices = mesh.vertices();
