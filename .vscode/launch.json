@@ -1,0 +1,37 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "chrome",
+      "name": "Debug WASM in Chrome",
+      "request": "launch",
+      "url": "http://localhost:8080/",
+      "webRoot": "${workspaceFolder}/crates/cadara",
+      "preLaunchTask": "Serve cadara for WASM (with debug info)",
+      "enableDWARF": true,
+      "sourceMaps": true,
+      "presentation": {
+        "hidden": false,
+        "group": "wasm",
+        "order": 1
+      }
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug cadara",
+      "cargo": {
+        "args": [
+          "build",
+          "--manifest-path",
+          "${workspaceFolder}/crates/cadara/Cargo.toml"
+        ]
+      },
+      "presentation": {
+        "hidden": false,
+        "group": "native",
+        "order": 0
+      }
+    }
+  ],
+}
