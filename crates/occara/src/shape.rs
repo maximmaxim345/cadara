@@ -626,7 +626,9 @@ impl Default for Compound {
 impl Compound {
     #[must_use]
     pub fn builder() -> Self {
-        Self(ffi_shape::Compound::new().within_box())
+        let mut a = ffi_shape::Compound::new().within_box();
+        a.as_mut().init();
+        Self(a)
     }
 
     pub fn add(&mut self, shape: &Shape) -> &mut Self {

@@ -11,6 +11,7 @@ members = [
   "crates/workspace",
   "crates/modeling-workspace",
   "crates/modeling-module",
+  "crates/wasm-libc",
 ]
 resolver = "2"
 
@@ -26,8 +27,9 @@ module = { path = "crates/module" }
 workspace = { path = "crates/workspace" }
 modeling-workspace = { path = "crates/modeling-workspace" }
 modeling-module = { path = "crates/modeling-module" }
+wasm-libc = { path = "crates/wasm-libc" }
 
-iced = { version = "0.13", features = ["advanced"] }
+iced = { version = "0.13", features = ["advanced", "webgl"] }
 tracing-subscriber = "0.3"
 thiserror = "1.0"
 dyn-clone = "1.0"
@@ -51,6 +53,11 @@ lazy_static = "1.4"
 image = "0.25"
 rand = "0.8"
 anyhow = "1.0"
+getrandom = { version = "0.2", features = ["js"] }
+console_error_panic_hook = "0.1"
+console_log = "1.0"
+log = "0.4"
+wasm-bindgen = "0.2"
 
 [workspace.package]
 version = "0.1.0"

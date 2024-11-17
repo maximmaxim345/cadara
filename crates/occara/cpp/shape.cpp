@@ -256,11 +256,10 @@ Shape Loft::build() { return Shape{loft.Shape()}; }
 
 // Compound
 
-// Since Compound is self-referential, a factory method alone causes a
-// segfault.
-Compound::Compound() { builder.MakeCompound(compound); }
-
-Compound Compound::create() { return Compound(); }
+// Since Compound is self-referential, we require a separate initialization
+// step.
+// TODO: use constructors instead when supported with autocxx on wasm
+void Compound::init() { builder.MakeCompound(compound); }
 
 void Compound::add_shape(const Shape &shape) {
   builder.Add(compound, shape.shape);

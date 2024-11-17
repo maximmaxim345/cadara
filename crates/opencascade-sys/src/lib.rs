@@ -12,8 +12,8 @@ use std::time::SystemTime;
 use std::{env, fs, path::Path, process::Command};
 use walkdir::WalkDir;
 
-const REPOSITORY: &str = "https://github.com/Open-Cascade-SAS/OCCT.git";
-const BRANCH: &str = "OCCT-7.8";
+const REPOSITORY: &str = "https://github.com/maximmaxim345/cadara-occt.git";
+const BRANCH: &str = "OCCT-7.8-cadara";
 const OPENCASCADE_DIR_NAME: &str = "opencascade-sys";
 const LIB_DIR: &str = "occt_lib";
 const INCLUDE_DIR: &str = "occt_include";
@@ -50,7 +50,8 @@ impl OpenCascadeSource {
         }
 
         let current_dir = env::current_dir().expect("Failed to retrieve current directory");
-        let cargo_target_dir = get_cargo_target_dir().expect("target dir could not be determined");
+        let cargo_target_dir =
+            get_cargo_native_target_dir().expect("target dir could not be determined");
 
         let occt_version_lock_path = current_dir.join(OCCT_VERSION_LOCK_FILE);
 
@@ -59,7 +60,14 @@ impl OpenCascadeSource {
 
         let mut config = cmake::Config::new(source_path);
 
-        let build_dir = occt_dir.join(format!("build-{}", config.get_profile()));
+        let build_dir = if std::env::var("TARGET").unwrap() == std::env::var("HOST").unwrap() {
+            // Native build
+            occt_dir.join(format!("build-{}", config.get_profile()))
+        } else {
+            // Cross compilation
+            let target = std::env::var("TARGET").unwrap();
+            occt_dir.join(format!("build-{}-{}", config.get_profile(), target))
+        };
         let lib_dir = build_dir.join(LIB_DIR);
         let include_dir = build_dir.join(INCLUDE_DIR);
         let build_marker = build_dir.join(".built");
@@ -128,6 +136,15 @@ impl OpenCascadeSource {
             if is_sccache_available() {
                 config.define("CMAKE_C_COMPILER_LAUNCHER", "sccache");
                 config.define("CMAKE_CXX_COMPILER_LAUNCHER", "sccache");
+            }
+
+            if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
+                // These are some workarounds for compiling wasm with just clang
+                // installed
+                config
+                    .define("CMAKE_C_COMPILER_WORKS", "TRUE")
+                    .define("CMAKE_CXX_COMPILER_WORKS", "TRUE")
+                    .define("CMAKE_SIZEOF_VOID_P", "4");
             }
 
             config.build();
@@ -241,6 +258,24 @@ fn get_cargo_target_dir() -> Result<std::path::PathBuf, Box<dyn std::error::Erro
     let target_dir = target_dir.ok_or("not found")?;
     Ok(target_dir.to_path_buf())
 }
+
+fn get_cargo_native_target_dir() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+    let dir = get_cargo_target_dir()?;
+    let file_name = dir
+        .file_name()
+        .and_then(|f| f.to_str())
+        .ok_or("Invalid file name")?;
+    let target = std::env::var("TARGET")?;
+    if file_name == target {
+        Ok(dir
+            .parent()
+            .ok_or("No parent directory found")?
+            .to_path_buf())
+    } else {
+        Ok(dir)
+    }
+}
+
 fn delete_build_dirs(path: &Path) -> std::io::Result<()> {
     for entry in fs::read_dir(path)? {
         let entry = entry?;
@@ -272,6 +307,13 @@ fn download_source(
         clone_repository(REPOSITORY, BRANCH, source_path).expect("Failed to clone repository");
         // If build directories already exists, we should remove them, as they might contain old files
         delete_build_dirs(build_subdirs).unwrap();
+    } else if get_remote_url(source_path).map_or(true, |url| url != REPOSITORY)
+        || get_current_commit(source_path).is_err()
+    {
+        // Either something failed, or the url has changed
+        fs::remove_dir_all(source_path).expect("error deleting source code for redownload");
+        download_source(source_path, build_subdirs, occt_version_lock_path);
+        return; // retry
     }
     // If the last_commit file exists, we should use the commit ID from there
     // otherwise, we save the newest commit ID to the file and use that
@@ -326,6 +368,10 @@ fn clone_repository(repository: &str, branch: &str, target_dir: &Path) -> Result
 
 fn fetch_origin(source_dir: &Path, branch: &str) -> Result<(), String> {
     execute_git_command(&["fetch", "origin", branch], source_dir).map(|_| ())
+}
+
+fn get_remote_url(source_dir: &Path) -> Result<String, String> {
+    execute_git_command(&["remote", "get-url", "origin"], source_dir)
 }
 
 fn checkout_commit(source_dir: &Path, commit: &str) -> Result<(), String> {

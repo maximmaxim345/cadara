@@ -105,6 +105,13 @@ struct RenderPipeline {
     depth_texture_view: wgpu::TextureView,
 }
 
+// TODO(wasm32): investigate why this is even required, then remove this unsafe impl
+#[cfg(target_arch = "wasm32")]
+unsafe impl Send for RenderPipeline {}
+
+#[cfg(target_arch = "wasm32")]
+unsafe impl Sync for RenderPipeline {}
+
 impl RenderPipeline {
     fn new(
         device: &wgpu::Device,

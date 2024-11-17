@@ -173,13 +173,9 @@ struct Compound {
   TopoDS_Compound compound;
   BRep_Builder builder;
 
-  Compound();
-  static Compound create();
-  // Disable copy and move, since we are self-referential
-  Compound(const Compound &) = delete;
-  Compound &operator=(const Compound &) = delete;
-  Compound(Compound &&) = delete;
-  Compound &operator=(Compound &&) = delete;
+  void init();
+  // TODO: Disable copy and move, since we are self-referential
+  // (currently breaks wasm builds)
 
   void add_shape(const Shape &shape);
   Shape build();

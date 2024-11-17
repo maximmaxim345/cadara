@@ -93,6 +93,147 @@ command = "cargo"
 env = { "RUSTDOCFLAGS" = "--deny warnings" }
 args = ["doc", "--workspace", "--no-deps", "--all-features"]
 
+[tasks.get-wasm-cxxlib]
+script_runner = "@rust"
+workspace = false
+script = '''
+//! ```cargo
+//! [dependencies]
+//! ureq = "2"
+//! zip = "2"
+//! ```
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let target_dir = "target/wasm-libcxx";
+
+    // Check if library already exists
+    if std::path::Path::new(target_dir).exists() {
+        return Ok(());
+    }
+
+    let url = "https://github.com/maximmaxim345/wasm32-unknown-unknown-libcxx/releases/latest/download/wasm32-unknown-unknown-libcxx.zip";
+
+    std::fs::create_dir_all(target_dir)?;
+
+    println!("Downloading libcxx...");
+    let response = ureq::get(url).call()?;
+    let mut content = Vec::new();
+    response.into_reader().read_to_end(&mut content)?;
+
+    println!("Extracting archive to {}...", target_dir);
+    let reader = std::io::Cursor::new(content);
+    let mut archive = zip::ZipArchive::new(reader)?;
+    archive.extract(target_dir)?;
+
+    println!("WASM library successfully installed in {}", target_dir);
+    Ok(())
+}
+'''
+
+[tasks.ensure-wasm-target]
+script_runner = "@rust"
+workspace = false
+script = '''
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let installed_targets = String::from_utf8(
+        std::process::Command::new("rustup")
+            .args(["+nightly", "target", "list", "--installed"])
+            .output()?
+            .stdout,
+    )?;
+
+    if !installed_targets.contains("wasm32-unknown-unknown") {
+        println!("Installing wasm32-unknown-unknown target for nightly...");
+
+        let status = std::process::Command::new("rustup")
+            .args(["+nightly", "target", "add", "wasm32-unknown-unknown"])
+            .status()?;
+
+        if !status.success() {
+            return Err("Failed to install wasm32-unknown-unknown target".into());
+        }
+    }
+
+    Ok(())
+}
+'''
+
+[tasks.setup-wasm]
+description = "Setup WASM build environment"
+workspace = false
+dependencies = ["ensure-wasm-target", "get-wasm-cxxlib"]
+
+[tasks.build-wasm-dev]
+description = "Build WASM target (development)"
+workspace = false
+dependencies = ["setup-wasm"]
+script_runner = "@shell"
+# This works on cmd, bash, zsh and sh
+script = '''
+WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR="$(pwd)/target/wasm-libcxx/wasm32-unknown-unknown-libcxx" # shell2batch:
+. $WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR/env.sh # shell2batch: call target\wasm-libcxx\wasm32-unknown-unknown-libcxx\env.bat
+cd crates/cadara
+rustup run nightly wasm-pack build --target web --no-typescript --dev
+'''
+install_crate = "wasm-pack"
+
+[tasks.build-wasm-debug]
+description = "Build WASM target (with debug info)"
+workspace = false
+dependencies = ["build-wasm-dev"]
+script_runner = "@shell"
+script = '''
+WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR="$(pwd)/target/wasm-libcxx/wasm32-unknown-unknown-libcxx" # shell2batch:
+. $WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR/env.sh # shell2batch: call target\wasm-libcxx\wasm32-unknown-unknown-libcxx\env.bat
+wasm-bindgen target/wasm32-unknown-unknown/debug/cadara_lib.wasm --out-dir crates/cadara/pkg --target web --keep-debug
+'''
+install_crate = "wasm-bindgen-cli"
+
+[tasks.build-wasm-release]
+description = "Build WASM target (release)"
+workspace = false
+dependencies = ["setup-wasm"]
+script_runner = "@shell"
+script = '''
+WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR="$(pwd)/target/wasm-libcxx/wasm32-unknown-unknown-libcxx" # shell2batch:
+. $WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR/env.sh # shell2batch: call target\wasm-libcxx\wasm32-unknown-unknown-libcxx\env.bat
+cd crates/cadara
+rustup run nightly wasm-pack build --target web --no-typescript
+'''
+install_crate = "wasm-pack"
+
+[tasks.serve]
+description = "Serve the WASM application"
+workspace = false
+install_crate = "simple-http-server"
+command = "simple-http-server"
+args = ["--nocache", "-i", "-p", "8080", "-c=wasm,js", "crates/cadara"]
+
+[tasks.dev]
+description = "Serve development build"
+workspace = false
+dependencies = ["build-wasm-dev", "serve"]
+
+[tasks.debug]
+description = "Serve debug build"
+workspace = false
+dependencies = ["build-wasm-debug", "serve"]
+
+[tasks.release]
+description = "Serve release build"
+workspace = false
+dependencies = ["build-wasm-release", "serve"]
+
+[tasks.test-wasm]
+description = "Run tests on WASM build"
+workspace = false
+dependencies = ["setup-wasm"]
+script_runner = "@shell"
+script = '''
+WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR="$(pwd)/target/wasm-libcxx/wasm32-unknown-unknown-libcxx" # shell2batch:
+. $WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR/env.sh # shell2batch: call target\wasm-libcxx\wasm32-unknown-unknown-libcxx\env.bat
+'''
+install_crate = "wasm-pack"
+
 [tasks.help]
 description = "Display help information about available tasks"
 workspace = false
@@ -102,9 +243,23 @@ println!("Available tasks:");
 println!("\nVerification Tasks:");
 println!("  verify          - Run all standard verification tasks");
 println!("  verify-strict   - Run all verification tasks with strict warning settings");
+println!("  test-wasm       - Run all tests on a wasm build");
+
+println!("\nWASM Build Tasks:");
+println!("  build-wasm-dev  - Build WASM target (development version)");
+println!("  build-wasm-debug - Build WASM target (with debug information)");
+println!("  build-wasm-release - Build WASM target (release version)");
+println!(" (this will automatically setup a wasm build environment)");
+
+println!("\nServer Tasks:");
+println!("  dev            - Build development version and serve it");
+println!("  debug          - Build debug version and serve it");
+println!("  release        - Build release version and serve it");
+println!("  serve          - Serve the last build");
 
 println!("\nUsage:");
 println!("  cargo make <task-name>");
 println!("\nExample:");
 println!("  cargo make verify");
+println!("  cargo make dev");
 '''
