@@ -87,6 +87,17 @@ CADara bridges the gap between proprietary polish and open-source flexibility th
    - Utilizing wgpu for efficient GPU acceleration across platforms (Metal on macOS, DirectX on Windows, Vulkan on Linux, WebGL/WebGPU on web)
    - Implementing efficient caching and computation strategies
 
+## 🎨 Interface Design
+
+CADara's interface is designed with a focus on simplicity and efficiency while maintaining professional-grade functionality. Our UI/UX follows these key principles:
+
+- **Clean and Focused**: Minimalist design that reduces cognitive load
+- **Contextual Tools**: Tools and options appear when and where you need them
+- **Consistent Layout and Behavior**: Familiar patterns across all workflows
+- **Discoverability through Context**: Interactive tutorials, contextual tooltips, and a context-aware help system guide users to discover relevant features and tools.
+
+[View detailed interface mockups](docs/interface-design.md)
+
 ## 🛣️ Roadmap to Basic Usability
 
 ### Completed Components
