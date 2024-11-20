@@ -1,43 +1,115 @@
 # CADara (Work In Progress)
 
-🚧 **IMPORTANT: CADara is currently in the very early stages of development and is not yet usable. It will likely remain in this state for a considerable time.** 🚧
+🚧 **IMPORTANT: CADara is currently in early development and not yet ready for use. Development is active but will take considerable time to reach basic functionality.** 🚧
 
-CADara is an upcoming next-generation open-source parametric CAD software, designed from the ground up with a focus on simplicity and user experience. Leveraging the powerful [OpenCASCADE](https://dev.opencascade.org/) B-Rep kernel and modern technologies like [Rust](https://www.rust-lang.org/), [iced](https://iced.rs/), and [wgpu](https://wgpu.rs/), CADara aims to be the most user-friendly open-source CAD solution available, while still not compromising on power and flexibility.
+CADara is an upcoming next-generation open-source parametric CAD software, designed with a focus on simplicity and user experience. Built on the robust [OpenCASCADE](https://dev.opencascade.org/) B-Rep kernel and modern technologies like [Rust](https://www.rust-lang.org/), [iced](https://iced.rs/), and [wgpu](https://wgpu.rs/), CADara aims to be a user-friendly open-source CAD solution while maintaining power and flexibility.
+
+## 🌟 Key Differentiators
+
+- **🦀 Modern Rust Architecture**: Leveraging Rust's type system for performance and reliability
+- **👥 Intuitive UI/UX**: Prioritizing ease of use as a core design principle
+- **🔄 Advanced Version Control**: Real-time collaboration and comprehensive history tracking
+- **🔓 Fully Open-Source**: Licensed under AGPLv3 to prevent vendor lock-in
 
 ## 🎯 Project Goals
 
-The vision for CADara is clear and ambitious. Here's what this project aims to achieve:
+CADara's vision is both clear and ambitious:
 
-- **👥 User-Friendly**: Redefining ease of use in open-source CAD.
-- **🚀 Modern Tech**: Built with modern technologies like Rust, iced, and wgpu.
-- **📂 Project-Based**: Streamlined project management with linked parts and assemblies.
-- **🔧 Parametric Design**: Flexibility to modify designs with a familiar history-based approach.
-- **💻 Cross-Platform**: From desktop to web, CADara goes where you go.
-- **👥 Collaboration**: Real-time editing and offline work with seamless CRDT-based conflict resolution.
-- **🔄 Version Control**: Branch, merge, and revert with unparalleled control over your design process.
-- **📜 Version History**: Navigate through your entire project's evolution with a comprehensive history of every change.
-- **🔓 Open-Source**: Your designs remain yours, forever accessible and free from proprietary constraints.
+- **👥 User-Friendly**: Redefining ease of use in open-source CAD
+- **🚀 Modern Architecture**: Built with Rust's type system to prevent common CAD software bugs
+- **📂 Project-Based**: Streamlined project management with linked parts and assemblies
+- **🔧 Parametric Design**: Flexible design modifications using a familiar history-based approach
+- **💻 Cross-Platform**: Seamless experience across desktop and web platforms
+- **👥 Collaboration**: Real-time editing with CRDT-based conflict resolution, even offline
+- **🔄 Version Control**: Advanced branching and merging capabilities
+- **📜 Version History**: Comprehensive tracking of design evolution, allowing precise historical views
+- **🔓 Open-Source**: Your designs remain yours, free from vendor lock-in
 
-Please note that this is a very ambitious set of goals, and it will take a significant amount of time and effort to achieve. The project will take a considerable amount of time to even reach a basic level of functionality, so please be patient.
+## 🆚 Current CAD Landscape
 
-## 🆚 Comparison to Other CAD Software
+The CAD software landscape is divided between proprietary and open-source solutions, each with distinct advantages and limitations.
 
-The landscape of Computer-Aided Design (CAD) software is currently divided between proprietary and open-source solutions. Proprietary software like SolidWorks, Fusion 360, and Onshape dominate the market with their advanced features and intuitive user interfaces. However, they come with ever-increasing subscription costs and ecosystem lock-in due to proprietary file formats. Additionally, many proprietary tools are not available on all platforms, such as Linux, limiting users' choice and flexibility.
+### Proprietary Solutions
 
-In the open-source 3D CAD realm, notable options include FreeCAD, BRL-CAD, CAD Sketcher, CadQuery, and OpenSCAD. Most of these alternatives are less capable due to their reliance on Constructive Solid Geometry (CSG) or are entirely script-based, making them less accessible to new users or those seeking a more intuitive user experience.
+Professional tools like SolidWorks, Fusion 360, and Onshape dominate the market, offering:
+- Polished, mostly intuitive user interfaces
+- Comprehensive feature sets
+- Professional support and training
+- Regular updates and improvements
 
-FreeCAD stands out as the most powerful open-source alternative, offering a wide range of capabilities that approach those of its proprietary counterparts. However, despite its extensive feature set, FreeCAD's steep learning curve, unintuitive user interface, and dated architecture make it less accessible than it could be. As an experienced FreeCAD user, I can attest to its technical prowess, but mastering FreeCAD requires learning numerous workarounds and tricks to achieve desired results.
+However, they come with significant drawbacks:
+- Increasing subscription costs
+- Vendor lock-in through proprietary file formats
+- Limited platform availability (especially on Linux)
+- Risk of feature removal or pricing changes
+- Data accessibility concerns if subscriptions lapse
 
-Navigating FreeCAD's workflow often feels like solving a complex puzzle rather than engaging in a straightforward design process. Users must remember which features function as intended, identify those that don't, and locate specific operations among a sea of buttons with cryptic icons. Achieving the desired outcome intuitively in FreeCAD often feels nearly impossible without resorting to external resources like online searches or community forums. This challenge affects not only beginners but also experienced users who want to work efficiently without constantly fighting the software.
+### Existing Open-Source Alternatives
 
-### Redefining Open-Source CAD
+**FreeCAD**
+- By far the most solid open source CAD application
+- Has made significant progress with version 1.0
+- Offers powerful features rivaling commercial solutions
+- Large and active community
+- Despite its capabilities, FreeCAD's underlying architecture can make it prone to bugs and unexpected behavior
+- User experience has been a weak point, but recent initiatives are actively addressing this issue
+- Complex workflows can be challenging to master
 
-While there are many efforts to improve the user experience in FreeCAD, CADara takes a different approach. Instead of building upon the existing FreeCAD codebase, CADara is being developed from the ground up, focusing on delivering a modern and user-friendly experience that users deserve. Rather than implementing every possible feature, CADara will prioritize the most critical features and ensure they are as intuitive as possible. By optimizing the underlying architecture, CADara will ensure that the simplest way to implement a feature is also the most user-friendly way.
+**Other Applications**
+- BRL-CAD: Focus on solid modeling and ray-tracing
+- CAD Sketcher: Blender-integrated parametric modeling
+- CadQuery: Programming-based approach
+- OpenSCAD: Script-based modeling
+- Dune3D: Modern codebase with unique non-traditional workflow
+- Most rely on CSG or scripting, limiting accessibility
 
-Starting from scratch allows CADara to reimagine what open-source CAD can be. This clean-slate approach enables a reevaluation of the underlying data format, ensuring that CADara is built for the modern era of design. CADara will revolutionize collaboration and version control in CAD software, harnessing the full power of version control previously only available to software developers. Whether working alone or in a team, online or offline, CADara users can forget about the fear of losing their work – the software will always have their back. The focus on delivering a user-friendly experience and cutting-edge collaboration tools will make CADara the most accessible and powerful open-source CAD software available.
+### Core Principles
 
-To achieve maximum user-friendliness, CADara will aim to be workflow compatible with many popular CAD applications. Instead of forcing users to relearn everything, CADara's intuitive user interface will guide users through the design process, making it easy to transition from other CAD software. Learning software is challenging, and learning parametric CAD software is even more demanding. For this reason, CADara's primary goal is to make the learning curve as gentle as possible. All essential actions should be easily discoverable, and the software should provide clear guidance to users throughout the design process, ensuring a smooth and enjoyable experience for both novice and experienced designers alike.
+CADara bridges the gap between proprietary polish and open-source flexibility through:
 
-## 📝 Notes
+1. **Modern Architecture**
+   - Using Rust's type system to prevent common CAD software bugs at compile-time
+   - Building on proven technologies like OpenCASCADE
+   - Designing for extensibility from the ground up
 
-For more detailed notes on the planned implementation and architecture of CADara, please refer to the [notes document](docs/Notes.md). Please keep in mind that these notes may or may not reflect the current state of the project.
+2. **User Experience**
+   - Focusing on intuitive workflows
+   - Maintaining compatibility with familiar CAD concepts
+   - Prioritizing discoverability of features
+
+3. **Collaboration and Data Security**
+   - Advanced version control with branching and merging
+   - Offline-first collaboration with CRDT-based sync capabilities
+   - Continuous document history and autosave, allowing precise historical views
+   - Licensed under AGPLv3 to ensure continued open access
+
+4. **Performance and Reliability**
+   - Utilizing wgpu for efficient GPU acceleration across platforms (Metal on macOS, DirectX on Windows, Vulkan on Linux, WebGL/WebGPU on web)
+   - Implementing efficient caching and computation strategies
+
+## 🛣️ Roadmap to Basic Usability
+
+### Completed Components
+- `computegraph`: Framework for editable computation DAGs
+- Modular viewport widget with plugin system
+- Module system for core components
+- `occara`: High-level Rust bindings for OpenCASCADE
+- WebAssembly support with C++ dependencies
+- Basic project system foundation
+
+### In Development
+- Caching system for computation and viewport
+- CRDT-based project system for collaboration
+- Custom widget library using iced
+- 3D viewport selection system
+- Stable reference system in `occara`
+- Constraint-based sketching
+- Basic modeling module comparable to industry standards
+
+## 🤝 Contributing
+
+I appreciate your interest in contributing to CADara! However, as the project is still in a very early stage, I am not yet ready to accept contributions. My current focus is on establishing the core architecture and reaching a basic level of functionality first.
+
+## 📝 Additional Information
+
+For detailed technical documentation and architecture plans, see the [notes document](docs/Notes.md). These notes represent initially planned features and may not reflect current implementation status.
