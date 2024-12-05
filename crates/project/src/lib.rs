@@ -1,20 +1,15 @@
 //! Data and dependency management for Projects.
 //!
 //! Responsible for managing projects within `CADara`.
-//! Projects are the primary organizational structure within `CADara`, encapsulating documents (and therefore parts and assemblies).
-//! This module provides functionality to create, open, and save projects, as well as handle cross document links and dependencies inside a project.
-//! This module additionally provides an API to specify a documents data structure through the [`Module`] trait.
+//! Projects are the primary organizational structure within `CADara`, encapsulating documents and data sections (i.e. parts and assemblies).
+//! This module provides functionality to create, open, and save projects.
 
 #![warn(clippy::nursery)]
 #![warn(clippy::pedantic)]
-#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::module_name_repetitions)] // we don't want 3 different `Session` types
 #![allow(clippy::cognitive_complexity)]
 #![allow(clippy::missing_panics_doc)] // TODO: delete this asap
 
-// TODO: allow too many lines (remove allow on functions)
-
-// TODO: make InternalDataSession private
-// TODO: rename traits/structs to not have Document in the name
 // TODO: Transactions should be split into a normal and +unchecked version
 
 // Public modules
