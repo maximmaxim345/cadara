@@ -134,7 +134,7 @@ pub trait ReversibleDataTransaction: DataTransaction {
 /// A module is responsible for defining the following aspects of a data section:
 /// - Data Structure: The data that is stored for each section, separated into four categories.
 /// - Transactions: How transactions are applied to each of the four data structures, which is used to modify the data.
-pub trait Module: Clone + Default + Debug + Send + 'static {
+pub trait Module: Clone + Default + Debug + Send + Sync + 'static {
     /// Data structure used for persistent storage of the data.
     ///
     /// # Notes
@@ -146,6 +146,7 @@ pub trait Module: Clone + Default + Debug + Send + 'static {
         + PartialEq
         + Serialize
         + Send
+        + Sync
         + for<'a> Deserialize<'a>;
     /// Data structure used for persistent storage of the user's state.
     ///
@@ -160,13 +161,22 @@ pub trait Module: Clone + Default + Debug + Send + 'static {
         + PartialEq
         + Serialize
         + Send
+        + Sync
         + for<'a> Deserialize<'a>;
     /// Data structure used for data which persists until the user closes the session.
     ///
     /// # Notes
     /// - This data is not shared between users.
     /// - This data is not saved to disk.
-    type SessionData: DataTransaction + Clone + Default + Debug + PartialEq + Send;
+    type SessionData: DataTransaction
+        + Clone
+        + Default
+        + Debug
+        + PartialEq
+        + Send
+        + Sync
+        + Serialize
+        + for<'a> Deserialize<'a>;
     /// Data structure used for data, which is shared between all sessions/users.
     ///
     /// # Notes
@@ -178,6 +188,7 @@ pub trait Module: Clone + Default + Debug + Send + 'static {
         + Debug
         + PartialEq
         + Send
+        + Sync
         + Serialize
         + for<'a> Deserialize<'a>;
 
