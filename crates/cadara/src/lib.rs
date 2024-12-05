@@ -48,7 +48,6 @@ impl App {
     }
 
     #[expect(clippy::unused_self)] // required by `iced::application`
-    #[expect(clippy::needless_pass_by_value)]
     fn update(&mut self, _message: Message) {}
 
     fn view(&self) -> iced::Element<'_, Message> {
