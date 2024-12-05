@@ -46,6 +46,41 @@ trait DataModelTrait: erased_serde::Serialize + Debug + Send {
 }
 erased_serde::serialize_trait_object!(DataModelTrait);
 
+use dyn_clone::DynClone;
+
+trait AnyTransactionData: erased_serde::Serialize + Debug + Send + Any + DynClone {
+    #[expect(dead_code)]
+    fn as_any(&self) -> &dyn Any;
+    /// Retrieves a mutable reference to the underlying type as a trait object.
+    /// This is used for downcasting to the concrete [`TransactionData`] type.
+    #[expect(dead_code)]
+    fn as_mut_any(&mut self) -> &mut dyn Any;
+}
+
+erased_serde::serialize_trait_object!(AnyTransactionData);
+
+impl Clone for Box<dyn AnyTransactionData> {
+    fn clone(&self) -> Self {
+        dyn_clone::clone_box(self.as_ref())
+    }
+}
+
+impl<T> AnyTransactionData for T
+where
+    T: Any + DynClone + Debug + Send + Sync + erased_serde::Serialize,
+{
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct TransactionData<M: Module>(M::PersistentData);
+
 /// A struct for managing shared, mutable access to an [`InternalData`].
 ///
 /// This struct encapsulates an [`InternalData`] within `Rc<RefCell<...>>` to enable
@@ -74,6 +109,51 @@ struct ErasedDataModel {
     model: Box<dyn DataModelTrait>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+enum TransactionTarget {
+    PersistentData(DataUuid),
+    PersistendUserData(DataUuid, User),
+}
+
+// We manually implement deserialization logic to support runtime polymorphism
+// The `typetag` could do this for us, but it unfortunately does not support WebAssembly
+#[derive(Clone, Debug, Serialize)]
+struct ErasedTransactionData {
+    uuid: Uuid, // TODO: rename to indicate that this is the UUID of the module for deserailization/serialization
+    target: TransactionTarget,
+    data: Box<dyn AnyTransactionData>, // TODO: use smallbox::SmallBox instead of Box
+}
+
+impl<M: Module> Serialize for TransactionData<M> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for ErasedTransactionData {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // Retrieve the registry from thread local storage
+        // And use it to deserialize the model using the seed
+        MODULE_REGISTRY.with(|r| {
+            let registry = r.borrow();
+            let registry = registry.expect("no registry found");
+            let seed = TransactionSeed {
+                // As long as the registry is alive, we can safely hold a reference to it.
+                // The registry is only invalidated after deserialization is complete, so only
+                // after this reference is dropped.
+                registry: unsafe { &*registry },
+            };
+            seed.deserialize(deserializer)
+        })
+    }
+}
+
 /// Document in a Project
 ///
 /// Defines the metadata and the identifiers of containing data sections.
@@ -81,8 +161,6 @@ struct ErasedDataModel {
 struct DocumentRecord {
     data: Vec<DataUuid>,
 }
-
-// TODO: maybe custom serialization logic can be replaced with the typetag crate
 
 impl<M: Module> DataModelTrait for DataModel<M> {
     fn as_any(&mut self) -> &mut dyn Any {
@@ -123,7 +201,9 @@ impl<'de> Deserialize<'de> for ErasedDataModel {
 /// A registry containing all installed modules necessary for deserialization.
 #[derive(Clone, Debug, Default)]
 pub struct ModuleRegistry {
+    // TODO: remove modules,
     modules: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn DataModelTrait>>>,
+    modules2: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn AnyTransactionData>>>,
 }
 
 impl ModuleRegistry {
@@ -134,10 +214,19 @@ impl ModuleRegistry {
         self.modules.insert(M::uuid(), |d| {
             Ok(Box::new(erased_serde::deserialize::<DataModel<M>>(d)?))
         });
+        self.modules2.insert(M::uuid(), |d| {
+            Ok(Box::new(erased_serde::deserialize::<TransactionData<M>>(
+                d,
+            )?))
+        });
     }
 }
 
 struct ModuleSeed<'a> {
+    pub registry: &'a ModuleRegistry,
+}
+
+struct TransactionSeed<'a> {
     pub registry: &'a ModuleRegistry,
 }
 
@@ -338,15 +427,209 @@ where
     }
 }
 
+impl<'a, 'de> DeserializeSeed<'de> for TransactionSeed<'a>
+where
+    'a: 'de,
+{
+    type Value = ErasedTransactionData;
+
+    #[allow(clippy::too_many_lines)]
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        enum ModuleField {
+            Uuid,
+            Target,
+            Data,
+            Ignore,
+        }
+
+        struct FieldVisitor;
+
+        impl Visitor<'_> for FieldVisitor {
+            type Value = ModuleField;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("field identifier")
+            }
+
+            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    0 => Ok(ModuleField::Uuid),
+                    2 => Ok(ModuleField::Target),
+                    3 => Ok(ModuleField::Data),
+                    _ => Ok(ModuleField::Ignore),
+                }
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    "uuid" => Ok(ModuleField::Uuid),
+                    "target" => Ok(ModuleField::Target),
+                    "data" => Ok(ModuleField::Data),
+                    _ => Ok(ModuleField::Ignore),
+                }
+            }
+
+            fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match value {
+                    b"uuid" => Ok(ModuleField::Uuid),
+                    b"target" => Ok(ModuleField::Target),
+                    b"data" => Ok(ModuleField::Data),
+                    _ => Ok(ModuleField::Ignore),
+                }
+            }
+        }
+
+        impl<'de> Deserialize<'de> for ModuleField {
+            #[inline]
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                deserializer.deserialize_identifier(FieldVisitor)
+            }
+        }
+
+        struct ModuleVisitor<'de> {
+            marker: PhantomData<ErasedTransactionData>,
+            lifetime: PhantomData<&'de ()>,
+            registry: &'de ModuleRegistry,
+        }
+
+        impl<'de> Visitor<'de> for ModuleVisitor<'de> {
+            type Value = ErasedTransactionData;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("struct ErasedTransactionData")
+            }
+
+            #[inline]
+            fn visit_seq<V>(self, mut _seq: V) -> Result<ErasedTransactionData, V::Error>
+            where
+                V: serde::de::SeqAccess<'de>,
+            {
+                // let uuid = seq
+                //     .next_element()?
+                //     .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                // let model = seq
+                //     // .next_element_seed(ModuleSeed {
+                //     //     registry: self.registry,
+                //     // })?
+                //     .next_element()?
+                //     .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                // Ok(ErasedDataModel { uuid, model })
+                todo!("sequential deserialization of ErasedTransactionData is not supported yet")
+            }
+
+            #[inline]
+            fn visit_map<V>(self, mut map: V) -> Result<ErasedTransactionData, V::Error>
+            where
+                V: serde::de::MapAccess<'de>,
+            {
+                let mut uuid = None;
+                let mut target = None;
+                let mut data = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        ModuleField::Uuid => {
+                            if uuid.is_some() {
+                                return Err(serde::de::Error::duplicate_field("uuid"));
+                            }
+                            uuid = Some(map.next_value::<Uuid>()?);
+                        }
+                        ModuleField::Target => {
+                            if target.is_some() {
+                                return Err(serde::de::Error::duplicate_field("target"));
+                            }
+                            target = Some(map.next_value::<TransactionTarget>()?);
+                        }
+                        ModuleField::Data => {
+                            if data.is_some() {
+                                return Err(serde::de::Error::duplicate_field("data"));
+                            }
+                            let uuid = uuid.ok_or_else(|| {
+                                serde::de::Error::custom("uuid must precede data")
+                            })?;
+                            let d = self.registry.modules2.get(&uuid).ok_or_else(|| {
+                                serde::de::Error::custom("module not found in registry")
+                            })?;
+
+                            data = Some(map.next_value_seed(BoxedDeserializerSeed(*d))?);
+                        }
+                        ModuleField::Ignore => {
+                            let _: serde::de::IgnoredAny = map.next_value()?;
+                        }
+                    }
+                }
+                Ok(ErasedTransactionData {
+                    uuid: uuid.ok_or_else(|| serde::de::Error::missing_field("uuid"))?,
+                    target: target.ok_or_else(|| serde::de::Error::missing_field("target"))?,
+                    data: data.ok_or_else(|| serde::de::Error::missing_field("data"))?,
+                })
+            }
+        }
+
+        const FIELDS: &[&str] = &["uuid", "target", "data"];
+        deserializer.deserialize_struct(
+            "ErasedTransactionData",
+            FIELDS,
+            ModuleVisitor {
+                marker: PhantomData::<ErasedTransactionData>,
+                lifetime: PhantomData,
+                registry: self.registry,
+            },
+        )
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+enum ProjectLogEntry {
+    CreateDocument {
+        uuid: DocumentUuid,
+        name: String,
+    },
+    DeleteDocument(DocumentUuid),
+    RenameDocument {
+        uuid: DocumentUuid,
+        new_name: String,
+    },
+    CreateData {
+        uuid: DataUuid,
+        owner: DocumentUuid,
+    },
+    DeleteData {
+        uuid: DataUuid,
+    },
+    MoveData {
+        uuid: DataUuid,
+        new_owner: DocumentUuid,
+    },
+    Transaction(ErasedTransactionData),
+    // TODO: this should probably save a pointer to what to undo/redo
+    Undo,
+    Redo,
+}
+
 /// Represents the internal data of a `CADara` project.
 ///
 /// This struct is used to manage the internal state of a project, including its documents (including their data),
 /// name, tags, and disk path. It is not intended for direct use by consumers of the API;
 /// instead, use the [`Project`] struct for public interactions.
-///
-/// [`Project`]: crate::Project
 #[derive(Serialize, Deserialize, Debug)]
 struct InternalProject {
+    /// Chronological list of all applied [`ProjectTransaction`]s.
+    log: Vec<ProjectLogEntry>,
     /// A map linking data UUIDs to their corresponding type-erased data model.
     data: HashMap<DataUuid, ErasedDataModel>,
     /// A map of all documents found in this project
@@ -372,6 +655,7 @@ struct InternalProject {
 /// through a [`ProjectManager`] to ensure data integrity, especially in multi-user scenarios.
 ///
 /// [`ProjectManager`]: crate::manager::ProjectManager
+// TODO: remove `Project` and rename `InternalProject` to `Project`
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Project {
     /// Encapsulates the internal representation of the project, including documents and metadata.
@@ -402,6 +686,7 @@ impl Project {
                 name,
                 tags: vec![],
                 _path: None,
+                log: Vec::default(),
             })),
         }
     }
@@ -417,6 +702,7 @@ impl Project {
                 name,
                 tags: vec![],
                 _path: Some(path),
+                log: Vec::default(),
             })),
         }
     }
