@@ -913,7 +913,7 @@ impl ComputeGraph {
             Owned(T),
             Borrowed(&'a T),
         }
-        impl<'a, T: Send> OwnedOrBorrowed<'a, T> {
+        impl<T: Send> OwnedOrBorrowed<'_, T> {
             const fn as_ref(&self) -> &T {
                 match self {
                     OwnedOrBorrowed::Owned(t) => t,
