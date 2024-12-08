@@ -5,7 +5,7 @@ use project::data::transaction::TransactionArgs;
 use project::*;
 
 fn create_undo_redo_test_setup() -> (
-    ProjectSession,
+    ProjectView,
     DataSession<TestModule>,
     DataSession<TestModule>,
     DataUuid,

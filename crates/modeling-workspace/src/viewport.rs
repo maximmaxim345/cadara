@@ -17,7 +17,7 @@ pub struct ModelingViewportPlugin {
 #[node(ModelingViewportPlugin -> (scene, output))]
 fn run(
     &self,
-    _project: &project::ProjectSession,
+    _project: &project::ProjectView,
 ) -> (viewport::SceneGraph, ModelingViewportPluginOutput) {
     let mut graph = ComputeGraph::new();
     let model_node = graph
