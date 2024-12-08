@@ -13,7 +13,7 @@ pub struct ModelNode {
 }
 
 #[node(ModelNode)]
-fn run(&self, project: &project::ProjectSession) -> occara::shape::Shape {
+fn run(&self, project: &project::ProjectView) -> occara::shape::Shape {
     let data_session: project::data::DataSession<modeling_module::ModelingModule> =
         project.open_data(self.data_uuid).unwrap();
 
@@ -64,7 +64,7 @@ fn run(
     &self,
     event: &ViewportEvent,
     state: &ViewportState,
-    project: &project::ProjectSession,
+    project: &project::ProjectView,
 ) -> ViewportState {
     let mut state = (*state).clone();
     let mut _data_session: project::data::DataSession<modeling_module::ModelingModule> =

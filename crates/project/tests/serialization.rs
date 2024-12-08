@@ -47,7 +47,7 @@ fn test_serde_project_json() {
         };
 
         let deserializer = &mut serde_json::Deserializer::from_str(&json);
-        let project: ProjectSession = seed.deserialize(deserializer).unwrap().create_session();
+        let project: ProjectView = seed.deserialize(deserializer).unwrap().create_session();
 
         let document = project.open_document(doc_uuid).unwrap();
         let data = document.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
