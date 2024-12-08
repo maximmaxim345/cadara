@@ -3,7 +3,7 @@ use computegraph::{
     ComputationContext, ComputeGraph, DynamicNode, InputPort, InputPortUntyped, NodeFactory,
     NodeHandle, OutputPort, OutputPortUntyped,
 };
-use project::ProjectSession;
+use project::ProjectView;
 use std::any::{Any, TypeId};
 
 /// Errors that can occur when creating a new [`ViewportPlugin`] or [`DynamicViewportPlugin`]
@@ -467,10 +467,7 @@ impl ViewportPipeline {
     /// - `Err(ExecuteError::EmptyPipeline)` if the pipeline is empty.
     /// - `Err(ExecuteError::ComputeError)` if there's an error during computation
     ///     of the added [`ViewportPlugin`]s.
-    pub fn compute_scene(
-        &self,
-        project_session: ProjectSession,
-    ) -> Result<SceneGraph, ExecuteError> {
+    pub fn compute_scene(&self, project_session: ProjectView) -> Result<SceneGraph, ExecuteError> {
         // TODO: pass ProjectSession to ViewportPluginNodes
         let last_node = self.nodes.last().ok_or(ExecuteError::EmptyPipeline)?;
         let mut ctx = ComputationContext::default();
@@ -486,7 +483,7 @@ impl ViewportPipeline {
         &self,
         state: &mut ViewportPipelineState,
         events: ViewportEvent,
-        project_session: ProjectSession,
+        project_session: ProjectView,
     ) -> Result<(), ExecuteError> {
         let scene = self.compute_scene(project_session.clone())?;
 
@@ -512,7 +509,7 @@ impl ViewportPipeline {
     pub(crate) fn compute_primitive(
         &self,
         state: &mut ViewportPipelineState,
-        project_session: ProjectSession,
+        project_session: ProjectView,
     ) -> Result<Box<dyn iced::widget::shader::Primitive>, ExecuteError> {
         let scene = self.compute_scene(project_session.clone())?;
 

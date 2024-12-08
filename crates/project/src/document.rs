@@ -5,7 +5,7 @@
 use crate::{
     data::{internal::InternalData, DataSession, DataUuid},
     user::User,
-    DataModel, ErasedDataModel, InternalProject, ProjectSession,
+    DataModel, ErasedDataModel, ProjectView,
 };
 use module::Module;
 use serde::{Deserialize, Serialize};
@@ -88,8 +88,8 @@ impl DocumentSession {
 
     /// Returns a [`ProjectSession`] for this document's project
     #[must_use]
-    pub fn project(&self) -> ProjectSession {
-        ProjectSession {
+    pub fn project(&self) -> ProjectView {
+        ProjectView {
             project: self.project.clone(),
             user: self.user,
         }

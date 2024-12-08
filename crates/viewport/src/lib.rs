@@ -48,7 +48,7 @@
 //! is than executed by the viewport to render to the screen.
 
 use iced::widget::shader;
-use project::ProjectSession;
+use project::ProjectView;
 use shader::wgpu;
 use std::sync::{Arc, Mutex};
 
@@ -76,12 +76,12 @@ pub struct ViewportState {
 #[derive(Clone)]
 pub struct Viewport {
     pub pipeline: ViewportPipeline,
-    pub project_session: ProjectSession,
+    pub project_session: ProjectView,
 }
 
 impl Viewport {
     #[must_use]
-    pub fn new(project_session: ProjectSession) -> Self {
+    pub fn new(project_session: ProjectView) -> Self {
         Self {
             pipeline: ViewportPipeline::default(),
             project_session,
@@ -147,7 +147,7 @@ impl<Message> shader::Program<Message> for Viewport {
 pub struct ShaderPrimitive {
     pub pipeline: ViewportPipeline,
     pub state: ViewportState,
-    pub project_session: ProjectSession,
+    pub project_session: ProjectView,
 }
 
 impl shader::Primitive for ShaderPrimitive {

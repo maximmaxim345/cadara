@@ -665,8 +665,8 @@ pub struct Project {
 impl Project {
     //  TODO: document
     #[must_use]
-    pub fn create_session(&self) -> ProjectSession {
-        ProjectSession {
+    pub fn create_session(&self) -> ProjectView {
+        ProjectView {
             project: self.project.clone(),
             user: User::local(),
         }
@@ -710,14 +710,14 @@ impl Project {
 
 /// TODO: document
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct ProjectSession {
+pub struct ProjectView {
     /// Encapsulates the internal representation of the project, including documents and metadata.
     project: Arc<Mutex<InternalProject>>,
     /// The user currently interacting with the project.
     user: User,
 }
 
-impl ProjectSession {
+impl ProjectView {
     /// Opens a document
     ///
     /// # Arguments

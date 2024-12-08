@@ -13,6 +13,6 @@ fn test_send_sync() {
     assert_send_sync::<DataUuid>();
     assert_send_sync::<Snapshot<MinimalTestModule>>();
     assert_send_sync::<DocumentSession>();
-    assert_send_sync::<ProjectSession>();
+    assert_send_sync::<ProjectView>();
     assert_send_sync::<DataSession<MinimalTestModule>>();
 }
