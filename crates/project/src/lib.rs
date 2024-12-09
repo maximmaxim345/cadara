@@ -1209,10 +1209,9 @@ impl ProjectView {
     /// An `Option` containing a [`DocumentSession`] if the document could be opened, or `None` otherwise.
     #[must_use]
     pub fn open_document(&self, document_uuid: DocumentUuid) -> Option<DocumentView> {
-        let _ = self.project.lock().unwrap().documents.get(&document_uuid)?;
         Some(DocumentView {
             document: document_uuid,
-            project: self.project.clone(),
+            project: self,
             user: self.user,
         })
     }
@@ -1226,10 +1225,7 @@ impl ProjectView {
     pub fn create_document(&self) -> DocumentUuid {
         let new_doc_uuid = DocumentUuid::new_v4();
 
-        let mut project = self.project.lock().unwrap();
-        project
-            .documents
-            .insert(new_doc_uuid, DocumentRecord { data: Vec::new() });
+        todo!();
         new_doc_uuid
     }
 
@@ -1246,26 +1242,22 @@ impl ProjectView {
     ///
     /// An `Option` containing a `DataSession` if found, or `None` otherwise.
     #[must_use]
-    #[allow(clippy::significant_drop_tightening)] // This lint broken here, want's to delete a used variable
     pub fn open_data<M: Module>(&self, data_uuid: DataUuid) -> Option<DataView<M>> {
         // TODO: Option -> Result
-        let project = &self.project;
-
-        // first, we get the document model from the project (if it exists)
-        let mut mut_project = project.lock().unwrap();
-        let data_model = mut_project
+        let data = &self
             .data
-            .get_mut(&data_uuid)?
+            .get(&data_uuid)?
             .model
-            .as_mut()
-            .as_any();
-        let data_model: &mut DataModel<M> = data_model.downcast_mut::<DataModel<M>>()?;
+            .as_any()
+            .downcast_ref::<DataModel<M>>()?
+            .0;
 
-        // Create a new session for the document
-        let session = InternalDataSession::new(data_model, project, data_uuid, self.user);
         Some(DataView {
-            session,
-            data_model_ref: Arc::downgrade(&data_model.0),
+            project: self,
+            persistent: &data.persistent,
+            persistent_user: &data.persistent_user,
+            session_data: &data.session_data,
+            shared_data: &data.shared_data,
         })
     }
 }
