@@ -1059,19 +1059,6 @@ enum ProjectLogEntry {
     Redo,
 }
 
-/// Represents the internal data of a `CADara` project.
-///
-/// This struct is used to manage the internal state of a project, including its documents (including their data),
-/// name, tags, and disk path. It is not intended for direct use by consumers of the API;
-/// instead, use the [`Project`] struct for public interactions.
-#[derive(Serialize, Deserialize, Debug, Default)]
-struct InternalProject {
-    /// Chronological list of all applied [`ProjectTransaction`]s.
-    log: Vec<ProjectLogEntry>,
-    shared_data: HashMap<DataUuid, ErasedSharedData>,
-    session_data: HashMap<DataUuid, ErasedSessionData>,
-}
-
 /// Represents a project within the `CADara` application.
 ///
 /// Interact with this Project through a [`ProjectSession`] by calling [`Project::create_session`].
@@ -1084,10 +1071,12 @@ struct InternalProject {
 ///
 /// [`ProjectManager`]: crate::manager::ProjectManager
 // TODO: remove `Project` and rename `InternalProject` to `Project`
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct Project {
-    /// Encapsulates the internal representation of the project, including documents and metadata.
-    project: Arc<Mutex<InternalProject>>,
+#[derive(Serialize, Deserialize, Debug, Default)]
+struct Project {
+    /// Chronological list of all applied [`ProjectTransaction`]s.
+    log: Vec<ProjectLogEntry>,
+    shared_data: HashMap<DataUuid, ErasedSharedData>,
+    session_data: HashMap<DataUuid, ErasedSessionData>,
 }
 
 impl Project {
@@ -1111,9 +1100,7 @@ impl Project {
     /// * `name` - The name of the project.
     #[must_use]
     pub fn new(_name: String) -> Self {
-        Self {
-            project: Arc::new(Mutex::new(InternalProject::default())),
-        }
+        Project::default()
     }
 
     /// Creates a new project given the name, user and path.
@@ -1127,8 +1114,6 @@ impl Project {
 /// TODO: document
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ProjectView {
-    /// Encapsulates the internal representation of the project, including documents and metadata.
-    project: Arc<Mutex<InternalProject>>,
     /// The user currently interacting with the project.
     user: User,
     /// TODO: document
