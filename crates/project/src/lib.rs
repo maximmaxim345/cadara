@@ -1068,14 +1068,14 @@ enum ProjectLogEntry {
     CreateData {
         t: Uuid,
         uuid: DataUuid,
-        owner: DocumentUuid,
+        owner: Option<DocumentUuid>,
     },
     DeleteData {
         uuid: DataUuid,
     },
     MoveData {
         uuid: DataUuid,
-        new_owner: DocumentUuid,
+        new_owner: Option<DocumentUuid>,
     },
     Transaction(ErasedTransactionData),
     // TODO: this should probably save a pointer to what to undo/redo
@@ -1126,11 +1126,13 @@ impl Project {
                             model: reg.modules5.get(t).unwrap()(),
                         },
                     );
-                    documents
-                        .entry(*owner)
-                        .or_insert(Default::default())
-                        .data
-                        .push(*uuid);
+                    if let Some(owner) = owner {
+                        documents
+                            .entry(*owner)
+                            .or_insert(Default::default())
+                            .data
+                            .push(*uuid);
+                    }
                 }
                 ProjectLogEntry::DeleteData { uuid } => {
                     data.remove(uuid);
