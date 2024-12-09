@@ -58,28 +58,16 @@ pub struct TransactionHistoryState<D: ReversibleDataTransaction, U: ReversibleDa
 /// [`Project`]: crate::Project
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct InternalData<M: Module> {
-    /// Persistent data
-    pub(crate) persistent_data: M::PersistentData,
-    /// TODO: write doc
-    #[serde(skip)]
-    pub transaction_history:
-        VecDeque<TransactionHistoryState<M::PersistentData, M::PersistentUserData>>,
-    /// User-specific data for this document
-    pub(crate) user_data: M::PersistentUserData,
-    /// Shared session data for this document
-    // TODO: this was an option
-    // TODO: make this a skip conditional (sometimes we might want to deserialize this too)
-    #[serde(skip)]
-    pub(crate) shared_data: Option<M::SharedData>,
-    /// List of all currently open sessions of this document.
-    #[serde(skip)]
-    pub sessions: Vec<(Uuid, Weak<Mutex<InternalDataSession<M>>>)>,
-    /// UUID of the module implementing the document.
-    // TODO: remove duplicate in serialization
-    pub module_uuid: Uuid,
-    // TODO: write doc
-    #[serde(skip)]
-    pub(crate) session_to_user: HashMap<Uuid, User>,
+    /// Persistent data for this session.
+    ///
+    /// Synced with other sessions and the project.
+    pub persistent: M::PersistentData,
+    /// Persistent user-specific data for this session.
+    pub persistent_user: M::PersistentUserData,
+    /// Non-persistent user-specific data for this session.
+    pub session_data: M::SessionData,
+    /// Non-persistent data shared among users for this session.
+    pub shared_data: M::SharedData,
 }
 
 // TODO: make methods private, write docs
