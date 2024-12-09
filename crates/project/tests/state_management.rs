@@ -6,7 +6,7 @@ use project::*;
 
 #[test]
 fn test_document_persistent_data() {
-    let project = Project::new("Project".to_string()).create_session();
+    let project = Project::new("Project".to_string()).create_view();
 
     let doc = project.create_document();
     let doc = project.open_document(doc).unwrap();
@@ -47,7 +47,7 @@ fn test_document_persistent_data() {
 
 #[test]
 fn test_shared_state() {
-    let project = Project::new("Project".to_string()).create_session();
+    let project = Project::new("Project".to_string()).create_view();
     let doc = project.create_document();
     let doc = project.open_document(doc).unwrap();
     let data_uuid = doc.create_data::<TestModule>();
@@ -76,7 +76,7 @@ fn test_shared_state() {
 
 #[test]
 fn test_reset_of_shared_state() {
-    let project = Project::new("Project".to_string()).create_session();
+    let project = Project::new("Project".to_string()).create_view();
     let doc = project.create_document();
     let doc = project.open_document(doc).unwrap();
     let data_uuid = doc.create_data::<TestModule>();
@@ -102,7 +102,7 @@ fn test_reset_of_shared_state() {
 
 #[test]
 fn test_user_state() {
-    let project = Project::new("Project".to_string()).create_session();
+    let project = Project::new("Project".to_string()).create_view();
     let doc = project.create_document();
     let doc = project.open_document(doc).unwrap();
     let data_uuid = doc.create_data::<TestModule>();

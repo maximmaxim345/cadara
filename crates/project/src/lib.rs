@@ -665,7 +665,7 @@ pub struct Project {
 impl Project {
     //  TODO: document
     #[must_use]
-    pub fn create_session(&self) -> ProjectView {
+    pub fn create_view(&self) -> ProjectView {
         ProjectView {
             project: self.project.clone(),
             user: User::local(),

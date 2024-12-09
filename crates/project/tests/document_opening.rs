@@ -4,7 +4,7 @@ use project::*;
 
 #[test]
 fn test_attempt_open_nonexistent_document() {
-    let project = Project::new("Project".to_string()).create_session();
+    let project = Project::new("Project".to_string()).create_view();
 
     let doc = project.open_document(DocumentUuid::new_v4());
     assert!(doc.is_none());
@@ -12,7 +12,7 @@ fn test_attempt_open_nonexistent_document() {
 
 #[test]
 fn test_open_document() {
-    let project = Project::new("Project".to_string()).create_session();
+    let project = Project::new("Project".to_string()).create_view();
 
     let doc_uuid = project.create_document();
 

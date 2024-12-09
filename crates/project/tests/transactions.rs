@@ -6,7 +6,7 @@ use project::*;
 
 #[test]
 fn test_failed_transaction() {
-    let project = Project::new("Project".to_string()).create_session();
+    let project = Project::new("Project".to_string()).create_view();
     let doc = project.create_document();
     let doc = project.open_document(doc).unwrap();
     let data_uuid = doc.create_data::<TestModule>();

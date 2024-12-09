@@ -22,7 +22,7 @@ enum Message {}
 
 impl App {
     fn new() -> Self {
-        let project = project::Project::new("project".to_string()).create_session();
+        let project = project::Project::new("project".to_string()).create_view();
         let doc = project.create_document();
         let doc = project.open_document(doc).unwrap();
         let data_uuid = doc.create_data::<ModelingModule>();

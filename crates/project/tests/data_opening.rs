@@ -5,7 +5,7 @@ use project::*;
 
 #[test]
 fn test_attempt_open_data_with_incorrect_module() {
-    let project = Project::new("Project".to_string()).create_session();
+    let project = Project::new("Project".to_string()).create_view();
 
     let doc_uuid = project.create_document();
     let doc = project.open_document(doc_uuid).unwrap();
@@ -20,7 +20,7 @@ fn test_attempt_open_data_with_incorrect_module() {
 
 #[test]
 fn test_open_nonexistent_data() {
-    let project = Project::new("Project".to_string()).create_session();
+    let project = Project::new("Project".to_string()).create_view();
     let doc_uuid = project.create_document();
     let doc = project.open_document(doc_uuid).unwrap();
 
@@ -31,7 +31,7 @@ fn test_open_nonexistent_data() {
 
 #[test]
 fn test_open_data_by_type() {
-    let project = Project::new("Project".to_string()).create_session();
+    let project = Project::new("Project".to_string()).create_view();
     let doc_uuid = project.create_document();
     let doc = project.open_document(doc_uuid).unwrap();
 
@@ -45,7 +45,7 @@ fn test_open_data_by_type() {
 
 #[test]
 fn test_open_data_in_wrong_document() {
-    let project = Project::new("Project".to_string()).create_session();
+    let project = Project::new("Project".to_string()).create_view();
 
     let doc1 = project.create_document();
     let doc1 = project.open_document(doc1).unwrap();
