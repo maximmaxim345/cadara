@@ -1106,15 +1106,9 @@ struct Project {
 impl Project {
     //  TODO: document
     #[must_use]
-    pub fn create_view(&self) -> ProjectView {
+    pub fn create_view(&self, reg: &ModuleRegistry) -> ProjectView {
         let mut data = HashMap::new();
         let mut documents = HashMap::new();
-        let m = MODULE_REGISTRY.with(|r| {
-            let registry = r.borrow();
-            let registry = registry.expect("no registry found");
-            registry
-        });
-        let m = unsafe { &*m };
         for e in &self.log {
             match e {
                 ProjectLogEntry::CreateDocument { uuid, name } => {
@@ -1129,7 +1123,7 @@ impl Project {
                         *uuid,
                         ErasedDataModel {
                             uuid: *t,
-                            model: m.modules5.get(t).unwrap()(),
+                            model: reg.modules5.get(t).unwrap()(),
                         },
                     );
                     documents
@@ -1143,7 +1137,7 @@ impl Project {
                 }
                 ProjectLogEntry::MoveData { uuid, new_owner } => todo!(),
                 ProjectLogEntry::Transaction(erased_transaction_data) => {
-                    let apply = m.modules6.get(&erased_transaction_data.uuid).unwrap();
+                    let apply = reg.modules6.get(&erased_transaction_data.uuid).unwrap();
                     match erased_transaction_data.target {
                         TransactionTarget::PersistentData(data_uuid) => {
                             let mut d = data.get_mut(&data_uuid).unwrap();
