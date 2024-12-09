@@ -1,5 +1,7 @@
 pub mod internal;
 
+use crate::ProjectView;
+
 use super::{
     internal::{AppliedTransaction, InternalData, TransactionState, UndoUnit, UndoneTransaction},
     transaction,
@@ -39,13 +41,21 @@ pub struct Snapshot<M: Module> {
 ///
 /// [`Project`]: crate::Project
 #[derive(Clone, Debug)]
-pub struct DataView<M: Module> {
-    /// The internal implementation of this session.
-    pub(crate) session: Arc<Mutex<InternalDataSession<M>>>,
-    pub(crate) data_model_ref: Weak<Mutex<InternalData<M>>>,
+pub struct DataView<'a, M: Module> {
+    pub project: &'a ProjectView,
+    /// Persistent data for this session.
+    ///
+    /// Synced with other sessions and the project.
+    pub persistent: &'a M::PersistentData,
+    /// Persistent user-specific data for this session.
+    pub persistent_user: &'a M::PersistentUserData,
+    /// Non-persistent user-specific data for this session.
+    pub session_data: &'a M::SessionData,
+    /// Non-persistent data shared among users for this session.
+    pub shared_data: &'a M::SharedData,
 }
 
-impl<M: Module> DataView<M> {
+impl<'a, M: Module> DataView<'a, M> {
     /// Captures the current state of the session in a snapshot.
     ///
     /// A snapshot includes all relevant session data, such as persistent data and
