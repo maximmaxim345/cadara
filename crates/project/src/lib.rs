@@ -42,7 +42,8 @@ use uuid::Uuid;
 trait DataModelTrait: erased_serde::Serialize + Debug + Send + Any + DynClone {
     /// Retrieves a mutable reference to the underlying type as a trait object.
     /// This is used for downcasting to the concrete [`DataModel`] type.
-    fn as_any(&mut self) -> &mut dyn Any;
+    fn as_any(&self) -> &dyn Any;
+    fn as_mut_any(&mut self) -> &mut dyn Any;
 }
 dyn_clone::clone_trait_object!(DataModelTrait);
 erased_serde::serialize_trait_object!(DataModelTrait);
@@ -119,7 +120,7 @@ impl<M: Module> SessionDataTrait for SessionDataConcrete<M> {
 /// shared ownership and mutability across different parts of the code. It is designed to work
 /// with data models that implement the [`Module`] trait.
 #[derive(Clone, Debug, Deserialize, Default)]
-struct DataModel<M: Module>(Arc<Mutex<InternalData<M>>>);
+struct DataModel<M: Module>(InternalData<M>);
 
 #[derive(Clone, Debug, Deserialize)]
 struct SharedData<M: Module>(Arc<Mutex<M::SharedData>>);
@@ -231,7 +232,11 @@ struct DocumentRecord {
 }
 
 impl<M: Module> DataModelTrait for DataModel<M> {
-    fn as_any(&mut self) -> &mut dyn Any {
+    fn as_mut_any(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
         self
     }
 }
@@ -241,7 +246,7 @@ impl<M: Module> Serialize for DataModel<M> {
     where
         S: Serializer,
     {
-        self.0.lock().unwrap().serialize(serializer)
+        self.0.serialize(serializer)
     }
 }
 
@@ -347,14 +352,18 @@ impl ModuleRegistry {
             .insert(M::uuid(), || Box::new(DataModel::<M>::default()));
         self.modules6.insert(M::uuid(), |m, t| {
             //
-            let m = m.as_mut().as_any().downcast_mut::<DataModel<M>>().unwrap();
+            let m = m
+                .as_mut()
+                .as_mut_any()
+                .downcast_mut::<DataModel<M>>()
+                .unwrap();
             // TODO: persistent uses is not implemented
             let t = t
                 .as_ref()
                 .as_any()
                 .downcast_ref::<TransactionData<M>>()
                 .unwrap();
-            m.0.lock().unwrap().apply_persistent(&t.0, Uuid::new_v4());
+            m.0.apply_persistent(&t.0, Uuid::new_v4());
         });
     }
 }
