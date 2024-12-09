@@ -19,8 +19,8 @@ pub mod manager;
 pub mod user;
 
 use data::DataUuid;
-use data::{internal::InternalData, session::internal::InternalDataSession, DataSession};
-use document::{DocumentSession, DocumentUuid};
+use data::{internal::InternalData, session::internal::InternalDataSession, DataView};
+use document::{DocumentUuid, DocumentView};
 use module::{DataTransaction, Module, ReversibleDataTransaction};
 use serde::de::{DeserializeSeed, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -1199,9 +1199,9 @@ impl ProjectView {
     ///
     /// An `Option` containing a [`DocumentSession`] if the document could be opened, or `None` otherwise.
     #[must_use]
-    pub fn open_document(&self, document_uuid: DocumentUuid) -> Option<DocumentSession> {
+    pub fn open_document(&self, document_uuid: DocumentUuid) -> Option<DocumentView> {
         let _ = self.project.lock().unwrap().documents.get(&document_uuid)?;
-        Some(DocumentSession {
+        Some(DocumentView {
             document: document_uuid,
             project: self.project.clone(),
             user: self.user,
@@ -1238,7 +1238,7 @@ impl ProjectView {
     /// An `Option` containing a `DataSession` if found, or `None` otherwise.
     #[must_use]
     #[allow(clippy::significant_drop_tightening)] // This lint broken here, want's to delete a used variable
-    pub fn open_data<M: Module>(&self, data_uuid: DataUuid) -> Option<DataSession<M>> {
+    pub fn open_data<M: Module>(&self, data_uuid: DataUuid) -> Option<DataView<M>> {
         // TODO: Option -> Result
         let project = &self.project;
 
@@ -1254,7 +1254,7 @@ impl ProjectView {
 
         // Create a new session for the document
         let session = InternalDataSession::new(data_model, project, data_uuid, self.user);
-        Some(DataSession {
+        Some(DataView {
             session,
             data_model_ref: Arc::downgrade(&data_model.0),
         })

@@ -14,7 +14,7 @@ pub struct ModelNode {
 
 #[node(ModelNode)]
 fn run(&self, project: &project::ProjectView) -> occara::shape::Shape {
-    let data_session: project::data::DataSession<modeling_module::ModelingModule> =
+    let data_session: project::data::DataView<modeling_module::ModelingModule> =
         project.open_data(self.data_uuid).unwrap();
 
     data_session.snapshot().persistent.shape()
@@ -67,7 +67,7 @@ fn run(
     project: &project::ProjectView,
 ) -> ViewportState {
     let mut state = (*state).clone();
-    let mut _data_session: project::data::DataSession<modeling_module::ModelingModule> =
+    let mut _data_session: project::data::DataView<modeling_module::ModelingModule> =
         project.open_data(self.data_uuid).unwrap();
     if let shader::Event::Mouse(m) = event.event {
         match m {

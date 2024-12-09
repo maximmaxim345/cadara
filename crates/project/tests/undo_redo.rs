@@ -1,13 +1,13 @@
 mod common;
 use common::test_module::*;
-use data::{DataSession, DataUuid};
+use data::{DataUuid, DataView};
 use project::data::transaction::TransactionArgs;
 use project::*;
 
 fn create_undo_redo_test_setup() -> (
     ProjectView,
-    DataSession<TestModule>,
-    DataSession<TestModule>,
+    DataView<TestModule>,
+    DataView<TestModule>,
     DataUuid,
     Vec<TestTransaction>,
 ) {
