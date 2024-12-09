@@ -3,7 +3,7 @@
 //! Each document is a collection of data sections, which is displayed to the user as a single item.
 
 use crate::{
-    data::{internal::InternalData, DataSession, DataUuid},
+    data::{internal::InternalData, DataUuid, DataView},
     user::User,
     DataModel, ErasedDataModel, ProjectView,
 };
@@ -16,7 +16,7 @@ use std::{
 use uuid::Uuid;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct DocumentSession {
+pub struct DocumentView {
     /// Identifier of this document
     pub(crate) document: DocumentUuid,
     /// Encapsulates the internal representation of the project, including documents and metadata.
@@ -44,7 +44,7 @@ impl DocumentUuid {
     }
 }
 
-impl DocumentSession {
+impl DocumentView {
     /// Opens a data section contained in this document by UUID
     ///
     /// # Arguments
@@ -55,7 +55,7 @@ impl DocumentSession {
     ///
     /// An `Option` containing a `DataSession` if the data section exists, or `None` otherwise.
     #[must_use]
-    pub fn open_data_by_uuid<M: Module>(&self, data_uuid: DataUuid) -> Option<DataSession<M>> {
+    pub fn open_data_by_uuid<M: Module>(&self, data_uuid: DataUuid) -> Option<DataView<M>> {
         if self.project.lock().unwrap().documents[&self.document]
             .data
             .iter()
@@ -76,7 +76,7 @@ impl DocumentSession {
     ///
     /// TODO: make this an iterator, or return an Newtype of Uuid
     #[must_use]
-    pub fn open_data_by_type<M: Module>(&self) -> Vec<DataSession<M>> {
+    pub fn open_data_by_type<M: Module>(&self) -> Vec<DataView<M>> {
         let a = {
             let p = self.project.lock().unwrap();
             p.documents[&self.document].data.clone()

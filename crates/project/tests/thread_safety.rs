@@ -1,7 +1,7 @@
 mod common;
 use common::minimal_test_module::MinimalTestModule;
-use data::{DataSession, DataUuid, Snapshot};
-use document::DocumentSession;
+use data::{DataUuid, DataView, Snapshot};
+use document::DocumentView;
 use project::*;
 
 #[test]
@@ -12,7 +12,7 @@ fn test_send_sync() {
     assert_send_sync::<ModuleRegistry>();
     assert_send_sync::<DataUuid>();
     assert_send_sync::<Snapshot<MinimalTestModule>>();
-    assert_send_sync::<DocumentSession>();
+    assert_send_sync::<DocumentView>();
     assert_send_sync::<ProjectView>();
-    assert_send_sync::<DataSession<MinimalTestModule>>();
+    assert_send_sync::<DataView<MinimalTestModule>>();
 }

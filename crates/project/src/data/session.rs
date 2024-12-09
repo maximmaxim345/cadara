@@ -39,13 +39,13 @@ pub struct Snapshot<M: Module> {
 ///
 /// [`Project`]: crate::Project
 #[derive(Clone, Debug)]
-pub struct DataSession<M: Module> {
+pub struct DataView<M: Module> {
     /// The internal implementation of this session.
     pub(crate) session: Arc<Mutex<InternalDataSession<M>>>,
     pub(crate) data_model_ref: Weak<Mutex<InternalData<M>>>,
 }
 
-impl<M: Module> DataSession<M> {
+impl<M: Module> DataView<M> {
     /// Captures the current state of the session in a snapshot.
     ///
     /// A snapshot includes all relevant session data, such as persistent data and
