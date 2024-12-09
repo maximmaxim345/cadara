@@ -15,7 +15,6 @@
 // Public modules
 pub mod data;
 pub mod document;
-pub mod manager;
 pub mod user;
 
 use data::DataUuid;
