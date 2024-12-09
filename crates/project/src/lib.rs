@@ -21,7 +21,7 @@ pub mod user;
 use data::DataUuid;
 use data::{internal::InternalData, session::internal::InternalDataSession, DataSession};
 use document::{DocumentSession, DocumentUuid};
-use module::Module;
+use module::{DataTransaction, Module, ReversibleDataTransaction};
 use serde::de::{DeserializeSeed, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::any::Any;
@@ -93,7 +93,7 @@ where
 }
 
 #[derive(Clone, Debug, Deserialize)]
-struct TransactionData<M: Module>(M::PersistentData);
+struct TransactionData<M: Module>(<M::PersistentData as DataTransaction>::Args);
 
 #[derive(Clone, Debug, Deserialize)]
 struct SharedDataConcrete<M: Module>(M::SharedData);
@@ -118,7 +118,7 @@ impl<M: Module> SessionDataTrait for SessionDataConcrete<M> {
 /// This struct encapsulates an [`InternalData`] within `Rc<RefCell<...>>` to enable
 /// shared ownership and mutability across different parts of the code. It is designed to work
 /// with data models that implement the [`Module`] trait.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Default)]
 struct DataModel<M: Module>(Arc<Mutex<InternalData<M>>>);
 
 #[derive(Clone, Debug, Deserialize)]
@@ -225,7 +225,7 @@ impl<'de> Deserialize<'de> for ErasedTransactionData {
 /// Document in a Project
 ///
 /// Defines the metadata and the identifiers of containing data sections.
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 struct DocumentRecord {
     data: Vec<DataUuid>,
 }
@@ -316,6 +316,8 @@ pub struct ModuleRegistry {
     modules2: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn AnyTransactionData>>>,
     modules3: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn SharedDataTrait>>>,
     modules4: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn SessionDataTrait>>>,
+    modules5: HashMap<Uuid, fn() -> Box<dyn DataModelTrait>>,
+    modules6: HashMap<Uuid, fn(&mut Box<dyn DataModelTrait>, &Box<dyn AnyTransactionData>)>,
 }
 
 impl ModuleRegistry {
@@ -340,6 +342,19 @@ impl ModuleRegistry {
             Ok(Box::new(
                 erased_serde::deserialize::<SessionDataConcrete<M>>(d)?,
             ))
+        });
+        self.modules5
+            .insert(M::uuid(), || Box::new(DataModel::<M>::default()));
+        self.modules6.insert(M::uuid(), |m, t| {
+            //
+            let m = m.as_mut().as_any().downcast_mut::<DataModel<M>>().unwrap();
+            // TODO: persistent uses is not implemented
+            let t = t
+                .as_ref()
+                .as_any()
+                .downcast_ref::<TransactionData<M>>()
+                .unwrap();
+            m.0.lock().unwrap().apply_persistent(&t.0, Uuid::new_v4());
         });
     }
 }
@@ -1043,6 +1058,7 @@ enum ProjectLogEntry {
         new_name: String,
     },
     CreateData {
+        t: Uuid,
         uuid: DataUuid,
         owner: DocumentUuid,
     },
@@ -1083,13 +1099,63 @@ impl Project {
     //  TODO: document
     #[must_use]
     pub fn create_view(&self) -> ProjectView {
-        // TODO: no clone!
+        let mut data = HashMap::new();
+        let mut documents = HashMap::new();
+        let m = MODULE_REGISTRY.with(|r| {
+            let registry = r.borrow();
+            let registry = registry.expect("no registry found");
+            registry
+        });
+        let m = unsafe { &*m };
+        for e in &self.log {
+            match e {
+                ProjectLogEntry::CreateDocument { uuid, name } => {
+                    documents.insert(*uuid, DocumentRecord::default());
+                }
+                ProjectLogEntry::DeleteDocument(document_uuid) => {
+                    documents.remove_entry(document_uuid);
+                }
+                ProjectLogEntry::RenameDocument { uuid, new_name } => {}
+                ProjectLogEntry::CreateData { t, uuid, owner } => {
+                    data.insert(
+                        *uuid,
+                        ErasedDataModel {
+                            uuid: *t,
+                            model: m.modules5.get(t).unwrap()(),
+                        },
+                    );
+                    documents
+                        .entry(*owner)
+                        .or_insert(Default::default())
+                        .data
+                        .push(*uuid);
+                }
+                ProjectLogEntry::DeleteData { uuid } => {
+                    data.remove(uuid);
+                }
+                ProjectLogEntry::MoveData { uuid, new_owner } => todo!(),
+                ProjectLogEntry::Transaction(erased_transaction_data) => {
+                    let apply = m.modules6.get(&erased_transaction_data.uuid).unwrap();
+                    match erased_transaction_data.target {
+                        TransactionTarget::PersistentData(data_uuid) => {
+                            let mut d = data.get_mut(&data_uuid).unwrap();
+                            // TODO: assert if correct
+                            apply(&mut d.model, &erased_transaction_data.data);
+                        }
+                        TransactionTarget::PersistendUserData(data_uuid, user) => {
+                            todo!("add support for this, currently the trait does not support this")
+                        }
+                    }
+                }
+                ProjectLogEntry::Undo => todo!(),
+                ProjectLogEntry::Redo => todo!(),
+            };
+        }
+
         ProjectView {
-            project: self.project.clone(),
             user: User::local(),
-            data: HashMap::new(),
-            name: String::new(),
-            tags: Vec::new(),
+            data,
+            documents,
         }
     }
 
@@ -1118,11 +1184,8 @@ pub struct ProjectView {
     user: User,
     /// TODO: document
     data: HashMap<DataUuid, ErasedDataModel>,
-    /// TODO: document
-    /// The name of the project.
-    name: String,
-    /// A list of tags associated with the project for categorization or searchability.
-    tags: Vec<String>,
+    /// A map of all documents found in this project
+    documents: HashMap<DocumentUuid, DocumentRecord>,
 }
 
 impl ProjectView {

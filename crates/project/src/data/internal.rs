@@ -56,7 +56,7 @@ pub struct TransactionHistoryState<D: ReversibleDataTransaction, U: ReversibleDa
 /// Used internally by [`Project`] to store data about a data section.
 ///
 /// [`Project`]: crate::Project
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct InternalData<M: Module> {
     /// Persistent data
     pub(crate) persistent_data: M::PersistentData,
@@ -86,7 +86,7 @@ pub struct InternalData<M: Module> {
 impl<M: Module> InternalData<M> {
     pub fn apply_persistent(
         &mut self,
-        args: <M::PersistentData as DataTransaction>::Args,
+        args: &<M::PersistentData as DataTransaction>::Args,
         session_uuid: Uuid,
     ) -> Result<<M::PersistentData as DataTransaction>::Output, SessionApplyError<M>> {
         // First we try to apply the transaction to our internal data
