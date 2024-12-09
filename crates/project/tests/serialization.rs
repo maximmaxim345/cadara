@@ -13,7 +13,7 @@ fn test_serde_project_json() {
     let json;
 
     {
-        let project = Project::new("Project".to_string()).create_session();
+        let project = Project::new("Project".to_string()).create_view();
         doc_uuid = project.create_document();
         let doc = project.open_document(doc_uuid).unwrap();
         data_uuid = doc.create_data::<TestModule>();
@@ -47,7 +47,7 @@ fn test_serde_project_json() {
         };
 
         let deserializer = &mut serde_json::Deserializer::from_str(&json);
-        let project: ProjectView = seed.deserialize(deserializer).unwrap().create_session();
+        let project: ProjectView = seed.deserialize(deserializer).unwrap().create_view();
 
         let document = project.open_document(doc_uuid).unwrap();
         let data = document.open_data_by_uuid::<TestModule>(data_uuid).unwrap();
