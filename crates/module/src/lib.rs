@@ -16,7 +16,15 @@ use uuid::Uuid;
 pub trait DataTransaction {
     // TODO: add Debug, Clone, ... to these types
     /// The type of arguments required to apply the transaction.
-    type Args: Clone + Debug + PartialEq + Hash + Send;
+    type Args: Clone
+        + Debug
+        + PartialEq
+        + Hash
+        + Send
+        + Serialize
+        + for<'a> Deserialize<'a>
+        + Send
+        + Sync;
     /// The type of error that can occur when applying the transaction.
     type Error: Clone + Debug + PartialEq + Send;
     /// The type of the successful output of the transaction.
