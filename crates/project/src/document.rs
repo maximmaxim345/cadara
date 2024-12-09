@@ -15,12 +15,11 @@ use std::{
 };
 use uuid::Uuid;
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct DocumentView {
+#[derive(Clone, Debug)]
+pub struct DocumentView<'a> {
     /// Identifier of this document
     pub(crate) document: DocumentUuid,
-    /// Encapsulates the internal representation of the project, including documents and metadata.
-    pub(crate) project: Arc<Mutex<InternalProject>>,
+    pub(crate) project: &'a ProjectView,
     /// The user currently interacting with the project.
     pub(crate) user: User,
 }
@@ -44,7 +43,7 @@ impl DocumentUuid {
     }
 }
 
-impl DocumentView {
+impl<'a> DocumentView<'a> {
     /// Opens a data section contained in this document by UUID
     ///
     /// # Arguments
