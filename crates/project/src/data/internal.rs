@@ -7,7 +7,7 @@ use std::{
 };
 use uuid::Uuid;
 
-use super::{session::internal::InternalDataSession, transaction::SessionApplyError};
+use super::transaction::SessionApplyError;
 
 // TODO: write docs for these types
 /// Data required to undo and redo a transaction.
@@ -68,117 +68,4 @@ pub struct InternalData<M: Module> {
     pub session_data: M::SessionData,
     /// Non-persistent data shared among users for this session.
     pub shared_data: M::SharedData,
-}
-
-// TODO: make methods private, write docs
-impl<M: Module> InternalData<M> {
-    pub fn apply_persistent(
-        &mut self,
-        args: &<M::PersistentData as DataTransaction>::Args,
-        session_uuid: Uuid,
-    ) -> Result<<M::PersistentData as DataTransaction>::Output, SessionApplyError<M>> {
-        // First we try to apply the transaction to our internal data
-        let (output, undo_data) =
-            ReversibleDataTransaction::apply(&mut self.persistent_data, args.clone()).map_err(
-                |e| SessionApplyError::TransactionFailure(TransactionError::<M>::Persistent(e)),
-            )?;
-
-        let name = <M::PersistentData as DataTransaction>::undo_history_name(&args);
-
-        // We can now apply the transaction to all sessions
-        for session in &self.sessions {
-            let session = session.1.upgrade().unwrap();
-            ReversibleDataTransaction::apply_unchecked(
-                &mut session.lock().unwrap().persistent,
-                args.clone(),
-            );
-        }
-
-        // Now we need to store the undo data and args for later undoing
-        self.transaction_history.push_back(TransactionHistoryState {
-            session: session_uuid,
-            name,
-            state: TransactionState::Applied(AppliedTransaction::Persistent(UndoUnit {
-                undo_data,
-                args,
-            })),
-        });
-
-        // And return the output
-        Ok(output)
-    }
-
-    pub fn apply_user(
-        &mut self,
-        args: <M::PersistentUserData as DataTransaction>::Args,
-        session_uuid: Uuid,
-    ) -> Result<<M::PersistentUserData as DataTransaction>::Output, SessionApplyError<M>> {
-        // For now we just do the same thing as apply_persistent, since we haven't implemented
-        // multiple users yet
-
-        // for now we assume that there is only one user
-        // TODO: implement multiple users
-        let _user_uuid = *self.session_to_user.get(&session_uuid).unwrap();
-
-        // First we try to apply the transaction to our internal data
-        let (output, undo_data) =
-            ReversibleDataTransaction::apply(&mut self.user_data, args.clone()).map_err(|e| {
-                SessionApplyError::TransactionFailure(TransactionError::<M>::PersistentUser(e))
-            })?;
-        let name = <M::PersistentUserData as DataTransaction>::undo_history_name(&args);
-
-        // We can now apply the transaction to all sessions
-        for session in &self.sessions {
-            let session = session.1.upgrade().unwrap();
-            ReversibleDataTransaction::apply_unchecked(
-                &mut session.lock().unwrap().persistent_user,
-                args.clone(),
-            );
-        }
-
-        // Now we need to store the undo data and args for later undoing
-        // TODO: explain why we have a central list for all sessions
-        self.transaction_history.push_back(TransactionHistoryState {
-            session: session_uuid,
-            name,
-            state: TransactionState::Applied(AppliedTransaction::PersistentUser(UndoUnit {
-                undo_data,
-                args,
-            })),
-        });
-
-        // And return the output
-        Ok(output)
-    }
-
-    pub fn apply_shared(
-        &mut self,
-        args: &<M::SharedData as DataTransaction>::Args,
-        _session_uuid: Uuid,
-    ) -> Result<<M::SharedData as DataTransaction>::Output, SessionApplyError<M>> {
-        // Works like apply_user, but with no distinction between different users
-
-        // TODO: we currently take a session_uuid, think where it is appropriate
-        // First we try to apply the transaction to our internal data
-        // TODO: remove the unwrap
-        let output = self
-            .shared_data
-            .as_mut()
-            .unwrap()
-            .apply(args.clone())
-            .map_err(|e| SessionApplyError::TransactionFailure(TransactionError::<M>::Shared(e)))?;
-
-        // We can now apply the transaction to all sessions
-        for session in &self.sessions {
-            let session = session.1.upgrade().unwrap();
-            session
-                .lock()
-                .unwrap()
-                .shared_data
-                .apply_unchecked(args.clone());
-        }
-
-        // since this data section does not support undo, we can just return the output
-        Ok(output)
-    }
 }
