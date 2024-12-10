@@ -20,6 +20,7 @@ pub mod user;
 use data::DataUuid;
 use data::DataView;
 use document::{DocumentUuid, DocumentView};
+use dyn_clone::DynClone;
 use module::{DataTransaction, Module, ReversibleDataTransaction};
 use paste::paste;
 use serde::de::{DeserializeSeed, Visitor};
@@ -58,6 +59,9 @@ struct SharedData<M: Module>(M::SharedData);
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 struct SessionData<M: Module>(M::SessionData);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct TransactionData<M: Module>(<M::PersistentData as DataTransaction>::Args);
 
 /// Generates type-erased data container implementations for a given, on [`Module`] generic, data type
 ///
@@ -116,6 +120,15 @@ macro_rules! define_type_erased_data {
 
                 pub fn downcast_mut<M: Module>(&mut self) -> Option<&mut $d<M>> {
                     self.data.as_mut_any().downcast_mut()
+                }
+            }
+
+            impl<M: Module> From<$d<M>> for [<Dyn $d>] {
+                fn from(d: $d<M>) -> Self {
+                    Self {
+                        module: ModuleUuid::from_module::<M>(),
+                        data: Box::new(d),
+                    }
                 }
             }
 
@@ -306,42 +319,7 @@ macro_rules! define_type_erased_data {
 define_type_erased_data!(Data, modules);
 define_type_erased_data!(SessionData, modules4);
 define_type_erased_data!(SharedData, modules3);
-
-use dyn_clone::DynClone;
-
-trait AnyTransactionData: erased_serde::Serialize + Debug + Send + Any + DynClone {
-    #[expect(dead_code)]
-    fn as_any(&self) -> &dyn Any;
-    /// Retrieves a mutable reference to the underlying type as a trait object.
-    /// This is used for downcasting to the concrete [`TransactionData`] type.
-    #[expect(dead_code)]
-    fn as_mut_any(&mut self) -> &mut dyn Any;
-}
-
-erased_serde::serialize_trait_object!(AnyTransactionData);
-
-impl Clone for Box<dyn AnyTransactionData> {
-    fn clone(&self) -> Self {
-        dyn_clone::clone_box(self.as_ref())
-    }
-}
-
-// TODO: WTF?
-impl<T> AnyTransactionData for T
-where
-    T: Any + DynClone + Debug + Send + Sync + erased_serde::Serialize,
-{
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_mut_any(&mut self) -> &mut dyn Any {
-        self
-    }
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct TransactionData<M: Module>(<M::PersistentData as DataTransaction>::Args);
+define_type_erased_data!(TransactionData, modules2);
 
 // We use this thread local storage to pass data to the deserialize function through
 // automatically derived implementations of `Deserialize`. Alternatively, we could
@@ -362,37 +340,7 @@ enum TransactionTarget {
 struct ErasedTransactionData {
     uuid: Uuid, // TODO: rename to indicate that this is the UUID of the module for deserailization/serialization
     target: TransactionTarget,
-    data: Box<dyn AnyTransactionData>, // TODO: use smallbox::SmallBox instead of Box
-}
-
-impl<M: Module> Serialize for TransactionData<M> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for ErasedTransactionData {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        // Retrieve the registry from thread local storage
-        // And use it to deserialize the model using the seed
-        MODULE_REGISTRY.with(|r| {
-            let registry = r.borrow();
-            let registry = registry.expect("no registry found");
-            let seed = TransactionSeed {
-                // As long as the registry is alive, we can safely hold a reference to it.
-                // The registry is only invalidated after deserialization is complete, so only
-                // after this reference is dropped.
-                registry: unsafe { &*registry },
-            };
-            seed.deserialize(deserializer)
-        })
-    }
+    data: Box<dyn TransactionDataTrait>, // TODO: use smallbox::SmallBox instead of Box
 }
 
 /// Document in a Project
@@ -408,11 +356,11 @@ struct DocumentRecord {
 pub struct ModuleRegistry {
     // TODO: remove modules,
     modules: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn DataTrait>>>,
-    modules2: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn AnyTransactionData>>>,
+    modules2: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn TransactionDataTrait>>>,
     modules3: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn SharedDataTrait>>>,
     modules4: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn SessionDataTrait>>>,
     modules5: HashMap<Uuid, fn() -> Box<dyn DataTrait>>,
-    modules6: HashMap<Uuid, fn(&mut Box<dyn DataTrait>, &Box<dyn AnyTransactionData>)>,
+    modules6: HashMap<Uuid, fn(&mut Box<dyn DataTrait>, &Box<dyn TransactionDataTrait>)>,
 }
 
 impl ModuleRegistry {
@@ -448,18 +396,6 @@ impl ModuleRegistry {
             module::DataTransaction::apply(&mut m.persistent, t.0.clone());
         });
     }
-}
-
-struct ErasedSharedDataSeed<'a> {
-    pub registry: &'a ModuleRegistry,
-}
-
-struct ErasedSessionDataSeed<'a> {
-    pub registry: &'a ModuleRegistry,
-}
-
-struct TransactionSeed<'a> {
-    pub registry: &'a ModuleRegistry,
 }
 
 pub struct ProjectSeed<'a> {
@@ -505,172 +441,6 @@ impl<'de, O: ?Sized> DeserializeSeed<'de> for BoxedDeserializerSeed<O> {
     }
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for TransactionSeed<'a>
-where
-    'a: 'de,
-{
-    type Value = ErasedTransactionData;
-
-    #[allow(clippy::too_many_lines)]
-    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        enum ModuleField {
-            Uuid,
-            Target,
-            Data,
-            Ignore,
-        }
-
-        struct FieldVisitor;
-
-        impl Visitor<'_> for FieldVisitor {
-            type Value = ModuleField;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("field identifier")
-            }
-
-            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                match value {
-                    0 => Ok(ModuleField::Uuid),
-                    2 => Ok(ModuleField::Target),
-                    3 => Ok(ModuleField::Data),
-                    _ => Ok(ModuleField::Ignore),
-                }
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                match value {
-                    "uuid" => Ok(ModuleField::Uuid),
-                    "target" => Ok(ModuleField::Target),
-                    "data" => Ok(ModuleField::Data),
-                    _ => Ok(ModuleField::Ignore),
-                }
-            }
-
-            fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                match value {
-                    b"uuid" => Ok(ModuleField::Uuid),
-                    b"target" => Ok(ModuleField::Target),
-                    b"data" => Ok(ModuleField::Data),
-                    _ => Ok(ModuleField::Ignore),
-                }
-            }
-        }
-
-        impl<'de> Deserialize<'de> for ModuleField {
-            #[inline]
-            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where
-                D: Deserializer<'de>,
-            {
-                deserializer.deserialize_identifier(FieldVisitor)
-            }
-        }
-
-        struct ModuleVisitor<'de> {
-            marker: PhantomData<ErasedTransactionData>,
-            lifetime: PhantomData<&'de ()>,
-            registry: &'de ModuleRegistry,
-        }
-
-        impl<'de> Visitor<'de> for ModuleVisitor<'de> {
-            type Value = ErasedTransactionData;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("struct ErasedTransactionData")
-            }
-
-            #[inline]
-            fn visit_seq<V>(self, mut _seq: V) -> Result<ErasedTransactionData, V::Error>
-            where
-                V: serde::de::SeqAccess<'de>,
-            {
-                // let uuid = seq
-                //     .next_element()?
-                //     .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-                // let model = seq
-                //     // .next_element_seed(ModuleSeed {
-                //     //     registry: self.registry,
-                //     // })?
-                //     .next_element()?
-                //     .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
-                // Ok(ErasedDataModel { uuid, model })
-                todo!("sequential deserialization of ErasedTransactionData is not supported yet")
-            }
-
-            #[inline]
-            fn visit_map<V>(self, mut map: V) -> Result<ErasedTransactionData, V::Error>
-            where
-                V: serde::de::MapAccess<'de>,
-            {
-                let mut uuid = None;
-                let mut target = None;
-                let mut data = None;
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        ModuleField::Uuid => {
-                            if uuid.is_some() {
-                                return Err(serde::de::Error::duplicate_field("uuid"));
-                            }
-                            uuid = Some(map.next_value::<Uuid>()?);
-                        }
-                        ModuleField::Target => {
-                            if target.is_some() {
-                                return Err(serde::de::Error::duplicate_field("target"));
-                            }
-                            target = Some(map.next_value::<TransactionTarget>()?);
-                        }
-                        ModuleField::Data => {
-                            if data.is_some() {
-                                return Err(serde::de::Error::duplicate_field("data"));
-                            }
-                            let uuid = uuid.ok_or_else(|| {
-                                serde::de::Error::custom("uuid must precede data")
-                            })?;
-                            let d = self.registry.modules2.get(&uuid).ok_or_else(|| {
-                                serde::de::Error::custom("module not found in registry")
-                            })?;
-
-                            data = Some(map.next_value_seed(BoxedDeserializerSeed(*d))?);
-                        }
-                        ModuleField::Ignore => {
-                            let _: serde::de::IgnoredAny = map.next_value()?;
-                        }
-                    }
-                }
-                Ok(ErasedTransactionData {
-                    uuid: uuid.ok_or_else(|| serde::de::Error::missing_field("uuid"))?,
-                    target: target.ok_or_else(|| serde::de::Error::missing_field("target"))?,
-                    data: data.ok_or_else(|| serde::de::Error::missing_field("data"))?,
-                })
-            }
-        }
-
-        const FIELDS: &[&str] = &["uuid", "target", "data"];
-        deserializer.deserialize_struct(
-            "ErasedTransactionData",
-            FIELDS,
-            ModuleVisitor {
-                marker: PhantomData::<ErasedTransactionData>,
-                lifetime: PhantomData,
-                registry: self.registry,
-            },
-        )
-    }
-}
-
 #[derive(Clone, Serialize, Deserialize, Debug)]
 enum Change {
     CreateDocument {
@@ -694,7 +464,10 @@ enum Change {
         uuid: DataUuid,
         new_owner: Option<DocumentUuid>,
     },
-    Transaction(ErasedTransactionData),
+    Transaction {
+        target: TransactionTarget,
+        data: DynTransactionData,
+    },
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -778,14 +551,13 @@ impl Project {
                                 data.remove(uuid);
                             }
                             Change::MoveData { uuid, new_owner } => todo!(),
-                            Change::Transaction(erased_transaction_data) => {
-                                let apply =
-                                    reg.modules6.get(&erased_transaction_data.uuid).unwrap();
-                                match erased_transaction_data.target {
+                            Change::Transaction { target, data: d } => {
+                                let apply = reg.modules6.get(&d.module.0).unwrap();
+                                match target {
                                     TransactionTarget::PersistentData(data_uuid) => {
-                                        let mut d = data.get_mut(&data_uuid).unwrap();
+                                        let mut d2 = data.get_mut(&data_uuid).unwrap();
                                         // TODO: assert if correct
-                                        apply(&mut d.data, &erased_transaction_data.data);
+                                        apply(&mut d2.data, &d.data);
                                     }
                                     TransactionTarget::PersistendUserData(data_uuid, user) => {
                                         todo!("add support for this, currently the trait does not support this")

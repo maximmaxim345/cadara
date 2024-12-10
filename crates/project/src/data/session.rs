@@ -57,11 +57,10 @@ impl<'a, M: Module> DataView<'a, M> {
     pub fn apply(&mut self, args: transaction::TransactionArgs<M>, cb: &mut ChangeBuilder) {
         match args {
             transaction::TransactionArgs::Persistent(p) => {
-                cb.changes.push(Change::Transaction(ErasedTransactionData {
-                    uuid: M::uuid(),
+                cb.changes.push(Change::Transaction {
                     target: TransactionTarget::PersistentData(self.data),
-                    data: Box::new(TransactionData::<M>(p)),
-                }));
+                    data: TransactionData::<M>(p).into(),
+                });
             }
             transaction::TransactionArgs::PersistentUser(_) => todo!(),
             transaction::TransactionArgs::Session(_) => todo!(),
