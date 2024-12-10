@@ -1,10 +1,13 @@
 pub mod internal;
 
-use crate::ProjectView;
+use crate::{
+    ChangeBuilder, ErasedTransactionData, ProjectLogEntry, ProjectView, TransactionData,
+    TransactionTarget,
+};
 
 use super::{
     internal::{AppliedTransaction, InternalData, TransactionState, UndoUnit, UndoneTransaction},
-    transaction,
+    transaction, DataUuid,
 };
 use internal::InternalDataSession;
 use module::{DataTransaction, Module, ReversibleDataTransaction};
@@ -22,6 +25,7 @@ use std::sync::{Arc, Mutex, Weak};
 #[derive(Clone, Debug)]
 pub struct DataView<'a, M: Module> {
     pub project: &'a ProjectView,
+    pub data: DataUuid,
     /// Persistent data for this session.
     ///
     /// Synced with other sessions and the project.
@@ -35,24 +39,6 @@ pub struct DataView<'a, M: Module> {
 }
 
 impl<'a, M: Module> DataView<'a, M> {
-    // TODO: add doc
-    fn apply_session(
-        &self,
-        args: <M::SessionData as DataTransaction>::Args,
-    ) -> Result<<M::SessionData as DataTransaction>::Output, transaction::SessionApplyError<M>>
-    {
-        let mut internal = self.session.lock().unwrap();
-        // We do not need to replicate the transaction to other sessions.
-        internal.session_data.apply(args).map_or_else(
-            |error| {
-                Result::Err(transaction::SessionApplyError::TransactionFailure(
-                    transaction::TransactionError::Session(error),
-                ))
-            },
-            Result::Ok,
-        )
-    }
-
     /// Applies a transaction to this data session.
     ///
     /// This function handles different types of transactions and applies them to the appropriate
@@ -75,43 +61,19 @@ impl<'a, M: Module> DataView<'a, M> {
     /// - For `Session` transactions: Applied directly to the current session without synchronization.
     /// - For `Persistent`, `PersistentUser`, and `Shared` transactions: Applied through the data model
     ///   to ensure synchronization across all sessions.
-    pub fn apply(
-        &mut self,
-        args: transaction::TransactionArgs<M>,
-    ) -> Result<transaction::TransactionOutput<M>, transaction::SessionApplyError<M>> {
-        use transaction::TransactionArgs as Args;
-
-        if let Args::Session(session_args) = args {
-            // Session data is not synced with other sessions, so we can just directly apply it
-            self.apply_session(session_args)
-                .map_or_else(Result::Err, |output| {
-                    Ok(transaction::TransactionOutput::Session(output))
-                })
-        } else {
-            // The remaining transaction are applied through the data model
-            // This is because they need to be synced with other session.
-            let session_uuid = self.session.lock().unwrap().session_uuid;
-            let ref_cell = &self.data_model_ref.upgrade().unwrap();
-            let mut internal_data = ref_cell.lock().unwrap();
-            match args {
-                Args::Persistent(data_args) => internal_data
-                    .apply_persistent(data_args, session_uuid)
-                    .map_or_else(Result::Err, |output| {
-                        Ok(transaction::TransactionOutput::Persistent(output))
-                    }),
-                Args::PersistentUser(user_args) => internal_data
-                    .apply_user(user_args, session_uuid)
-                    .map_or_else(Result::Err, |output| {
-                        Ok(transaction::TransactionOutput::PersistentUser(output))
-                    }),
-                Args::Shared(shared_args) => internal_data
-                    .apply_shared(&shared_args, session_uuid)
-                    .map_or_else(Result::Err, |output| {
-                        Ok(transaction::TransactionOutput::Shared(output))
-                    }),
-                // We already handled this case above
-                Args::Session(_) => unreachable!(),
+    pub fn apply(&mut self, args: transaction::TransactionArgs<M>, cb: &mut ChangeBuilder) {
+        match args {
+            transaction::TransactionArgs::Persistent(p) => {
+                cb.changes
+                    .push(ProjectLogEntry::Transaction(ErasedTransactionData {
+                        uuid: M::uuid(),
+                        target: TransactionTarget::PersistentData(self.data),
+                        data: Box::new(TransactionData::<M>(p)),
+                    }));
             }
+            transaction::TransactionArgs::PersistentUser(_) => todo!(),
+            transaction::TransactionArgs::Session(_) => todo!(),
+            transaction::TransactionArgs::Shared(_) => todo!(),
         }
     }
 }
