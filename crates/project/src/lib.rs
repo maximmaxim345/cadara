@@ -1083,6 +1083,21 @@ enum ProjectLogEntry {
     Redo,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct ChangeBuilder {
+    changes: Vec<ProjectLogEntry>,
+}
+
+impl ChangeBuilder {
+    pub fn new() -> ChangeBuilder {
+        ChangeBuilder::default()
+    }
+
+    pub fn append(&mut self, mut other: ChangeBuilder) {
+        self.changes.append(&mut other.changes);
+    }
+}
+
 /// Represents a project within the `CADara` application.
 ///
 /// Interact with this Project through a [`ProjectSession`] by calling [`Project::create_session`].
@@ -1178,6 +1193,10 @@ impl Project {
     #[must_use]
     pub fn new_with_path(_name: String, _user: User, _path: PathBuf) -> Self {
         todo!("remove or implement this")
+    }
+
+    pub fn apply_changes(&mut self, mut cb: ChangeBuilder) {
+        self.log.append(&mut cb.changes);
     }
 }
 
