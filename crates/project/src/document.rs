@@ -5,7 +5,7 @@
 use crate::{
     data::{DataUuid, DataView},
     user::User,
-    Change, ChangeBuilder, DataModel, ErasedDataModel, ProjectView,
+    Change, ChangeBuilder, Data, DynData, ProjectView,
 };
 use module::Module;
 use serde::{Deserialize, Serialize};

@@ -49,23 +49,3 @@ pub struct TransactionHistoryState<D: ReversibleDataTransaction, U: ReversibleDa
     pub name: String,
     pub state: TransactionState<D, U>,
 }
-
-// TODO: make this more private
-/// Represents an internal model of a data section within a project in `CADara`.
-///
-/// Used internally by [`Project`] to store data about a data section.
-///
-/// [`Project`]: crate::Project
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct InternalData<M: Module> {
-    /// Persistent data for this session.
-    ///
-    /// Synced with other sessions and the project.
-    pub persistent: M::PersistentData,
-    /// Persistent user-specific data for this session.
-    pub persistent_user: M::PersistentUserData,
-    /// Non-persistent user-specific data for this session.
-    pub session_data: M::SessionData,
-    /// Non-persistent data shared among users for this session.
-    pub shared_data: M::SharedData,
-}

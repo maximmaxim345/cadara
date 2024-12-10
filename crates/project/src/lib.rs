@@ -18,9 +18,10 @@ pub mod document;
 pub mod user;
 
 use data::DataUuid;
-use data::{internal::InternalData, DataView};
+use data::DataView;
 use document::{DocumentUuid, DocumentView};
 use module::{DataTransaction, Module, ReversibleDataTransaction};
+use paste::paste;
 use serde::de::{DeserializeSeed, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::any::Any;
@@ -33,19 +34,270 @@ use std::sync::{Arc, Mutex};
 use user::User;
 use uuid::Uuid;
 
-/// A trait for type-erased data models, enabling polymorphic handling of different data types.
-///
-/// This trait allows for the storage of any [`DataModel`] type while providing
-/// mechanisms to recover the specific type through downcasting. It also facilitates
-/// serialization of data without knowing their concrete types.
-trait DataModelTrait: erased_serde::Serialize + Debug + Send + Any + DynClone {
-    /// Retrieves a mutable reference to the underlying type as a trait object.
-    /// This is used for downcasting to the concrete [`DataModel`] type.
-    fn as_any(&self) -> &dyn Any;
-    fn as_mut_any(&mut self) -> &mut dyn Any;
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[serde(transparent)]
+struct ModuleUuid(Uuid);
+
+impl ModuleUuid {
+    pub fn from_module<M: Module>() -> Self {
+        Self(M::uuid())
+    }
 }
-dyn_clone::clone_trait_object!(DataModelTrait);
-erased_serde::serialize_trait_object!(DataModelTrait);
+
+/// Complete state of a data of a module, accessable through a [`DataView`].
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+struct Data<M: Module> {
+    pub persistent: M::PersistentData,
+    pub persistent_user: M::PersistentUserData,
+    pub session: M::SessionData,
+    pub shared: M::SharedData,
+}
+
+/// Generates type-erased data container implementations for a given, on [`Module`] generic, data type
+///
+/// This macro implements:
+/// - Serialization and deserialization
+/// - A dynamic wrapper type that provides type-safe downcasting
+/// - Clone for dynamic types
+///
+/// # Arguments
+///
+/// * `$d` - The base data type to generate implementations for
+///
+/// # Generated Types
+///
+/// For a data type `T`, this macro generates:
+/// - `TTrait` - A trait implementing common behavior
+/// - `DynT` - A type-erased wrapper with serialization support
+/// - `TDeserializeSeed` - Custom deserializer for the type-erased data
+macro_rules! define_type_erased_data {
+    ($d:ty) => {
+        paste! {
+            #[doc = "A trait shared by all [`" $d "`] types for all [`Module`]"]
+            trait [<$d Trait>]: erased_serde::Serialize + Debug + Send + Any + DynClone {
+                /// Provides read-only access to the underlying data type.
+                fn as_any(&self) -> &dyn Any;
+                /// Provides mutable access to the underlying data type.
+                fn as_mut_any(&mut self) -> &mut dyn Any;
+            }
+
+            dyn_clone::clone_trait_object!([<$d Trait>]);
+            erased_serde::serialize_trait_object!([<$d Trait>]);
+
+            impl<M: Module> [<$d Trait>] for $d<M> {
+                fn as_mut_any(&mut self) -> &mut dyn Any {
+                    self
+                }
+
+                fn as_any(&self) -> &dyn Any {
+                    self
+                }
+            }
+
+            #[doc = "Serializable, Deserializable and Cloneable wrapper around all generic [`" $d "`] types."]
+            #[derive(Debug, Serialize, Clone)]
+            struct [<Dyn $d>] {
+                // uuid of the module, over that the struct contained in `data` is generic
+                module: ModuleUuid,
+                #[doc = "Type erased [`" $d "`]"]
+                data: Box<dyn [<$d Trait>]>,
+            }
+
+            impl [<Dyn $d>] {
+                pub fn downcast_ref<M: Module>(&self) -> Option<&$d<M>> {
+                    self.data.as_any().downcast_ref()
+                }
+
+                pub fn downcast_mut<M: Module>(&mut self) -> Option<&mut $d<M>> {
+                    self.data.as_mut_any().downcast_mut()
+                }
+            }
+
+            impl<'de> Deserialize<'de> for [<Dyn $d>] {
+                fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+                where
+                    D: serde::Deserializer<'de>,
+                {
+                    // Retrieve the registry from thread local storage
+                    // And use it to deserialize the model using the seed
+                    MODULE_REGISTRY.with(|r| {
+                        let registry = r.borrow();
+                        let registry = registry.expect("no registry found");
+                        let seed = [<$d DeserializeSeed>] {
+                            // SAFETY: As long as the registry is alive, we can safely hold a reference to it.
+                            // The registry is only invalidated after deserialization is complete, so only
+                            // after this reference is dropped.
+                            registry: unsafe { &*registry },
+                        };
+                        seed.deserialize(deserializer)
+                    })
+                }
+            }
+
+            struct [<$d DeserializeSeed>]<'a> {
+                pub registry: &'a ModuleRegistry,
+            }
+
+            // We manually implement deserialization logic to support runtime polymorphism
+            // The `typetag` could do this for us, but it unfortunately does not support WebAssembly
+            impl<'a, 'de> DeserializeSeed<'de> for [<$d DeserializeSeed>]<'a>
+            where
+                'a: 'de,
+            {
+                type Value = [<Dyn $d>];
+
+                #[expect(clippy::too_many_lines)]
+                fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+                where
+                    D: Deserializer<'de>,
+                {
+                    enum ModuleField {
+                        Module,
+                        Data,
+                        Ignore,
+                    }
+
+                    struct FieldVisitor;
+
+                    impl Visitor<'_> for FieldVisitor {
+                        type Value = ModuleField;
+
+                        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                            formatter.write_str("field identifier")
+                        }
+
+                        fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+                        where
+                            E: serde::de::Error,
+                        {
+                            match value {
+                                0 => Ok(ModuleField::Module),
+                                1 => Ok(ModuleField::Data),
+                                _ => Ok(ModuleField::Ignore),
+                            }
+                        }
+
+                        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+                        where
+                            E: serde::de::Error,
+                        {
+                            match value {
+                                "module" => Ok(ModuleField::Module),
+                                "data" => Ok(ModuleField::Data),
+                                _ => Ok(ModuleField::Ignore),
+                            }
+                        }
+
+                        fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E>
+                        where
+                            E: serde::de::Error,
+                        {
+                            match value {
+                                b"module" => Ok(ModuleField::Module),
+                                b"data" => Ok(ModuleField::Data),
+                                _ => Ok(ModuleField::Ignore),
+                            }
+                        }
+                    }
+
+                    impl<'de> Deserialize<'de> for ModuleField {
+                        #[inline]
+                        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+                        where
+                            D: Deserializer<'de>,
+                        {
+                            deserializer.deserialize_identifier(FieldVisitor)
+                        }
+                    }
+
+                    struct ModuleVisitor<'de> {
+                        marker: PhantomData<[<Dyn $d>]>,
+                        lifetime: PhantomData<&'de ()>,
+                        registry: &'de ModuleRegistry,
+                    }
+
+                    impl<'de> Visitor<'de> for ModuleVisitor<'de> {
+                        type Value = [<Dyn $d>];
+
+                        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                            formatter.write_str(concat!("struct ", stringify!([<Dyn $d>])))
+                        }
+
+                        #[inline]
+                        fn visit_seq<V>(self, mut _seq: V) -> Result<[<Dyn $d>], V::Error>
+                        where
+                            V: serde::de::SeqAccess<'de>,
+                        {
+                            // let uuid = seq
+                            //     .next_element()?
+                            //     .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+                            // let model = seq
+                            //     // .next_element_seed(ModuleSeed {
+                            //     //     registry: self.registry,
+                            //     // })?
+                            //     .next_element()?
+                            //     .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                            // Ok(ErasedDataModel { uuid, model })
+                            todo!("sequential deserialization is not supported yet")
+                        }
+
+                        #[inline]
+                        fn visit_map<V>(self, mut map: V) -> Result<[<Dyn $d>], V::Error>
+                        where
+                            V: serde::de::MapAccess<'de>,
+                        {
+                            let mut module = None;
+                            let mut data = None;
+                            while let Some(key) = map.next_key()? {
+                                match key {
+                                    ModuleField::Module => {
+                                        if module.is_some() {
+                                            return Err(serde::de::Error::duplicate_field("module"));
+                                        }
+                                        module = Some(map.next_value::<ModuleUuid>()?);
+                                    }
+                                    ModuleField::Data => {
+                                        if data.is_some() {
+                                            return Err(serde::de::Error::duplicate_field("data"));
+                                        }
+                                        let module = module.ok_or_else(|| {
+                                            serde::de::Error::custom("module must precede data")
+                                        })?;
+                                        let d = self.registry.modules.get(&module.0).ok_or_else(|| {
+                                            serde::de::Error::custom("module not found in registry")
+                                        })?;
+
+                                        data = Some(map.next_value_seed(BoxedDeserializerSeed(*d))?);
+                                    }
+                                    ModuleField::Ignore => {
+                                        let _: serde::de::IgnoredAny = map.next_value()?;
+                                    }
+                                }
+                            }
+                            Ok([<Dyn $d>] {
+                                module: module.ok_or_else(|| serde::de::Error::missing_field("module"))?,
+                                data: data.ok_or_else(|| serde::de::Error::missing_field("data"))?,
+                            })
+                        }
+                    }
+
+                    const FIELDS: &[&str] = &["module", "data"];
+                    deserializer.deserialize_struct(
+                        stringify!([<Dyn $d>]),
+                        FIELDS,
+                        ModuleVisitor {
+                            marker: PhantomData::<[<Dyn $d>]>,
+                            lifetime: PhantomData,
+                            registry: self.registry,
+                        },
+                    )
+                }
+            }
+        }
+    };
+}
+
+define_type_erased_data!(Data);
 
 trait SharedDataTrait: erased_serde::Serialize + Debug + Send + Any + DynClone {
     fn as_any(&mut self) -> &mut dyn Any;
@@ -113,14 +365,6 @@ impl<M: Module> SessionDataTrait for SessionDataConcrete<M> {
     }
 }
 
-/// A struct for managing shared, mutable access to an [`InternalData`].
-///
-/// This struct encapsulates an [`InternalData`] within `Rc<RefCell<...>>` to enable
-/// shared ownership and mutability across different parts of the code. It is designed to work
-/// with data models that implement the [`Module`] trait.
-#[derive(Clone, Debug, Deserialize, Default)]
-struct DataModel<M: Module>(InternalData<M>);
-
 #[derive(Clone, Debug, Deserialize)]
 struct SharedData<M: Module>(Arc<Mutex<M::SharedData>>);
 
@@ -134,17 +378,6 @@ struct SessionData<M: Module>(Arc<Mutex<M::SessionData>>);
 // TODO: look into alternatives to thread local storage
 thread_local! {
     static MODULE_REGISTRY: RefCell<Option<*const ModuleRegistry>> = const { RefCell::new(None) };
-}
-
-/// A struct representing a type-erased [`DataModel`].
-///
-/// This struct holds a [`Uuid`] identifying the document and a boxed [`DataModelTrait`],
-/// allowing for the storage and serialization of various data types without
-/// knowing their concrete types at compile time.
-#[derive(Debug, Serialize, Clone)]
-struct ErasedDataModel {
-    uuid: Uuid,
-    model: Box<dyn DataModelTrait>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -165,8 +398,6 @@ enum TransactionTarget {
     PersistendUserData(DataUuid, User),
 }
 
-// We manually implement deserialization logic to support runtime polymorphism
-// The `typetag` could do this for us, but it unfortunately does not support WebAssembly
 #[derive(Clone, Debug, Serialize)]
 struct ErasedTransactionData {
     uuid: Uuid, // TODO: rename to indicate that this is the UUID of the module for deserailization/serialization
@@ -230,46 +461,6 @@ struct DocumentRecord {
     data: Vec<DataUuid>,
 }
 
-impl<M: Module> DataModelTrait for DataModel<M> {
-    fn as_mut_any(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
-impl<M: Module> Serialize for DataModel<M> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for ErasedDataModel {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        // Retrieve the registry from thread local storage
-        // And use it to deserialize the model using the seed
-        MODULE_REGISTRY.with(|r| {
-            let registry = r.borrow();
-            let registry = registry.expect("no registry found");
-            let seed = ModuleSeed {
-                // As long as the registry is alive, we can safely hold a reference to it.
-                // The registry is only invalidated after deserialization is complete, so only
-                // after this reference is dropped.
-                registry: unsafe { &*registry },
-            };
-            seed.deserialize(deserializer)
-        })
-    }
-}
-
 impl<'de> Deserialize<'de> for ErasedSharedData {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -316,12 +507,12 @@ impl<'de> Deserialize<'de> for ErasedSessionData {
 #[derive(Clone, Debug, Default)]
 pub struct ModuleRegistry {
     // TODO: remove modules,
-    modules: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn DataModelTrait>>>,
+    modules: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn DataTrait>>>,
     modules2: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn AnyTransactionData>>>,
     modules3: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn SharedDataTrait>>>,
     modules4: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn SessionDataTrait>>>,
-    modules5: HashMap<Uuid, fn() -> Box<dyn DataModelTrait>>,
-    modules6: HashMap<Uuid, fn(&mut Box<dyn DataModelTrait>, &Box<dyn AnyTransactionData>)>,
+    modules5: HashMap<Uuid, fn() -> Box<dyn DataTrait>>,
+    modules6: HashMap<Uuid, fn(&mut Box<dyn DataTrait>, &Box<dyn AnyTransactionData>)>,
 }
 
 impl ModuleRegistry {
@@ -330,7 +521,7 @@ impl ModuleRegistry {
         M: Module + for<'de> Deserialize<'de>,
     {
         self.modules.insert(M::uuid(), |d| {
-            Ok(Box::new(erased_serde::deserialize::<DataModel<M>>(d)?))
+            Ok(Box::new(erased_serde::deserialize::<Data<M>>(d)?))
         });
         self.modules2.insert(M::uuid(), |d| {
             Ok(Box::new(erased_serde::deserialize::<TransactionData<M>>(
@@ -348,27 +539,19 @@ impl ModuleRegistry {
             ))
         });
         self.modules5
-            .insert(M::uuid(), || Box::new(DataModel::<M>::default()));
+            .insert(M::uuid(), || Box::new(Data::<M>::default()));
         self.modules6.insert(M::uuid(), |m, t| {
             //
-            let m = m
-                .as_mut()
-                .as_mut_any()
-                .downcast_mut::<DataModel<M>>()
-                .unwrap();
+            let m = m.as_mut().as_mut_any().downcast_mut::<Data<M>>().unwrap();
             // TODO: persistent uses is not implemented
             let t = t
                 .as_ref()
                 .as_any()
                 .downcast_ref::<TransactionData<M>>()
                 .unwrap();
-            module::DataTransaction::apply(&mut m.0.persistent, t.0.clone());
+            module::DataTransaction::apply(&mut m.persistent, t.0.clone());
         });
     }
-}
-
-struct ModuleSeed<'a> {
-    pub registry: &'a ModuleRegistry,
 }
 
 struct ErasedSharedDataSeed<'a> {
@@ -423,160 +606,6 @@ impl<'de, O: ?Sized> DeserializeSeed<'de> for BoxedDeserializerSeed<O> {
     fn deserialize<D: Deserializer<'de>>(self, deserializer: D) -> Result<Self::Value, D::Error> {
         self.0(&mut <dyn erased_serde::Deserializer>::erase(deserializer))
             .map_err(serde::de::Error::custom)
-    }
-}
-
-impl<'a, 'de> DeserializeSeed<'de> for ModuleSeed<'a>
-where
-    'a: 'de,
-{
-    type Value = ErasedDataModel;
-
-    #[allow(clippy::too_many_lines)]
-    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        enum ModuleField {
-            Uuid,
-            Model,
-            Ignore,
-        }
-
-        struct FieldVisitor;
-
-        impl Visitor<'_> for FieldVisitor {
-            type Value = ModuleField;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("field identifier")
-            }
-
-            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                match value {
-                    0 => Ok(ModuleField::Uuid),
-                    1 => Ok(ModuleField::Model),
-                    _ => Ok(ModuleField::Ignore),
-                }
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                match value {
-                    "uuid" => Ok(ModuleField::Uuid),
-                    "model" => Ok(ModuleField::Model),
-                    _ => Ok(ModuleField::Ignore),
-                }
-            }
-
-            fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                match value {
-                    b"uuid" => Ok(ModuleField::Uuid),
-                    b"model" => Ok(ModuleField::Model),
-                    _ => Ok(ModuleField::Ignore),
-                }
-            }
-        }
-
-        impl<'de> Deserialize<'de> for ModuleField {
-            #[inline]
-            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where
-                D: Deserializer<'de>,
-            {
-                deserializer.deserialize_identifier(FieldVisitor)
-            }
-        }
-
-        struct ModuleVisitor<'de> {
-            marker: PhantomData<ErasedDataModel>,
-            lifetime: PhantomData<&'de ()>,
-            registry: &'de ModuleRegistry,
-        }
-
-        impl<'de> Visitor<'de> for ModuleVisitor<'de> {
-            type Value = ErasedDataModel;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("struct ErasedDataModel")
-            }
-
-            #[inline]
-            fn visit_seq<V>(self, mut _seq: V) -> Result<ErasedDataModel, V::Error>
-            where
-                V: serde::de::SeqAccess<'de>,
-            {
-                // let uuid = seq
-                //     .next_element()?
-                //     .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-                // let model = seq
-                //     // .next_element_seed(ModuleSeed {
-                //     //     registry: self.registry,
-                //     // })?
-                //     .next_element()?
-                //     .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
-                // Ok(ErasedDataModel { uuid, model })
-                todo!("sequential deserialization of ErasedDataModel is not supported yet")
-            }
-
-            #[inline]
-            fn visit_map<V>(self, mut map: V) -> Result<ErasedDataModel, V::Error>
-            where
-                V: serde::de::MapAccess<'de>,
-            {
-                let mut uuid = None;
-                let mut model = None;
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        ModuleField::Uuid => {
-                            if uuid.is_some() {
-                                return Err(serde::de::Error::duplicate_field("uuid"));
-                            }
-                            uuid = Some(map.next_value::<uuid::Uuid>()?);
-                        }
-                        ModuleField::Model => {
-                            if model.is_some() {
-                                return Err(serde::de::Error::duplicate_field("model"));
-                            }
-                            let uuid = uuid.ok_or_else(|| {
-                                serde::de::Error::custom("uuid must precede model")
-                            })?;
-                            let d = self.registry.modules.get(&uuid).ok_or_else(|| {
-                                serde::de::Error::custom("module not found in registry")
-                            })?;
-
-                            model = Some(map.next_value_seed(BoxedDeserializerSeed(*d))?);
-                        }
-                        ModuleField::Ignore => {
-                            let _: serde::de::IgnoredAny = map.next_value()?;
-                        }
-                    }
-                }
-                Ok(ErasedDataModel {
-                    uuid: uuid.ok_or_else(|| serde::de::Error::missing_field("uuid"))?,
-                    model: model.ok_or_else(|| serde::de::Error::missing_field("model"))?,
-                })
-            }
-        }
-
-        const FIELDS: &[&str] = &["uuid", "model"];
-        deserializer.deserialize_struct(
-            "ErasedDataModel",
-            FIELDS,
-            ModuleVisitor {
-                marker: PhantomData::<ErasedDataModel>,
-                lifetime: PhantomData,
-                registry: self.registry,
-            },
-        )
     }
 }
 
@@ -1144,9 +1173,9 @@ impl Project {
                             Change::CreateData { t, uuid, owner } => {
                                 data.insert(
                                     *uuid,
-                                    ErasedDataModel {
-                                        uuid: *t,
-                                        model: reg.modules5.get(t).unwrap()(),
+                                    DynData {
+                                        module: ModuleUuid(*t),
+                                        data: reg.modules5.get(t).unwrap()(),
                                     },
                                 );
                                 if let Some(owner) = owner {
@@ -1168,7 +1197,7 @@ impl Project {
                                     TransactionTarget::PersistentData(data_uuid) => {
                                         let mut d = data.get_mut(&data_uuid).unwrap();
                                         // TODO: assert if correct
-                                        apply(&mut d.model, &erased_transaction_data.data);
+                                        apply(&mut d.data, &erased_transaction_data.data);
                                     }
                                     TransactionTarget::PersistendUserData(data_uuid, user) => {
                                         todo!("add support for this, currently the trait does not support this")
@@ -1222,7 +1251,7 @@ pub struct ProjectView {
     /// The user currently interacting with the project.
     user: User,
     /// TODO: document
-    data: HashMap<DataUuid, ErasedDataModel>,
+    data: HashMap<DataUuid, DynData>,
     /// A map of all documents found in this project
     documents: HashMap<DocumentUuid, DocumentRecord>,
 }
@@ -1287,21 +1316,15 @@ impl ProjectView {
     #[must_use]
     pub fn open_data<M: Module>(&self, data_uuid: DataUuid) -> Option<DataView<M>> {
         // TODO: Option -> Result
-        let data = &self
-            .data
-            .get(&data_uuid)?
-            .model
-            .as_any()
-            .downcast_ref::<DataModel<M>>()?
-            .0;
+        let data = &self.data.get(&data_uuid)?.downcast_ref::<M>()?;
 
         Some(DataView {
             project: self,
             data: data_uuid,
             persistent: &data.persistent,
             persistent_user: &data.persistent_user,
-            session_data: &data.session_data,
-            shared_data: &data.shared_data,
+            session_data: &data.session,
+            shared_data: &data.shared,
         })
     }
 }

@@ -3506,6 +3506,7 @@ dependencies = [
  "erased-serde",
  "lazy_static",
  "module",
+ "paste",
  "serde",
  "serde_json",
  "uuid",
