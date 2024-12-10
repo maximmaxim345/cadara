@@ -19,7 +19,7 @@ use uuid::Uuid;
 pub struct DocumentView<'a> {
     /// Identifier of this document
     pub(crate) document: DocumentUuid,
-    pub(crate) project: &'a ProjectView,
+    pub project: &'a ProjectView,
     /// The user currently interacting with the project.
     pub(crate) user: User,
 }
@@ -83,15 +83,6 @@ impl<'a> DocumentView<'a> {
         a.iter()
             .filter_map(|&uuid| self.open_data_by_uuid(uuid))
             .collect()
-    }
-
-    /// Returns a [`ProjectSession`] for this document's project
-    #[must_use]
-    pub fn project(&self) -> ProjectView {
-        ProjectView {
-            project: self.project.clone(),
-            user: self.user,
-        }
     }
 
     /// Creates a new data section inside this document
