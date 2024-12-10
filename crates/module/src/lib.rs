@@ -46,6 +46,7 @@ pub trait DataTransaction {
     /// - This function is pure, meaning it does not have side effects and will always produce the same output
     ///   and leave the object in the same state when called with the same arguments.
     /// - This function should not alter the object state if an error occurs.
+    // TODO: maybe args should be a ref?
     fn apply(&mut self, args: Self::Args) -> Result<Self::Output, Self::Error>;
 
     /// Applies the transaction without performing any checks.

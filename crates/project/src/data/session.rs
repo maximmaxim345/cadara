@@ -1,5 +1,3 @@
-pub mod internal;
-
 use crate::{
     ChangeBuilder, ErasedTransactionData, ProjectLogEntry, ProjectView, TransactionData,
     TransactionTarget,
