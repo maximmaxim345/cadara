@@ -10,27 +10,6 @@ use internal::InternalDataSession;
 use module::{DataTransaction, Module, ReversibleDataTransaction};
 use std::sync::{Arc, Mutex, Weak};
 
-/// Represents a snapshot of a data sections state in a session.
-///
-/// A [`Snapshot`] encapsulates the state of a data section at a specific point in time during a session.
-/// It includes both persistent and non-persistent data.
-/// TODO: add note saying this is main way to access data <- if true
-///
-/// retrieved using [`DataSession::snapshot`].
-///
-/// [`DataSession::snapshot`]: crate::data::DataSession::snapshot
-#[derive(Clone, Default, Debug, PartialEq, Hash)]
-pub struct Snapshot<M: Module> {
-    /// The persistent data.
-    pub persistent: M::PersistentData,
-    /// The persistent user-specific data.
-    pub persistent_user: M::PersistentUserData,
-    /// The non-persistent user-specific data.
-    pub session: M::SessionData,
-    /// The non-persistent data shared among users.
-    pub shared: M::SharedData,
-}
-
 /// Represents an interactive session of a document within a project.
 ///
 /// A [`DataSession`] encapsulates the state of an open document that is part of a [`Project`].
@@ -56,24 +35,6 @@ pub struct DataView<'a, M: Module> {
 }
 
 impl<'a, M: Module> DataView<'a, M> {
-    /// Captures the current state of the session in a snapshot.
-    ///
-    /// A snapshot includes all relevant session data, such as persistent data and
-    /// data shared among users for the current session.
-    ///
-    /// # Returns
-    /// A [`Snapshot<M>`] that encapsulates the session's current state.
-    #[must_use]
-    pub fn snapshot(&self) -> Snapshot<M> {
-        let session = self.session.lock().unwrap();
-        Snapshot {
-            persistent: session.persistent.clone(),
-            persistent_user: session.persistent_user.clone(),
-            session: session.session_data.clone(),
-            shared: session.shared_data.clone(),
-        }
-    }
-
     // TODO: add doc
     fn apply_session(
         &self,
