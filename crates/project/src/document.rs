@@ -3,7 +3,7 @@
 //! Each document is a collection of data sections, which is displayed to the user as a single item.
 
 use crate::{
-    data::{internal::InternalData, DataUuid, DataView},
+    data::{DataUuid, DataView},
     user::User,
     ChangeBuilder, DataModel, ErasedDataModel, ProjectLogEntry, ProjectView,
 };

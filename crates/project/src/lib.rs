@@ -18,7 +18,7 @@ pub mod document;
 pub mod user;
 
 use data::DataUuid;
-use data::{internal::InternalData, session::internal::InternalDataSession, DataView};
+use data::{internal::InternalData, DataView};
 use document::{DocumentUuid, DocumentView};
 use module::{DataTransaction, Module, ReversibleDataTransaction};
 use serde::de::{DeserializeSeed, Visitor};
@@ -362,7 +362,7 @@ impl ModuleRegistry {
                 .as_any()
                 .downcast_ref::<TransactionData<M>>()
                 .unwrap();
-            m.0.apply_persistent(&t.0, Uuid::new_v4());
+            module::DataTransaction::apply(&mut m.0.persistent, t.0.clone());
         });
     }
 }
@@ -1111,7 +1111,7 @@ impl ChangeBuilder {
 /// [`ProjectManager`]: crate::manager::ProjectManager
 // TODO: remove `Project` and rename `InternalProject` to `Project`
 #[derive(Serialize, Deserialize, Debug, Default)]
-struct Project {
+pub struct Project {
     /// Chronological list of all applied [`ProjectTransaction`]s.
     log: Vec<ProjectLogEntry>,
     shared_data: HashMap<DataUuid, ErasedSharedData>,
@@ -1281,6 +1281,7 @@ impl ProjectView {
 
         Some(DataView {
             project: self,
+            data: data_uuid,
             persistent: &data.persistent,
             persistent_user: &data.persistent_user,
             session_data: &data.session_data,
