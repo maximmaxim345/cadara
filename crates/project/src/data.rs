@@ -6,7 +6,7 @@
 // Public modules and re-exports
 pub mod transaction;
 use serde::{Deserialize, Serialize};
-pub use session::{DataView, Snapshot};
+pub use session::DataView;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]

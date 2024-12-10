@@ -3,11 +3,7 @@ use crate::{
     TransactionTarget,
 };
 
-use super::{
-    internal::{AppliedTransaction, InternalData, TransactionState, UndoUnit, UndoneTransaction},
-    transaction, DataUuid,
-};
-use internal::InternalDataSession;
+use super::{transaction, DataUuid};
 use module::{DataTransaction, Module, ReversibleDataTransaction};
 use std::sync::{Arc, Mutex, Weak};
 
