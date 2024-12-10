@@ -1,6 +1,5 @@
 use crate::{
-    ChangeBuilder, ErasedTransactionData, ProjectLogEntry, ProjectView, TransactionData,
-    TransactionTarget,
+    Change, ChangeBuilder, ErasedTransactionData, ProjectView, TransactionData, TransactionTarget,
 };
 
 use super::{transaction, DataUuid};
@@ -58,12 +57,11 @@ impl<'a, M: Module> DataView<'a, M> {
     pub fn apply(&mut self, args: transaction::TransactionArgs<M>, cb: &mut ChangeBuilder) {
         match args {
             transaction::TransactionArgs::Persistent(p) => {
-                cb.changes
-                    .push(ProjectLogEntry::Transaction(ErasedTransactionData {
-                        uuid: M::uuid(),
-                        target: TransactionTarget::PersistentData(self.data),
-                        data: Box::new(TransactionData::<M>(p)),
-                    }));
+                cb.changes.push(Change::Transaction(ErasedTransactionData {
+                    uuid: M::uuid(),
+                    target: TransactionTarget::PersistentData(self.data),
+                    data: Box::new(TransactionData::<M>(p)),
+                }));
             }
             transaction::TransactionArgs::PersistentUser(_) => todo!(),
             transaction::TransactionArgs::Session(_) => todo!(),

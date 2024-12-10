@@ -1055,7 +1055,7 @@ where
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-enum ProjectLogEntry {
+enum Change {
     CreateDocument {
         uuid: DocumentUuid,
         name: String,
@@ -1078,14 +1078,19 @@ enum ProjectLogEntry {
         new_owner: Option<DocumentUuid>,
     },
     Transaction(ErasedTransactionData),
-    // TODO: this should probably save a pointer to what to undo/redo
-    Undo,
-    Redo,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+enum ProjectLogEntry {
+    Change { session: Uuid, entries: Vec<Change> },
+    Undo { session: Uuid },
+    Redo { session: Uuid },
+    NewSession { user: User, session: Uuid },
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct ChangeBuilder {
-    changes: Vec<ProjectLogEntry>,
+    changes: Vec<Change>,
 }
 
 impl ChangeBuilder {
@@ -1126,48 +1131,56 @@ impl Project {
         let mut documents = HashMap::new();
         for e in &self.log {
             match e {
-                ProjectLogEntry::CreateDocument { uuid, name } => {
-                    documents.insert(*uuid, DocumentRecord::default());
-                }
-                ProjectLogEntry::DeleteDocument(document_uuid) => {
-                    documents.remove_entry(document_uuid);
-                }
-                ProjectLogEntry::RenameDocument { uuid, new_name } => {}
-                ProjectLogEntry::CreateData { t, uuid, owner } => {
-                    data.insert(
-                        *uuid,
-                        ErasedDataModel {
-                            uuid: *t,
-                            model: reg.modules5.get(t).unwrap()(),
-                        },
-                    );
-                    if let Some(owner) = owner {
-                        documents
-                            .entry(*owner)
-                            .or_insert(Default::default())
-                            .data
-                            .push(*uuid);
+                ProjectLogEntry::Change { session, entries } => {
+                    for e in entries {
+                        match e {
+                            Change::CreateDocument { uuid, name } => {
+                                documents.insert(*uuid, DocumentRecord::default());
+                            }
+                            Change::DeleteDocument(document_uuid) => {
+                                documents.remove_entry(document_uuid);
+                            }
+                            Change::RenameDocument { uuid, new_name } => {}
+                            Change::CreateData { t, uuid, owner } => {
+                                data.insert(
+                                    *uuid,
+                                    ErasedDataModel {
+                                        uuid: *t,
+                                        model: reg.modules5.get(t).unwrap()(),
+                                    },
+                                );
+                                if let Some(owner) = owner {
+                                    documents
+                                        .entry(*owner)
+                                        .or_insert(Default::default())
+                                        .data
+                                        .push(*uuid);
+                                }
+                            }
+                            Change::DeleteData { uuid } => {
+                                data.remove(uuid);
+                            }
+                            Change::MoveData { uuid, new_owner } => todo!(),
+                            Change::Transaction(erased_transaction_data) => {
+                                let apply =
+                                    reg.modules6.get(&erased_transaction_data.uuid).unwrap();
+                                match erased_transaction_data.target {
+                                    TransactionTarget::PersistentData(data_uuid) => {
+                                        let mut d = data.get_mut(&data_uuid).unwrap();
+                                        // TODO: assert if correct
+                                        apply(&mut d.model, &erased_transaction_data.data);
+                                    }
+                                    TransactionTarget::PersistendUserData(data_uuid, user) => {
+                                        todo!("add support for this, currently the trait does not support this")
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-                ProjectLogEntry::DeleteData { uuid } => {
-                    data.remove(uuid);
-                }
-                ProjectLogEntry::MoveData { uuid, new_owner } => todo!(),
-                ProjectLogEntry::Transaction(erased_transaction_data) => {
-                    let apply = reg.modules6.get(&erased_transaction_data.uuid).unwrap();
-                    match erased_transaction_data.target {
-                        TransactionTarget::PersistentData(data_uuid) => {
-                            let mut d = data.get_mut(&data_uuid).unwrap();
-                            // TODO: assert if correct
-                            apply(&mut d.model, &erased_transaction_data.data);
-                        }
-                        TransactionTarget::PersistendUserData(data_uuid, user) => {
-                            todo!("add support for this, currently the trait does not support this")
-                        }
-                    }
-                }
-                ProjectLogEntry::Undo => todo!(),
-                ProjectLogEntry::Redo => todo!(),
+                ProjectLogEntry::Undo { session } => todo!(),
+                ProjectLogEntry::Redo { session } => todo!(),
+                ProjectLogEntry::NewSession { user, session } => todo!(),
             };
         }
 
@@ -1195,8 +1208,11 @@ impl Project {
         todo!("remove or implement this")
     }
 
-    pub fn apply_changes(&mut self, mut cb: ChangeBuilder) {
-        self.log.append(&mut cb.changes);
+    pub fn apply_changes(&mut self, cb: ChangeBuilder) {
+        self.log.push(ProjectLogEntry::Change {
+            session: Uuid::new_v4(),
+            entries: cb.changes,
+        });
     }
 }
 
@@ -1239,7 +1255,7 @@ impl ProjectView {
     pub fn create_document(&self, cb: &mut ChangeBuilder) -> DocumentUuid {
         let uuid = DocumentUuid::new_v4();
 
-        cb.changes.push(ProjectLogEntry::CreateDocument {
+        cb.changes.push(Change::CreateDocument {
             uuid,
             name: String::new(),
         });
@@ -1248,7 +1264,7 @@ impl ProjectView {
 
     pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> DataUuid {
         let uuid = DataUuid::new_v4();
-        cb.changes.push(ProjectLogEntry::CreateData {
+        cb.changes.push(Change::CreateData {
             t: M::uuid(),
             uuid,
             owner: None,

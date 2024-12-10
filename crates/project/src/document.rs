@@ -5,7 +5,7 @@
 use crate::{
     data::{DataUuid, DataView},
     user::User,
-    ChangeBuilder, DataModel, ErasedDataModel, ProjectLogEntry, ProjectView,
+    Change, ChangeBuilder, DataModel, ErasedDataModel, ProjectView,
 };
 use module::Module;
 use serde::{Deserialize, Serialize};
@@ -95,7 +95,7 @@ impl<'a> DocumentView<'a> {
     #[must_use]
     pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> DataUuid {
         let uuid = DataUuid::new_v4();
-        cb.changes.push(ProjectLogEntry::CreateData {
+        cb.changes.push(Change::CreateData {
             t: M::uuid(),
             uuid,
             owner: Some(self.document),
