@@ -96,7 +96,7 @@ impl<'a> DocumentView<'a> {
     pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> DataUuid {
         let uuid = DataUuid::new_v4();
         cb.changes.push(Change::CreateData {
-            t: M::uuid(),
+            module: crate::ModuleUuid::from_module::<M>(),
             uuid,
             owner: Some(self.document),
         });

@@ -73,6 +73,7 @@ struct TransactionData<M: Module>(<M::PersistentData as DataTransaction>::Args);
 /// # Arguments
 ///
 /// * `$d` - The base data type to generate implementations for
+/// * `$reg_entry` - Name of the [`BoxedDeserializeFunction`] in [`ModuleRegEntry`]
 ///
 /// # Generated Types
 ///
@@ -282,11 +283,11 @@ macro_rules! define_type_erased_data {
                                         let module = module.ok_or_else(|| {
                                             serde::de::Error::custom("module must precede data")
                                         })?;
-                                        let d = self.registry.$reg_entry.get(&module.0).ok_or_else(|| {
+                                        let d = self.registry.0.get(&module).ok_or_else(|| {
                                             serde::de::Error::custom("module not found in registry")
-                                        })?;
+                                        })?.$reg_entry;
 
-                                        data = Some(map.next_value_seed(BoxedDeserializerSeed(*d))?);
+                                        data = Some(map.next_value_seed(BoxedDeserializerSeed(d))?);
                                     }
                                     ModuleField::Ignore => {
                                         let _: serde::de::IgnoredAny = map.next_value()?;
@@ -316,10 +317,10 @@ macro_rules! define_type_erased_data {
     };
 }
 
-define_type_erased_data!(Data, modules);
-define_type_erased_data!(SessionData, modules4);
-define_type_erased_data!(SharedData, modules3);
-define_type_erased_data!(TransactionData, modules2);
+define_type_erased_data!(Data, deserialize_data);
+define_type_erased_data!(SessionData, deserialize_session);
+define_type_erased_data!(SharedData, deserialize_shared);
+define_type_erased_data!(TransactionData, deserialize_transaction);
 
 // We use this thread local storage to pass data to the deserialize function through
 // automatically derived implementations of `Deserialize`. Alternatively, we could
@@ -351,50 +352,54 @@ struct DocumentRecord {
     data: Vec<DataUuid>,
 }
 
+#[derive(Clone, Debug)]
+struct ModuleRegEntry {
+    deserialize_data: BoxedDeserializeFunction<Box<dyn DataTrait>>,
+    deserialize_transaction: BoxedDeserializeFunction<Box<dyn TransactionDataTrait>>,
+    deserialize_shared: BoxedDeserializeFunction<Box<dyn SharedDataTrait>>,
+    deserialize_session: BoxedDeserializeFunction<Box<dyn SessionDataTrait>>,
+    init_data: fn() -> Box<dyn DataTrait>,
+    apply_transaction: fn(&mut Box<dyn DataTrait>, &Box<dyn TransactionDataTrait>),
+}
+
 /// A registry containing all installed modules necessary for deserialization.
 #[derive(Clone, Debug, Default)]
-pub struct ModuleRegistry {
-    // TODO: remove modules,
-    modules: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn DataTrait>>>,
-    modules2: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn TransactionDataTrait>>>,
-    modules3: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn SharedDataTrait>>>,
-    modules4: HashMap<Uuid, BoxedDeserializeFunction<Box<dyn SessionDataTrait>>>,
-    modules5: HashMap<Uuid, fn() -> Box<dyn DataTrait>>,
-    modules6: HashMap<Uuid, fn(&mut Box<dyn DataTrait>, &Box<dyn TransactionDataTrait>)>,
-}
+pub struct ModuleRegistry(HashMap<ModuleUuid, ModuleRegEntry>);
 
 impl ModuleRegistry {
     pub fn register<M>(&mut self)
     where
         M: Module + for<'de> Deserialize<'de>,
     {
-        self.modules.insert(M::uuid(), |d| {
-            Ok(Box::new(erased_serde::deserialize::<Data<M>>(d)?))
-        });
-        self.modules2.insert(M::uuid(), |d| {
-            Ok(Box::new(erased_serde::deserialize::<TransactionData<M>>(
-                d,
-            )?))
-        });
-        self.modules3.insert(M::uuid(), |d| {
-            Ok(Box::new(erased_serde::deserialize::<SharedData<M>>(d)?))
-        });
-        self.modules4.insert(M::uuid(), |d| {
-            Ok(Box::new(erased_serde::deserialize::<SessionData<M>>(d)?))
-        });
-        self.modules5
-            .insert(M::uuid(), || Box::new(Data::<M>::default()));
-        self.modules6.insert(M::uuid(), |m, t| {
-            //
-            let m = m.as_mut().as_mut_any().downcast_mut::<Data<M>>().unwrap();
-            // TODO: persistent uses is not implemented
-            let t = t
-                .as_ref()
-                .as_any()
-                .downcast_ref::<TransactionData<M>>()
-                .unwrap();
-            module::DataTransaction::apply(&mut m.persistent, t.0.clone());
-        });
+        self.0.insert(
+            ModuleUuid::from_module::<M>(),
+            ModuleRegEntry {
+                deserialize_data: |d| Ok(Box::new(erased_serde::deserialize::<Data<M>>(d)?)),
+                deserialize_transaction: |d| {
+                    Ok(Box::new(erased_serde::deserialize::<TransactionData<M>>(
+                        d,
+                    )?))
+                },
+                deserialize_shared: |d| {
+                    Ok(Box::new(erased_serde::deserialize::<SharedData<M>>(d)?))
+                },
+                deserialize_session: |d| {
+                    Ok(Box::new(erased_serde::deserialize::<SessionData<M>>(d)?))
+                },
+                init_data: || Box::new(Data::<M>::default()),
+                apply_transaction: |m, t| {
+                    //
+                    let m = m.as_mut().as_mut_any().downcast_mut::<Data<M>>().unwrap();
+                    // TODO: persistent user is not implemented
+                    let t = t
+                        .as_ref()
+                        .as_any()
+                        .downcast_ref::<TransactionData<M>>()
+                        .unwrap();
+                    module::DataTransaction::apply(&mut m.persistent, t.0.clone());
+                },
+            },
+        );
     }
 }
 
@@ -453,7 +458,7 @@ enum Change {
         new_name: String,
     },
     CreateData {
-        t: Uuid,
+        module: ModuleUuid,
         uuid: DataUuid,
         owner: Option<DocumentUuid>,
     },
@@ -531,12 +536,16 @@ impl Project {
                                 documents.remove_entry(document_uuid);
                             }
                             Change::RenameDocument { uuid, new_name } => {}
-                            Change::CreateData { t, uuid, owner } => {
+                            Change::CreateData {
+                                module: t,
+                                uuid,
+                                owner,
+                            } => {
                                 data.insert(
                                     *uuid,
                                     DynData {
-                                        module: ModuleUuid(*t),
-                                        data: reg.modules5.get(t).unwrap()(),
+                                        module: *t,
+                                        data: (reg.0.get(t).unwrap().init_data)(),
                                     },
                                 );
                                 if let Some(owner) = owner {
@@ -552,7 +561,7 @@ impl Project {
                             }
                             Change::MoveData { uuid, new_owner } => todo!(),
                             Change::Transaction { target, data: d } => {
-                                let apply = reg.modules6.get(&d.module.0).unwrap();
+                                let apply = reg.0.get(&d.module).unwrap().apply_transaction;
                                 match target {
                                     TransactionTarget::PersistentData(data_uuid) => {
                                         let mut d2 = data.get_mut(&data_uuid).unwrap();
@@ -654,7 +663,7 @@ impl ProjectView {
     pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> DataUuid {
         let uuid = DataUuid::new_v4();
         cb.changes.push(Change::CreateData {
-            t: M::uuid(),
+            module: ModuleUuid::from_module::<M>(),
             uuid,
             owner: None,
         });
