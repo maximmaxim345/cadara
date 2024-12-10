@@ -5,7 +5,7 @@
 use crate::{
     data::{internal::InternalData, DataUuid, DataView},
     user::User,
-    DataModel, ErasedDataModel, ProjectView,
+    ChangeBuilder, DataModel, ErasedDataModel, ProjectLogEntry, ProjectView,
 };
 use module::Module;
 use serde::{Deserialize, Serialize};
@@ -55,12 +55,12 @@ impl<'a> DocumentView<'a> {
     /// An `Option` containing a `DataSession` if the data section exists, or `None` otherwise.
     #[must_use]
     pub fn open_data_by_uuid<M: Module>(&self, data_uuid: DataUuid) -> Option<DataView<M>> {
-        if self.project.lock().unwrap().documents[&self.document]
+        if self.project.documents[&self.document]
             .data
             .iter()
             .any(|u| *u == data_uuid)
         {
-            self.project().open_data(data_uuid)
+            self.project.open_data(data_uuid)
         } else {
             None
         }
@@ -76,11 +76,9 @@ impl<'a> DocumentView<'a> {
     /// TODO: make this an iterator, or return an Newtype of Uuid
     #[must_use]
     pub fn open_data_by_type<M: Module>(&self) -> Vec<DataView<M>> {
-        let a = {
-            let p = self.project.lock().unwrap();
-            p.documents[&self.document].data.clone()
-        };
-        a.iter()
+        self.project.documents[&self.document]
+            .data
+            .iter()
             .filter_map(|&uuid| self.open_data_by_uuid(uuid))
             .collect()
     }
@@ -95,33 +93,13 @@ impl<'a> DocumentView<'a> {
     ///
     /// If the document was deleted after creating this session object.
     #[must_use]
-    pub fn create_data<M: Module>(&self) -> DataUuid {
-        let new_data_uuid = DataUuid::new_v4();
-
-        let mut project = self.project.lock().unwrap();
-        let data = InternalData::<M> {
-            persistent_data: M::PersistentData::default(),
-            user_data: M::PersistentUserData::default(),
-            sessions: vec![],
-            module_uuid: M::uuid(),
-            shared_data: None,
-            transaction_history: std::collections::VecDeque::new(),
-            session_to_user: HashMap::new(),
-        };
-        let data_model: DataModel<M> = DataModel(Arc::new(Mutex::new(data)));
-        project.data.insert(
-            new_data_uuid,
-            ErasedDataModel {
-                model: Box::new(data_model),
-                uuid: M::uuid(),
-            },
-        );
-        project
-            .documents
-            .get_mut(&self.document)
-            .unwrap()
-            .data
-            .push(new_data_uuid);
-        new_data_uuid
+    pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> DataUuid {
+        let uuid = DataUuid::new_v4();
+        cb.changes.push(ProjectLogEntry::CreateData {
+            t: M::uuid(),
+            uuid,
+            owner: Some(self.document),
+        });
+        uuid
     }
 }

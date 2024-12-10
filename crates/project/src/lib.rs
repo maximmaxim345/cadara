@@ -1236,11 +1236,24 @@ impl ProjectView {
     ///
     /// The unique identifier [`Uuid`] of the newly created document.
     #[must_use]
-    pub fn create_document(&self) -> DocumentUuid {
-        let new_doc_uuid = DocumentUuid::new_v4();
+    pub fn create_document(&self, cb: &mut ChangeBuilder) -> DocumentUuid {
+        let uuid = DocumentUuid::new_v4();
 
-        todo!();
-        new_doc_uuid
+        cb.changes.push(ProjectLogEntry::CreateDocument {
+            uuid,
+            name: String::new(),
+        });
+        uuid
+    }
+
+    pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> DataUuid {
+        let uuid = DataUuid::new_v4();
+        cb.changes.push(ProjectLogEntry::CreateData {
+            t: M::uuid(),
+            uuid,
+            owner: None,
+        });
+        uuid
     }
 
     /// Opens a data section
