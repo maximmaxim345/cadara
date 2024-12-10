@@ -6,9 +6,9 @@
 
 #![warn(clippy::nursery)]
 #![warn(clippy::pedantic)]
-#![allow(clippy::module_name_repetitions)] // we don't want 3 different `Session` types
-#![allow(clippy::cognitive_complexity)]
-#![allow(clippy::missing_panics_doc)] // TODO: delete this asap
+// #![allow(clippy::module_name_repetitions)] // we don't want 3 different `Session` types
+// #![allow(clippy::cognitive_complexity)]
+// #![allow(clippy::missing_panics_doc)] // TODO: delete this asap
 
 // TODO: Transactions should be split into a normal and +unchecked version
 
