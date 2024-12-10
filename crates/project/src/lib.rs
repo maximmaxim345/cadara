@@ -53,6 +53,12 @@ struct Data<M: Module> {
     pub shared: M::SharedData,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+struct SharedData<M: Module>(M::SharedData);
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+struct SessionData<M: Module>(M::SessionData);
+
 /// Generates type-erased data container implementations for a given, on [`Module`] generic, data type
 ///
 /// This macro implements:
@@ -71,7 +77,7 @@ struct Data<M: Module> {
 /// - `DynT` - A type-erased wrapper with serialization support
 /// - `TDeserializeSeed` - Custom deserializer for the type-erased data
 macro_rules! define_type_erased_data {
-    ($d:ty) => {
+    ($d:ty, $reg_entry:ident) => {
         paste! {
             #[doc = "A trait shared by all [`" $d "`] types for all [`Module`]"]
             trait [<$d Trait>]: erased_serde::Serialize + Debug + Send + Any + DynClone {
@@ -263,7 +269,7 @@ macro_rules! define_type_erased_data {
                                         let module = module.ok_or_else(|| {
                                             serde::de::Error::custom("module must precede data")
                                         })?;
-                                        let d = self.registry.modules.get(&module.0).ok_or_else(|| {
+                                        let d = self.registry.$reg_entry.get(&module.0).ok_or_else(|| {
                                             serde::de::Error::custom("module not found in registry")
                                         })?;
 
@@ -297,19 +303,9 @@ macro_rules! define_type_erased_data {
     };
 }
 
-define_type_erased_data!(Data);
-
-trait SharedDataTrait: erased_serde::Serialize + Debug + Send + Any + DynClone {
-    fn as_any(&mut self) -> &mut dyn Any;
-}
-dyn_clone::clone_trait_object!(SharedDataTrait);
-erased_serde::serialize_trait_object!(SharedDataTrait);
-
-trait SessionDataTrait: erased_serde::Serialize + Debug + Send + Any + DynClone {
-    fn as_any(&mut self) -> &mut dyn Any;
-}
-dyn_clone::clone_trait_object!(SessionDataTrait);
-erased_serde::serialize_trait_object!(SessionDataTrait);
+define_type_erased_data!(Data, modules);
+define_type_erased_data!(SessionData, modules4);
+define_type_erased_data!(SharedData, modules3);
 
 use dyn_clone::DynClone;
 
@@ -347,30 +343,6 @@ where
 #[derive(Clone, Debug, Deserialize)]
 struct TransactionData<M: Module>(<M::PersistentData as DataTransaction>::Args);
 
-#[derive(Clone, Debug, Deserialize)]
-struct SharedDataConcrete<M: Module>(M::SharedData);
-
-#[derive(Clone, Debug, Deserialize)]
-struct SessionDataConcrete<M: Module>(M::SessionData);
-
-impl<M: Module> SharedDataTrait for SharedDataConcrete<M> {
-    fn as_any(&mut self) -> &mut dyn Any {
-        self
-    }
-}
-
-impl<M: Module> SessionDataTrait for SessionDataConcrete<M> {
-    fn as_any(&mut self) -> &mut dyn Any {
-        self
-    }
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct SharedData<M: Module>(Arc<Mutex<M::SharedData>>);
-
-#[derive(Clone, Debug, Deserialize)]
-struct SessionData<M: Module>(Arc<Mutex<M::SessionData>>);
-
 // We use this thread local storage to pass data to the deserialize function through
 // automatically derived implementations of `Deserialize`. Alternatively, we could
 // replace each step of the deserialization process with a custom implementation with a seed
@@ -378,18 +350,6 @@ struct SessionData<M: Module>(Arc<Mutex<M::SessionData>>);
 // TODO: look into alternatives to thread local storage
 thread_local! {
     static MODULE_REGISTRY: RefCell<Option<*const ModuleRegistry>> = const { RefCell::new(None) };
-}
-
-#[derive(Debug, Serialize, Clone)]
-struct ErasedSharedData {
-    uuid: Uuid, // Make a ModelUuid newtype
-    model: Box<dyn SharedDataTrait>,
-}
-
-#[derive(Debug, Serialize)]
-struct ErasedSessionData {
-    uuid: Uuid,
-    model: Box<dyn SessionDataTrait>, // TODO: rename to 'data', test
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -406,24 +366,6 @@ struct ErasedTransactionData {
 }
 
 impl<M: Module> Serialize for TransactionData<M> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
-
-impl<M: Module> Serialize for SessionDataConcrete<M> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
-
-impl<M: Module> Serialize for SharedDataConcrete<M> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -461,48 +403,6 @@ struct DocumentRecord {
     data: Vec<DataUuid>,
 }
 
-impl<'de> Deserialize<'de> for ErasedSharedData {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        // Retrieve the registry from thread local storage
-        // And use it to deserialize the model using the seed
-        MODULE_REGISTRY.with(|r| {
-            let registry = r.borrow();
-            let registry = registry.expect("no registry found");
-            let seed = ErasedSharedDataSeed {
-                // As long as the registry is alive, we can safely hold a reference to it.
-                // The registry is only invalidated after deserialization is complete, so only
-                // after this reference is dropped.
-                registry: unsafe { &*registry },
-            };
-            seed.deserialize(deserializer)
-        })
-    }
-}
-
-impl<'de> Deserialize<'de> for ErasedSessionData {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        // Retrieve the registry from thread local storage
-        // And use it to deserialize the model using the seed
-        MODULE_REGISTRY.with(|r| {
-            let registry = r.borrow();
-            let registry = registry.expect("no registry found");
-            let seed = ErasedSessionDataSeed {
-                // As long as the registry is alive, we can safely hold a reference to it.
-                // The registry is only invalidated after deserialization is complete, so only
-                // after this reference is dropped.
-                registry: unsafe { &*registry },
-            };
-            seed.deserialize(deserializer)
-        })
-    }
-}
-
 /// A registry containing all installed modules necessary for deserialization.
 #[derive(Clone, Debug, Default)]
 pub struct ModuleRegistry {
@@ -529,14 +429,10 @@ impl ModuleRegistry {
             )?))
         });
         self.modules3.insert(M::uuid(), |d| {
-            Ok(Box::new(
-                erased_serde::deserialize::<SharedDataConcrete<M>>(d)?,
-            ))
+            Ok(Box::new(erased_serde::deserialize::<SharedData<M>>(d)?))
         });
         self.modules4.insert(M::uuid(), |d| {
-            Ok(Box::new(
-                erased_serde::deserialize::<SessionDataConcrete<M>>(d)?,
-            ))
+            Ok(Box::new(erased_serde::deserialize::<SessionData<M>>(d)?))
         });
         self.modules5
             .insert(M::uuid(), || Box::new(Data::<M>::default()));
@@ -606,314 +502,6 @@ impl<'de, O: ?Sized> DeserializeSeed<'de> for BoxedDeserializerSeed<O> {
     fn deserialize<D: Deserializer<'de>>(self, deserializer: D) -> Result<Self::Value, D::Error> {
         self.0(&mut <dyn erased_serde::Deserializer>::erase(deserializer))
             .map_err(serde::de::Error::custom)
-    }
-}
-
-impl<'a, 'de> DeserializeSeed<'de> for ErasedSharedDataSeed<'a>
-where
-    'a: 'de,
-{
-    type Value = ErasedSharedData;
-
-    #[allow(clippy::too_many_lines)]
-    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        enum ModuleField {
-            Uuid,
-            Model,
-            Ignore,
-        }
-
-        struct FieldVisitor;
-
-        impl Visitor<'_> for FieldVisitor {
-            type Value = ModuleField;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("field identifier")
-            }
-
-            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                match value {
-                    0 => Ok(ModuleField::Uuid),
-                    1 => Ok(ModuleField::Model),
-                    _ => Ok(ModuleField::Ignore),
-                }
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                match value {
-                    "uuid" => Ok(ModuleField::Uuid),
-                    "model" => Ok(ModuleField::Model),
-                    _ => Ok(ModuleField::Ignore),
-                }
-            }
-
-            fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                match value {
-                    b"uuid" => Ok(ModuleField::Uuid),
-                    b"model" => Ok(ModuleField::Model),
-                    _ => Ok(ModuleField::Ignore),
-                }
-            }
-        }
-
-        impl<'de> Deserialize<'de> for ModuleField {
-            #[inline]
-            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where
-                D: Deserializer<'de>,
-            {
-                deserializer.deserialize_identifier(FieldVisitor)
-            }
-        }
-
-        struct ModuleVisitor<'de> {
-            marker: PhantomData<ErasedSharedData>,
-            lifetime: PhantomData<&'de ()>,
-            registry: &'de ModuleRegistry,
-        }
-
-        impl<'de> Visitor<'de> for ModuleVisitor<'de> {
-            type Value = ErasedSharedData;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("struct ErasedSharedData")
-            }
-
-            #[inline]
-            fn visit_seq<V>(self, mut _seq: V) -> Result<ErasedSharedData, V::Error>
-            where
-                V: serde::de::SeqAccess<'de>,
-            {
-                // let uuid = seq
-                //     .next_element()?
-                //     .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-                // let model = seq
-                //     // .next_element_seed(ModuleSeed {
-                //     //     registry: self.registry,
-                //     // })?
-                //     .next_element()?
-                //     .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
-                // Ok(ErasedSharedData { uuid, model })
-                todo!("sequential deserialization of ErasedSharedData is not supported yet")
-            }
-
-            #[inline]
-            fn visit_map<V>(self, mut map: V) -> Result<ErasedSharedData, V::Error>
-            where
-                V: serde::de::MapAccess<'de>,
-            {
-                let mut uuid = None;
-                let mut model = None;
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        ModuleField::Uuid => {
-                            if uuid.is_some() {
-                                return Err(serde::de::Error::duplicate_field("uuid"));
-                            }
-                            uuid = Some(map.next_value::<uuid::Uuid>()?);
-                        }
-                        ModuleField::Model => {
-                            if model.is_some() {
-                                return Err(serde::de::Error::duplicate_field("model"));
-                            }
-                            let uuid = uuid.ok_or_else(|| {
-                                serde::de::Error::custom("uuid must precede model")
-                            })?;
-                            let d = self.registry.modules3.get(&uuid).ok_or_else(|| {
-                                serde::de::Error::custom("module not found in registry")
-                            })?;
-
-                            model = Some(map.next_value_seed(BoxedDeserializerSeed(*d))?);
-                        }
-                        ModuleField::Ignore => {
-                            let _: serde::de::IgnoredAny = map.next_value()?;
-                        }
-                    }
-                }
-                Ok(ErasedSharedData {
-                    uuid: uuid.ok_or_else(|| serde::de::Error::missing_field("uuid"))?,
-                    model: model.ok_or_else(|| serde::de::Error::missing_field("model"))?,
-                })
-            }
-        }
-
-        const FIELDS: &[&str] = &["uuid", "model"];
-        deserializer.deserialize_struct(
-            "ErasedSharedData",
-            FIELDS,
-            ModuleVisitor {
-                marker: PhantomData::<ErasedSharedData>,
-                lifetime: PhantomData,
-                registry: self.registry,
-            },
-        )
-    }
-}
-
-impl<'a, 'de> DeserializeSeed<'de> for ErasedSessionDataSeed<'a>
-where
-    'a: 'de,
-{
-    type Value = ErasedSessionData;
-
-    #[allow(clippy::too_many_lines)]
-    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        enum ModuleField {
-            Uuid,
-            Model,
-            Ignore,
-        }
-
-        struct FieldVisitor;
-
-        impl Visitor<'_> for FieldVisitor {
-            type Value = ModuleField;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("field identifier")
-            }
-
-            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                match value {
-                    0 => Ok(ModuleField::Uuid),
-                    1 => Ok(ModuleField::Model),
-                    _ => Ok(ModuleField::Ignore),
-                }
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                match value {
-                    "uuid" => Ok(ModuleField::Uuid),
-                    "model" => Ok(ModuleField::Model),
-                    _ => Ok(ModuleField::Ignore),
-                }
-            }
-
-            fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                match value {
-                    b"uuid" => Ok(ModuleField::Uuid),
-                    b"model" => Ok(ModuleField::Model),
-                    _ => Ok(ModuleField::Ignore),
-                }
-            }
-        }
-
-        impl<'de> Deserialize<'de> for ModuleField {
-            #[inline]
-            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where
-                D: Deserializer<'de>,
-            {
-                deserializer.deserialize_identifier(FieldVisitor)
-            }
-        }
-
-        struct ModuleVisitor<'de> {
-            marker: PhantomData<ErasedSessionData>,
-            lifetime: PhantomData<&'de ()>,
-            registry: &'de ModuleRegistry,
-        }
-
-        impl<'de> Visitor<'de> for ModuleVisitor<'de> {
-            type Value = ErasedSessionData;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("struct ErasedSessionData")
-            }
-
-            #[inline]
-            fn visit_seq<V>(self, mut _seq: V) -> Result<ErasedSessionData, V::Error>
-            where
-                V: serde::de::SeqAccess<'de>,
-            {
-                // let uuid = seq
-                //     .next_element()?
-                //     .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-                // let model = seq
-                //     // .next_element_seed(ModuleSeed {
-                //     //     registry: self.registry,
-                //     // })?
-                //     .next_element()?
-                //     .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
-                // Ok(ErasedSessionData { uuid, model })
-                todo!("sequential deserialization of ErasedSessionData is not supported yet")
-            }
-
-            #[inline]
-            fn visit_map<V>(self, mut map: V) -> Result<ErasedSessionData, V::Error>
-            where
-                V: serde::de::MapAccess<'de>,
-            {
-                let mut uuid = None;
-                let mut model = None;
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        ModuleField::Uuid => {
-                            if uuid.is_some() {
-                                return Err(serde::de::Error::duplicate_field("uuid"));
-                            }
-                            uuid = Some(map.next_value::<uuid::Uuid>()?);
-                        }
-                        ModuleField::Model => {
-                            if model.is_some() {
-                                return Err(serde::de::Error::duplicate_field("model"));
-                            }
-                            let uuid = uuid.ok_or_else(|| {
-                                serde::de::Error::custom("uuid must precede model")
-                            })?;
-                            let d = self.registry.modules4.get(&uuid).ok_or_else(|| {
-                                serde::de::Error::custom("module not found in registry")
-                            })?;
-
-                            model = Some(map.next_value_seed(BoxedDeserializerSeed(*d))?);
-                        }
-                        ModuleField::Ignore => {
-                            let _: serde::de::IgnoredAny = map.next_value()?;
-                        }
-                    }
-                }
-                Ok(ErasedSessionData {
-                    uuid: uuid.ok_or_else(|| serde::de::Error::missing_field("uuid"))?,
-                    model: model.ok_or_else(|| serde::de::Error::missing_field("model"))?,
-                })
-            }
-        }
-
-        const FIELDS: &[&str] = &["uuid", "model"];
-        deserializer.deserialize_struct(
-            "ErasedSessionData",
-            FIELDS,
-            ModuleVisitor {
-                marker: PhantomData::<ErasedSessionData>,
-                lifetime: PhantomData,
-                registry: self.registry,
-            },
-        )
     }
 }
 
@@ -1148,8 +736,8 @@ impl ChangeBuilder {
 pub struct Project {
     /// Chronological list of all applied [`ProjectTransaction`]s.
     log: Vec<ProjectLogEntry>,
-    shared_data: HashMap<DataUuid, ErasedSharedData>,
-    session_data: HashMap<DataUuid, ErasedSessionData>,
+    shared_data: HashMap<DataUuid, DynSharedData>,
+    session_data: HashMap<DataUuid, DynSessionData>,
 }
 
 impl Project {
