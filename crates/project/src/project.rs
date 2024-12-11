@@ -50,7 +50,6 @@ impl ProjectView {
     ///
     /// # Returns
     /// The unique identifier of the document recorded to `cb`.
-    #[expect(clippy::unused_self)]
     #[must_use]
     pub fn create_document(&self, cb: &mut ChangeBuilder) -> DocumentId {
         let id = DocumentId::new_v4();
@@ -66,7 +65,6 @@ impl ProjectView {
     /// # Returns
     ///
     /// The unique identifier of the data recorded to `cb`.
-    #[expect(clippy::unused_self, reason = "for a consistent API")]
     pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> DataId {
         let id = DataId::new_v4();
         cb.changes.push(Change::CreateData {

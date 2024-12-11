@@ -9,7 +9,6 @@
 #![warn(clippy::pedantic)]
 
 // TODO: complete refactoring of project
-// - remove pub where possible
 // - check uses
 // - delete unused types
 // - refactor user.rs, including Session support
@@ -24,29 +23,32 @@
 // - Design Task (branch) > Changes (checkpoint) > Actions (change -> action, changes -> actions)
 // - Revisions use CheckPoint, but also make a immutable ProjectArchive w.o redundant data
 
-pub mod data;
-pub mod document;
-pub mod user;
-
+mod data;
+mod document;
 mod module_data;
 mod project;
+mod user;
 
-use data::DataId;
 use document::Document;
-use document::DocumentId;
 use module_data::ErasedData;
 use module_data::ErasedSessionData;
 use module_data::ErasedTransactionArgs;
 use module_data::ModuleRegistry;
 use module_data::ModuleId;
 use module_data::MODULE_REGISTRY;
-use project::ProjectView;
 use serde::de::DeserializeSeed;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use user::User;
 use uuid::Uuid;
+
+// Public reexports
+pub use data::DataId;
+pub use data::DataView;
+pub use document::DocumentId;
+pub use document::DocumentView;
+pub use project::ProjectView;
 
 /// Helper to deserialize a [`Project`].
 ///

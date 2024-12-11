@@ -15,7 +15,7 @@ pub struct DocumentId(Uuid);
 impl DocumentId {
     /// Create a new random identifier.
     #[must_use]
-    pub fn new_v4() -> Self {
+    pub(crate) fn new_v4() -> Self {
         Self(Uuid::new_v4())
     }
 }
@@ -32,7 +32,7 @@ pub struct Document {
 #[derive(Clone, Debug)]
 #[expect(clippy::module_name_repetitions)]
 pub struct DocumentView<'a> {
-    pub(crate) id: DocumentId,
+    pub id: DocumentId,
     pub project: &'a ProjectView,
     pub document: &'a Document,
 }

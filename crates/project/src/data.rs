@@ -13,7 +13,7 @@ pub struct DataId(Uuid);
 impl DataId {
     /// Create a new random identifier.
     #[must_use]
-    pub fn new_v4() -> Self {
+    pub(crate) fn new_v4() -> Self {
         Self(Uuid::new_v4())
     }
 }
