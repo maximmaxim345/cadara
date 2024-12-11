@@ -6,6 +6,7 @@ use module::{DataTransaction, Module};
 ///
 /// [`DataSession`]: crate::data::DataSession
 #[derive(Debug, Clone, PartialEq, Hash)]
+#[expect(clippy::module_name_repetitions)]
 pub enum TransactionArgs<M: Module> {
     Persistent(<M::PersistentData as DataTransaction>::Args),
     PersistentUser(<M::PersistentUserData as DataTransaction>::Args),
@@ -17,6 +18,7 @@ pub enum TransactionArgs<M: Module> {
 ///
 /// [`DataSession`]: crate::data::DataSession
 #[derive(Debug, Clone, PartialEq)]
+#[expect(clippy::module_name_repetitions)]
 pub enum TransactionOutput<M: Module> {
     Persistent(<M::PersistentData as DataTransaction>::Output),
     PersistentUser(<M::PersistentUserData as DataTransaction>::Output),
@@ -26,6 +28,7 @@ pub enum TransactionOutput<M: Module> {
 
 /// Common error type for all transactions on a document.
 #[derive(Debug, Clone, PartialEq)]
+#[expect(clippy::module_name_repetitions)]
 pub enum TransactionError<M: Module> {
     Persistent(<M::PersistentData as DataTransaction>::Error),
     PersistentUser(<M::PersistentUserData as DataTransaction>::Error),

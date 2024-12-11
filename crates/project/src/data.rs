@@ -6,11 +6,13 @@
 // Public modules and re-exports
 pub mod transaction;
 use serde::{Deserialize, Serialize};
+#[expect(clippy::module_name_repetitions)]
 pub use session::DataView;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
+#[expect(clippy::module_name_repetitions)]
 pub struct DataUuid {
     uuid: Uuid,
 }

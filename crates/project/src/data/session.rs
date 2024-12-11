@@ -1,10 +1,7 @@
-use crate::{
-    Change, ChangeBuilder, ErasedTransactionData, ProjectView, TransactionData, TransactionTarget,
-};
+use crate::{Change, ChangeBuilder, ProjectView, TransactionData, TransactionTarget};
 
 use super::{transaction, DataUuid};
-use module::{DataTransaction, Module, ReversibleDataTransaction};
-use std::sync::{Arc, Mutex, Weak};
+use module::Module;
 
 /// Represents an interactive session of a document within a project.
 ///
@@ -31,7 +28,7 @@ pub struct DataView<'a, M: Module> {
     pub shared_data: &'a M::SharedData,
 }
 
-impl<'a, M: Module> DataView<'a, M> {
+impl<M: Module> DataView<'_, M> {
     /// Applies a transaction to this data session.
     ///
     /// This function handles different types of transactions and applies them to the appropriate

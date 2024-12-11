@@ -21,17 +21,16 @@ use data::DataUuid;
 use data::DataView;
 use document::{DocumentUuid, DocumentView};
 use dyn_clone::DynClone;
-use module::{DataTransaction, Module, ReversibleDataTransaction};
+use module::{DataTransaction, Module};
 use paste::paste;
 use serde::de::{DeserializeSeed, Visitor};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
 use user::User;
 use uuid::Uuid;
 
@@ -85,6 +84,7 @@ macro_rules! define_type_erased_data {
     ($d:ty, $reg_entry:ident) => {
         paste! {
             #[doc = "A trait shared by all [`" $d "`] types for all [`Module`]"]
+            #[allow(dead_code)]
             trait [<$d Trait>]: erased_serde::Serialize + Debug + Send + Any + DynClone {
                 /// Provides read-only access to the underlying data type.
                 fn as_any(&self) -> &dyn Any;
@@ -114,6 +114,7 @@ macro_rules! define_type_erased_data {
                 data: Box<dyn [<$d Trait>]>,
             }
 
+            #[allow(dead_code)]
             impl [<Dyn $d>] {
                 pub fn downcast_ref<M: Module>(&self) -> Option<&$d<M>> {
                     self.data.as_any().downcast_ref()
@@ -122,6 +123,7 @@ macro_rules! define_type_erased_data {
                 pub fn downcast_mut<M: Module>(&mut self) -> Option<&mut $d<M>> {
                     self.data.as_mut_any().downcast_mut()
                 }
+
             }
 
             impl<M: Module> From<$d<M>> for [<Dyn $d>] {
@@ -337,13 +339,6 @@ enum TransactionTarget {
     PersistendUserData(DataUuid, User),
 }
 
-#[derive(Clone, Debug, Serialize)]
-struct ErasedTransactionData {
-    uuid: Uuid, // TODO: rename to indicate that this is the UUID of the module for deserailization/serialization
-    target: TransactionTarget,
-    data: Box<dyn TransactionDataTrait>, // TODO: use smallbox::SmallBox instead of Box
-}
-
 /// Document in a Project
 ///
 /// Defines the metadata and the identifiers of containing data sections.
@@ -388,7 +383,6 @@ impl ModuleRegistry {
                 },
                 init_data: || Box::new(Data::<M>::default()),
                 apply_transaction: |m, t| {
-                    //
                     let m = m.as_mut().as_mut_any().downcast_mut::<Data<M>>().unwrap();
                     // TODO: persistent user is not implemented
                     let t = t
@@ -489,11 +483,12 @@ pub struct ChangeBuilder {
 }
 
 impl ChangeBuilder {
-    pub fn new() -> ChangeBuilder {
-        ChangeBuilder::default()
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    pub fn append(&mut self, mut other: ChangeBuilder) {
+    pub fn append(&mut self, mut other: Self) {
         self.changes.append(&mut other.changes);
     }
 }
@@ -564,7 +559,7 @@ impl Project {
                                 let apply = reg.0.get(&d.module).unwrap().apply_transaction;
                                 match target {
                                     TransactionTarget::PersistentData(data_uuid) => {
-                                        let mut d2 = data.get_mut(&data_uuid).unwrap();
+                                        let d2 = data.get_mut(data_uuid).unwrap();
                                         // TODO: assert if correct
                                         apply(&mut d2.data, &d.data);
                                     }
@@ -596,7 +591,7 @@ impl Project {
     /// * `name` - The name of the project.
     #[must_use]
     pub fn new(_name: String) -> Self {
-        Project::default()
+        Self::default()
     }
 
     /// Creates a new project given the name, user and path.
@@ -636,11 +631,10 @@ impl ProjectView {
     ///
     /// An `Option` containing a [`DocumentSession`] if the document could be opened, or `None` otherwise.
     #[must_use]
-    pub fn open_document(&self, document_uuid: DocumentUuid) -> Option<DocumentView> {
+    pub const fn open_document(&self, document_uuid: DocumentUuid) -> Option<DocumentView> {
         Some(DocumentView {
             document: document_uuid,
             project: self,
-            user: self.user,
         })
     }
 

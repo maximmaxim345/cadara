@@ -4,28 +4,23 @@
 
 use crate::{
     data::{DataUuid, DataView},
-    user::User,
-    Change, ChangeBuilder, Data, DynData, ProjectView,
+    Change, ChangeBuilder, ProjectView,
 };
 use module::Module;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
 use uuid::Uuid;
 
 #[derive(Clone, Debug)]
+#[expect(clippy::module_name_repetitions)]
 pub struct DocumentView<'a> {
     /// Identifier of this document
     pub(crate) document: DocumentUuid,
     pub project: &'a ProjectView,
-    /// The user currently interacting with the project.
-    pub(crate) user: User,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
+#[expect(clippy::module_name_repetitions)]
 pub struct DocumentUuid {
     uuid: Uuid,
 }
@@ -43,7 +38,7 @@ impl DocumentUuid {
     }
 }
 
-impl<'a> DocumentView<'a> {
+impl DocumentView<'_> {
     /// Opens a data section contained in this document by UUID
     ///
     /// # Arguments
