@@ -9,7 +9,6 @@
 #![warn(clippy::pedantic)]
 
 // TODO: complete refactoring of project
-// - rename types where necessary
 // - remove pub where possible
 // - check uses
 // - delete unused types
@@ -32,14 +31,14 @@ pub mod user;
 mod module_data;
 mod project;
 
-use data::DataUuid;
-use document::DocumentRecord;
-use document::DocumentUuid;
-use module_data::DynData;
-use module_data::DynSessionData;
-use module_data::DynTransactionData;
+use data::DataId;
+use document::Document;
+use document::DocumentId;
+use module_data::ErasedData;
+use module_data::ErasedSessionData;
+use module_data::ErasedTransactionArgs;
 use module_data::ModuleRegistry;
-use module_data::ModuleUuid;
+use module_data::ModuleId;
 use module_data::MODULE_REGISTRY;
 use project::ProjectView;
 use serde::de::DeserializeSeed;
@@ -89,41 +88,38 @@ where
 #[derive(Clone, Serialize, Deserialize, Debug)]
 enum Change {
     CreateDocument {
-        uuid: DocumentUuid,
+        id: DocumentId,
         // TODO: add metadata, not only do documents, but also to projects and data
         // name: String,
     },
-    DeleteDocument(DocumentUuid),
+    DeleteDocument(DocumentId),
     // RenameDocument {
-    //     uuid: DocumentUuid,
+    //     id: DocumentId,
     //     new_name: String,
     // },
     CreateData {
-        module: ModuleUuid,
-        uuid: DataUuid,
-        owner: Option<DocumentUuid>,
+        id: DataId,
+        module: ModuleId,
+        owner: Option<DocumentId>,
     },
-    DeleteData {
-        uuid: DataUuid,
-    },
+    DeleteData(DataId),
     MoveData {
-        uuid: DataUuid,
-        new_owner: Option<DocumentUuid>,
+        id: DataId,
+        new_owner: Option<DocumentId>,
     },
     Transaction {
-        uuid: DataUuid,
-        /// Stores the [`TransactionData`].
+        id: DataId,
+        /// Stores the [`TransactionArgs`].
         ///
-        /// The [`Module`] is equal to in the last [`Self::CreateData`] with the same [`DataUuid`].
-        data: DynTransactionData,
+        /// The [`Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
+        args: ErasedTransactionArgs,
     },
     UserTransaction {
-        uuid: DataUuid,
-        user: User,
-        /// Stores the [`TransactionData`].
+        id: DataId,
+        /// Stores the [`TransactionArgs`].
         ///
-        /// The [`Module`] is equal to in the last [`Self::CreateData`] with the same [`DataUuid`].
-        data: DynTransactionData,
+        /// The [`Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
+        args: ErasedTransactionArgs,
     },
 }
 
@@ -175,11 +171,16 @@ pub struct ChangeBuilder {
 }
 
 impl ChangeBuilder {
+    /// Creates a new empty [`ChangeBuilder`].
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Appends all changes of `other` to be included in this [`ChangeBuilder`].
+    ///
+    /// Compared to applying multiple [`ChangeBuilder`]s separately, this will make
+    /// all changes atomic. Meaning undo will revert all changes from `self` and `other` together.
     pub fn append(&mut self, mut other: Self) {
         self.changes.append(&mut other.changes);
     }
@@ -222,20 +223,22 @@ pub struct Project {
     /// Chronological list of entries required to rebuild the entire [`ProjectView`] excluding
     /// shared and session data
     log: Vec<ProjectLogEntry>,
+    /// [`HashMap`] with all [`module::Module::SharedData`] (of this user) in this project.
     #[serde(skip)]
     #[expect(dead_code)]
-    shared_data: HashMap<DataUuid, module_data::DynSharedData>,
+    shared_data: HashMap<DataId, module_data::ErasedSharedData>,
+    /// [`HashMap`] with all [`module::Module::SessionData`] in this project.
     #[serde(skip)]
     #[expect(dead_code)]
-    session_data: HashMap<DataUuid, DynSessionData>,
+    session_data: HashMap<DataId, ErasedSessionData>,
 }
 
 /// Errors that can occur when creating a project view
 #[derive(thiserror::Error, Debug)]
-pub enum CreateViewError {
+pub enum ProjectViewError {
     /// Attempted to load data for a module that isn't registered
     #[error("The module {0} is required, but not registered in the registry")]
-    UnknownModule(ModuleUuid),
+    UnknownModule(ModuleId),
     /// The [`Project`] is malformed or corrupted
     // TODO: siltently handle this error
     #[error("The project is malformed")]
@@ -262,36 +265,36 @@ impl Project {
     /// # Errors
     /// Returns an error if:
     /// - A required module is not found in the registry
-    pub fn create_view(&self, reg: &ModuleRegistry) -> Result<ProjectView, CreateViewError> {
+    pub fn create_view(&self, reg: &ModuleRegistry) -> Result<ProjectView, ProjectViewError> {
         let mut data = HashMap::new();
         let mut documents = HashMap::new();
-        for e in &self.log {
-            match e {
+        for log_entry in &self.log {
+            match log_entry {
                 ProjectLogEntry::Changes {
                     session: _,
-                    changes: entries,
+                    changes,
                 } => {
-                    for e in entries {
-                        match e {
-                            Change::CreateDocument { uuid } => {
-                                documents.insert(*uuid, DocumentRecord::default());
+                    for change in changes {
+                        match change {
+                            Change::CreateDocument { id } => {
+                                documents.insert(*id, Document::default());
                             }
-                            Change::DeleteDocument(document_uuid) => {
-                                documents.remove_entry(document_uuid);
+                            Change::DeleteDocument(document_id) => {
+                                documents.remove_entry(document_id);
                             }
                             Change::CreateData {
-                                module: t,
-                                uuid,
+                                id,
+                                module,
                                 owner,
                             } => {
                                 data.insert(
-                                    *uuid,
-                                    DynData {
-                                        module: *t,
+                                    *id,
+                                    ErasedData {
+                                        module: *module,
                                         data: (reg
                                             .0
-                                            .get(t)
-                                            .ok_or(CreateViewError::UnknownModule(*t))?
+                                            .get(module)
+                                            .ok_or(ProjectViewError::UnknownModule(*module))?
                                             .init_data)(
                                         ),
                                     },
@@ -301,31 +304,27 @@ impl Project {
                                         .entry(*owner)
                                         .or_insert_with(Default::default)
                                         .data
-                                        .push(*uuid);
+                                        .push(*id);
                                 }
                             }
-                            Change::DeleteData { uuid } => {
-                                data.remove(uuid);
+                            Change::DeleteData(id) => {
+                                data.remove(id);
                             }
                             Change::MoveData {
-                                uuid: _,
+                                id: _,
                                 new_owner: _,
                             } => todo!(),
-                            Change::Transaction { uuid, data: d } => {
-                                let apply = reg
+                            Change::Transaction { id, args } => {
+                                let apply_transaction = reg
                                     .0
-                                    .get(&d.module)
-                                    .ok_or(CreateViewError::UnknownModule(d.module))?
+                                    .get(&args.module)
+                                    .ok_or(ProjectViewError::UnknownModule(args.module))?
                                     .apply_transaction;
-                                let d2 =
-                                    data.get_mut(uuid).ok_or(CreateViewError::InvalidProject)?;
-                                apply(&mut d2.data, &d.data);
+                                let data =
+                                    data.get_mut(id).ok_or(ProjectViewError::InvalidProject)?;
+                                apply_transaction(&mut data.data, &args.data);
                             }
-                            Change::UserTransaction {
-                                uuid: _,
-                                user: _,
-                                data: _,
-                            } => todo!(),
+                            Change::UserTransaction { id: _, args: _ } => todo!(),
                         }
                     }
                 }

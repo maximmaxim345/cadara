@@ -2,24 +2,19 @@ use module::{DataTransaction, Module};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{module_data::TransactionData, project::ProjectView, Change, ChangeBuilder};
+use crate::{module_data::TransactionArgs, project::ProjectView, Change, ChangeBuilder};
 
 /// Unique identifier of a data section in a [`Project`].
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
 #[expect(clippy::module_name_repetitions)]
-pub struct DataUuid {
-    uuid: Uuid,
-}
+pub struct DataId(Uuid);
 
-impl DataUuid {
-    pub(crate) const fn new(uuid: Uuid) -> Self {
-        Self { uuid }
-    }
-
+impl DataId {
+    /// Create a new random identifier.
     #[must_use]
     pub fn new_v4() -> Self {
-        Self::new(Uuid::new_v4())
+        Self(Uuid::new_v4())
     }
 }
 
@@ -28,7 +23,7 @@ impl DataUuid {
 #[expect(clippy::module_name_repetitions)]
 pub struct DataView<'a, M: Module> {
     pub project: &'a ProjectView,
-    pub data: DataUuid,
+    pub id: DataId,
     /// Persistent data shared by all users.
     pub persistent: &'a M::PersistentData,
     /// Persistent user-specific data.
@@ -53,8 +48,8 @@ impl<M: Module> DataView<'_, M> {
         cb: &mut ChangeBuilder,
     ) {
         cb.changes.push(Change::Transaction {
-            uuid: self.data,
-            data: TransactionData::<M>(args).into(),
+            id: self.id,
+            args: TransactionArgs::<M>(args).into(),
         });
     }
 }

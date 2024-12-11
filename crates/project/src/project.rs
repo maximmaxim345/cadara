@@ -1,10 +1,10 @@
-use crate::data::DataUuid;
+use crate::data::DataId;
 use crate::data::DataView;
-use crate::document::DocumentRecord;
-use crate::document::DocumentUuid;
+use crate::document::Document;
+use crate::document::DocumentId;
 use crate::document::DocumentView;
-use crate::module_data::DynData;
-use crate::module_data::ModuleUuid;
+use crate::module_data::ErasedData;
+use crate::module_data::ModuleId;
 use crate::user::User;
 use crate::Change;
 use crate::ChangeBuilder;
@@ -22,25 +22,25 @@ pub struct ProjectView {
     /// The user currently interacting with the project.
     pub user: User,
     /// A map containing all [`Data`]
-    pub data: HashMap<DataUuid, DynData>,
+    pub data: HashMap<DataId, ErasedData>,
     /// A map of all documents found in this project
-    pub documents: HashMap<DocumentUuid, DocumentRecord>,
+    pub documents: HashMap<DocumentId, Document>,
 }
 
 impl ProjectView {
     /// Opens a read only [`DocumentView`].
     ///
     /// # Arguments
-    /// * `document_uuid` - The unique identifier of the document to open
+    /// * `document_id` - The unique identifier of the document to open
     ///
     /// # Returns
     /// An `Option` containing a [`DocumentView`] if the document was found, or `None` otherwise.
     #[must_use]
-    pub fn open_document(&self, document_uuid: DocumentUuid) -> Option<DocumentView> {
+    pub fn open_document(&self, document_id: DocumentId) -> Option<DocumentView> {
         Some(DocumentView {
-            document: document_uuid,
+            id: document_id,
             project: self,
-            record: self.documents.get(&document_uuid)?,
+            document: self.documents.get(&document_id)?,
         })
     }
 
@@ -52,11 +52,11 @@ impl ProjectView {
     /// The unique identifier of the document recorded to `cb`.
     #[expect(clippy::unused_self)]
     #[must_use]
-    pub fn create_document(&self, cb: &mut ChangeBuilder) -> DocumentUuid {
-        let uuid = DocumentUuid::new_v4();
+    pub fn create_document(&self, cb: &mut ChangeBuilder) -> DocumentId {
+        let id = DocumentId::new_v4();
 
-        cb.changes.push(Change::CreateDocument { uuid });
-        uuid
+        cb.changes.push(Change::CreateDocument { id });
+        id
     }
 
     /// Plans the creation of a new empty data section with type `M`.
@@ -67,20 +67,20 @@ impl ProjectView {
     ///
     /// The unique identifier of the data recorded to `cb`.
     #[expect(clippy::unused_self, reason = "for a consistent API")]
-    pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> DataUuid {
-        let uuid = DataUuid::new_v4();
+    pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> DataId {
+        let id = DataId::new_v4();
         cb.changes.push(Change::CreateData {
-            module: ModuleUuid::from_module::<M>(),
-            uuid,
+            module: ModuleId::from_module::<M>(),
+            id,
             owner: None,
         });
-        uuid
+        id
     }
 
     /// Opens a read only [`DataView`].
     ///
     /// # Arguments
-    /// * `data_uuid` - The unique identifier of the document to open
+    /// * `data_id` - The unique identifier of the document to open
     ///
     /// # Type Parameters
     /// * `M` - The [`Module`] expected to describe the data
@@ -88,13 +88,13 @@ impl ProjectView {
     /// # Returns
     /// An `Option` containing a [`DataView`] if the document was found and is of type `M`, or `None` otherwise.
     #[must_use]
-    pub fn open_data<M: Module>(&self, data_uuid: DataUuid) -> Option<DataView<M>> {
+    pub fn open_data<M: Module>(&self, data_id: DataId) -> Option<DataView<M>> {
         // TODO: Option -> Result
-        let data = &self.data.get(&data_uuid)?.downcast_ref::<M>()?;
+        let data = &self.data.get(&data_id)?.downcast_ref::<M>()?;
 
         Some(DataView {
             project: self,
-            data: data_uuid,
+            id: data_id,
             persistent: &data.persistent,
             persistent_user: &data.persistent_user,
             session_data: &data.session,
