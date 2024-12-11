@@ -1,407 +1,63 @@
 //! Data and dependency management for Projects.
 //!
-//! Responsible for managing projects within `CADara`.
-//! Projects are the primary organizational structure within `CADara`, encapsulating documents and data sections (i.e. parts and assemblies).
-//! This module provides functionality to create, open, and save projects.
+//! [`Project`]s are the primary data structure within `CADara`. Encapsulating documents and data sections,
+//! storing everything (except very short lived data in the `viewport`).
+//!
+//! This module provides functionality to create, open, modify, and save projects.
 
 #![warn(clippy::nursery)]
 #![warn(clippy::pedantic)]
-// #![allow(clippy::module_name_repetitions)] // we don't want 3 different `Session` types
-// #![allow(clippy::cognitive_complexity)]
-// #![allow(clippy::missing_panics_doc)] // TODO: delete this asap
 
-// TODO: Transactions should be split into a normal and +unchecked version
+// TODO: complete refactoring of project
+// - rename types where necessary
+// - remove pub where possible
+// - check uses
+// - delete unused types
+// - refactor user.rs, including Session support
+// - add session support
+// - add support for data sections other than persistent
+// - adjust module to disallow errors
+// - allow for errors in project, in create view and deserialization
+// - add metadata, not only do documents, but also to projects and data
+// - support undo/redo
+// - reenable tests
+// - update rest of codebase
+// - Design Task (branch) > Changes (checkpoint) > Actions (change -> action, changes -> actions)
+// - Revisions use CheckPoint, but also make a immutable ProjectArchive w.o redundant data
 
-// Public modules
 pub mod data;
 pub mod document;
 pub mod user;
 
+mod module_data;
+mod project;
+
 use data::DataUuid;
-use data::DataView;
-use document::{DocumentUuid, DocumentView};
-use dyn_clone::DynClone;
-use module::{DataTransaction, Module};
-use paste::paste;
-use serde::de::{DeserializeSeed, Visitor};
+use document::DocumentRecord;
+use document::DocumentUuid;
+use module_data::DynData;
+use module_data::DynSessionData;
+use module_data::DynTransactionData;
+use module_data::ModuleRegistry;
+use module_data::ModuleUuid;
+use module_data::MODULE_REGISTRY;
+use project::ProjectView;
+use serde::de::DeserializeSeed;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::any::Any;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::marker::PhantomData;
-use std::path::PathBuf;
 use user::User;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[serde(transparent)]
-struct ModuleUuid(Uuid);
-
-impl ModuleUuid {
-    pub fn from_module<M: Module>() -> Self {
-        Self(M::uuid())
-    }
-}
-
-/// Complete state of a data of a module, accessable through a [`DataView`].
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-struct Data<M: Module> {
-    pub persistent: M::PersistentData,
-    pub persistent_user: M::PersistentUserData,
-    pub session: M::SessionData,
-    pub shared: M::SharedData,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-struct SharedData<M: Module>(M::SharedData);
-
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-struct SessionData<M: Module>(M::SessionData);
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct TransactionData<M: Module>(<M::PersistentData as DataTransaction>::Args);
-
-/// Generates type-erased data container implementations for a given, on [`Module`] generic, data type
+/// Helper to deserialize a [`Project`].
 ///
-/// This macro implements:
-/// - Serialization and deserialization
-/// - A dynamic wrapper type that provides type-safe downcasting
-/// - Clone for dynamic types
-///
-/// # Arguments
-///
-/// * `$d` - The base data type to generate implementations for
-/// * `$reg_entry` - Name of the [`BoxedDeserializeFunction`] in [`ModuleRegEntry`]
-///
-/// # Generated Types
-///
-/// For a data type `T`, this macro generates:
-/// - `TTrait` - A trait implementing common behavior
-/// - `DynT` - A type-erased wrapper with serialization support
-/// - `TDeserializeSeed` - Custom deserializer for the type-erased data
-macro_rules! define_type_erased_data {
-    ($d:ty, $reg_entry:ident) => {
-        paste! {
-            #[doc = "A trait shared by all [`" $d "`] types for all [`Module`]"]
-            #[allow(dead_code)]
-            trait [<$d Trait>]: erased_serde::Serialize + Debug + Send + Any + DynClone {
-                /// Provides read-only access to the underlying data type.
-                fn as_any(&self) -> &dyn Any;
-                /// Provides mutable access to the underlying data type.
-                fn as_mut_any(&mut self) -> &mut dyn Any;
-            }
-
-            dyn_clone::clone_trait_object!([<$d Trait>]);
-            erased_serde::serialize_trait_object!([<$d Trait>]);
-
-            impl<M: Module> [<$d Trait>] for $d<M> {
-                fn as_mut_any(&mut self) -> &mut dyn Any {
-                    self
-                }
-
-                fn as_any(&self) -> &dyn Any {
-                    self
-                }
-            }
-
-            #[doc = "Serializable, Deserializable and Cloneable wrapper around all generic [`" $d "`] types."]
-            #[derive(Debug, Serialize, Clone)]
-            struct [<Dyn $d>] {
-                // uuid of the module, over that the struct contained in `data` is generic
-                module: ModuleUuid,
-                #[doc = "Type erased [`" $d "`]"]
-                data: Box<dyn [<$d Trait>]>,
-            }
-
-            #[allow(dead_code)]
-            impl [<Dyn $d>] {
-                pub fn downcast_ref<M: Module>(&self) -> Option<&$d<M>> {
-                    self.data.as_any().downcast_ref()
-                }
-
-                pub fn downcast_mut<M: Module>(&mut self) -> Option<&mut $d<M>> {
-                    self.data.as_mut_any().downcast_mut()
-                }
-
-            }
-
-            impl<M: Module> From<$d<M>> for [<Dyn $d>] {
-                fn from(d: $d<M>) -> Self {
-                    Self {
-                        module: ModuleUuid::from_module::<M>(),
-                        data: Box::new(d),
-                    }
-                }
-            }
-
-            impl<'de> Deserialize<'de> for [<Dyn $d>] {
-                fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-                where
-                    D: serde::Deserializer<'de>,
-                {
-                    // Retrieve the registry from thread local storage
-                    // And use it to deserialize the model using the seed
-                    MODULE_REGISTRY.with(|r| {
-                        let registry = r.borrow();
-                        let registry = registry.expect("no registry found");
-                        let seed = [<$d DeserializeSeed>] {
-                            // SAFETY: As long as the registry is alive, we can safely hold a reference to it.
-                            // The registry is only invalidated after deserialization is complete, so only
-                            // after this reference is dropped.
-                            registry: unsafe { &*registry },
-                        };
-                        seed.deserialize(deserializer)
-                    })
-                }
-            }
-
-            struct [<$d DeserializeSeed>]<'a> {
-                pub registry: &'a ModuleRegistry,
-            }
-
-            // We manually implement deserialization logic to support runtime polymorphism
-            // The `typetag` could do this for us, but it unfortunately does not support WebAssembly
-            impl<'a, 'de> DeserializeSeed<'de> for [<$d DeserializeSeed>]<'a>
-            where
-                'a: 'de,
-            {
-                type Value = [<Dyn $d>];
-
-                #[expect(clippy::too_many_lines)]
-                fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-                where
-                    D: Deserializer<'de>,
-                {
-                    enum ModuleField {
-                        Module,
-                        Data,
-                        Ignore,
-                    }
-
-                    struct FieldVisitor;
-
-                    impl Visitor<'_> for FieldVisitor {
-                        type Value = ModuleField;
-
-                        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                            formatter.write_str("field identifier")
-                        }
-
-                        fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
-                        where
-                            E: serde::de::Error,
-                        {
-                            match value {
-                                0 => Ok(ModuleField::Module),
-                                1 => Ok(ModuleField::Data),
-                                _ => Ok(ModuleField::Ignore),
-                            }
-                        }
-
-                        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-                        where
-                            E: serde::de::Error,
-                        {
-                            match value {
-                                "module" => Ok(ModuleField::Module),
-                                "data" => Ok(ModuleField::Data),
-                                _ => Ok(ModuleField::Ignore),
-                            }
-                        }
-
-                        fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E>
-                        where
-                            E: serde::de::Error,
-                        {
-                            match value {
-                                b"module" => Ok(ModuleField::Module),
-                                b"data" => Ok(ModuleField::Data),
-                                _ => Ok(ModuleField::Ignore),
-                            }
-                        }
-                    }
-
-                    impl<'de> Deserialize<'de> for ModuleField {
-                        #[inline]
-                        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-                        where
-                            D: Deserializer<'de>,
-                        {
-                            deserializer.deserialize_identifier(FieldVisitor)
-                        }
-                    }
-
-                    struct ModuleVisitor<'de> {
-                        marker: PhantomData<[<Dyn $d>]>,
-                        lifetime: PhantomData<&'de ()>,
-                        registry: &'de ModuleRegistry,
-                    }
-
-                    impl<'de> Visitor<'de> for ModuleVisitor<'de> {
-                        type Value = [<Dyn $d>];
-
-                        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                            formatter.write_str(concat!("struct ", stringify!([<Dyn $d>])))
-                        }
-
-                        #[inline]
-                        fn visit_seq<V>(self, mut _seq: V) -> Result<[<Dyn $d>], V::Error>
-                        where
-                            V: serde::de::SeqAccess<'de>,
-                        {
-                            // let uuid = seq
-                            //     .next_element()?
-                            //     .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
-                            // let model = seq
-                            //     // .next_element_seed(ModuleSeed {
-                            //     //     registry: self.registry,
-                            //     // })?
-                            //     .next_element()?
-                            //     .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
-                            // Ok(ErasedDataModel { uuid, model })
-                            todo!("sequential deserialization is not supported yet")
-                        }
-
-                        #[inline]
-                        fn visit_map<V>(self, mut map: V) -> Result<[<Dyn $d>], V::Error>
-                        where
-                            V: serde::de::MapAccess<'de>,
-                        {
-                            let mut module = None;
-                            let mut data = None;
-                            while let Some(key) = map.next_key()? {
-                                match key {
-                                    ModuleField::Module => {
-                                        if module.is_some() {
-                                            return Err(serde::de::Error::duplicate_field("module"));
-                                        }
-                                        module = Some(map.next_value::<ModuleUuid>()?);
-                                    }
-                                    ModuleField::Data => {
-                                        if data.is_some() {
-                                            return Err(serde::de::Error::duplicate_field("data"));
-                                        }
-                                        let module = module.ok_or_else(|| {
-                                            serde::de::Error::custom("module must precede data")
-                                        })?;
-                                        let d = self.registry.0.get(&module).ok_or_else(|| {
-                                            serde::de::Error::custom("module not found in registry")
-                                        })?.$reg_entry;
-
-                                        data = Some(map.next_value_seed(BoxedDeserializerSeed(d))?);
-                                    }
-                                    ModuleField::Ignore => {
-                                        let _: serde::de::IgnoredAny = map.next_value()?;
-                                    }
-                                }
-                            }
-                            Ok([<Dyn $d>] {
-                                module: module.ok_or_else(|| serde::de::Error::missing_field("module"))?,
-                                data: data.ok_or_else(|| serde::de::Error::missing_field("data"))?,
-                            })
-                        }
-                    }
-
-                    const FIELDS: &[&str] = &["module", "data"];
-                    deserializer.deserialize_struct(
-                        stringify!([<Dyn $d>]),
-                        FIELDS,
-                        ModuleVisitor {
-                            marker: PhantomData::<[<Dyn $d>]>,
-                            lifetime: PhantomData,
-                            registry: self.registry,
-                        },
-                    )
-                }
-            }
-        }
-    };
-}
-
-define_type_erased_data!(Data, deserialize_data);
-define_type_erased_data!(SessionData, deserialize_session);
-define_type_erased_data!(SharedData, deserialize_shared);
-define_type_erased_data!(TransactionData, deserialize_transaction);
-
-// We use this thread local storage to pass data to the deserialize function through
-// automatically derived implementations of `Deserialize`. Alternatively, we could
-// replace each step of the deserialization process with a custom implementation with a seed
-// that contains the registry, but this would be more complex and less maintainable.
-// TODO: look into alternatives to thread local storage
-thread_local! {
-    static MODULE_REGISTRY: RefCell<Option<*const ModuleRegistry>> = const { RefCell::new(None) };
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-enum TransactionTarget {
-    PersistentData(DataUuid),
-    PersistendUserData(DataUuid, User),
-}
-
-/// Document in a Project
-///
-/// Defines the metadata and the identifiers of containing data sections.
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
-struct DocumentRecord {
-    data: Vec<DataUuid>,
-}
-
-#[derive(Clone, Debug)]
-struct ModuleRegEntry {
-    deserialize_data: BoxedDeserializeFunction<Box<dyn DataTrait>>,
-    deserialize_transaction: BoxedDeserializeFunction<Box<dyn TransactionDataTrait>>,
-    deserialize_shared: BoxedDeserializeFunction<Box<dyn SharedDataTrait>>,
-    deserialize_session: BoxedDeserializeFunction<Box<dyn SessionDataTrait>>,
-    init_data: fn() -> Box<dyn DataTrait>,
-    apply_transaction: fn(&mut Box<dyn DataTrait>, &Box<dyn TransactionDataTrait>),
-}
-
-/// A registry containing all installed modules necessary for deserialization.
-#[derive(Clone, Debug, Default)]
-pub struct ModuleRegistry(HashMap<ModuleUuid, ModuleRegEntry>);
-
-impl ModuleRegistry {
-    pub fn register<M>(&mut self)
-    where
-        M: Module + for<'de> Deserialize<'de>,
-    {
-        self.0.insert(
-            ModuleUuid::from_module::<M>(),
-            ModuleRegEntry {
-                deserialize_data: |d| Ok(Box::new(erased_serde::deserialize::<Data<M>>(d)?)),
-                deserialize_transaction: |d| {
-                    Ok(Box::new(erased_serde::deserialize::<TransactionData<M>>(
-                        d,
-                    )?))
-                },
-                deserialize_shared: |d| {
-                    Ok(Box::new(erased_serde::deserialize::<SharedData<M>>(d)?))
-                },
-                deserialize_session: |d| {
-                    Ok(Box::new(erased_serde::deserialize::<SessionData<M>>(d)?))
-                },
-                init_data: || Box::new(Data::<M>::default()),
-                apply_transaction: |m, t| {
-                    let m = m.as_mut().as_mut_any().downcast_mut::<Data<M>>().unwrap();
-                    // TODO: persistent user is not implemented
-                    let t = t
-                        .as_ref()
-                        .as_any()
-                        .downcast_ref::<TransactionData<M>>()
-                        .unwrap();
-                    module::DataTransaction::apply(&mut m.persistent, t.0.clone());
-                },
-            },
-        );
-    }
-}
-
-pub struct ProjectSeed<'a> {
+/// Use this to deserialize a [`Project`]. The passed [`ModuleRegistry`] needs to contain all [`Module`]s
+/// contained in the [`Project`].
+pub struct ProjectDeserializer<'a> {
     pub registry: &'a ModuleRegistry,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for ProjectSeed<'a>
+impl<'a, 'de> DeserializeSeed<'de> for ProjectDeserializer<'a>
 where
     'a: 'de,
 {
@@ -411,46 +67,37 @@ where
     where
         D: Deserializer<'de>,
     {
-        // Put the registry in thread local storage
+        // Put the registry in thread local storage so
+        // runtime polymorphic types can be deserialized using
+        // functions contained in the registry
         MODULE_REGISTRY.with(|r| {
             *r.borrow_mut() = Some(self.registry);
         });
-        // Do the same as the derived implementation
-        let o = Project::deserialize(deserializer);
 
-        // Delete the registry from thread local storage
+        let project = Project::deserialize(deserializer);
+
+        // SAFETY: Delete the registry from thread local storage to avoid
+        // use after free
         MODULE_REGISTRY.with(|r| {
             *r.borrow_mut() = None;
         });
-        o
+        project
     }
 }
 
-type BoxedDeserializeFunction<O> =
-    for<'de> fn(&mut dyn erased_serde::Deserializer<'de>) -> Result<O, erased_serde::Error>;
-
-struct BoxedDeserializerSeed<O: ?Sized>(pub BoxedDeserializeFunction<Box<O>>);
-
-impl<'de, O: ?Sized> DeserializeSeed<'de> for BoxedDeserializerSeed<O> {
-    type Value = Box<O>;
-
-    fn deserialize<D: Deserializer<'de>>(self, deserializer: D) -> Result<Self::Value, D::Error> {
-        self.0(&mut <dyn erased_serde::Deserializer>::erase(deserializer))
-            .map_err(serde::de::Error::custom)
-    }
-}
-
+/// A single change persistently applied to the [`Project`]
 #[derive(Clone, Serialize, Deserialize, Debug)]
 enum Change {
     CreateDocument {
         uuid: DocumentUuid,
-        name: String,
+        // TODO: add metadata, not only do documents, but also to projects and data
+        // name: String,
     },
     DeleteDocument(DocumentUuid),
-    RenameDocument {
-        uuid: DocumentUuid,
-        new_name: String,
-    },
+    // RenameDocument {
+    //     uuid: DocumentUuid,
+    //     new_name: String,
+    // },
     CreateData {
         module: ModuleUuid,
         uuid: DataUuid,
@@ -464,19 +111,64 @@ enum Change {
         new_owner: Option<DocumentUuid>,
     },
     Transaction {
-        target: TransactionTarget,
+        uuid: DataUuid,
+        /// Stores the [`TransactionData`].
+        ///
+        /// The [`Module`] is equal to in the last [`Self::CreateData`] with the same [`DataUuid`].
+        data: DynTransactionData,
+    },
+    UserTransaction {
+        uuid: DataUuid,
+        user: User,
+        /// Stores the [`TransactionData`].
+        ///
+        /// The [`Module`] is equal to in the last [`Self::CreateData`] with the same [`DataUuid`].
         data: DynTransactionData,
     },
 }
 
+/// Entry in the log stored in [`Project`]
 #[derive(Clone, Serialize, Deserialize, Debug)]
 enum ProjectLogEntry {
-    Change { session: Uuid, entries: Vec<Change> },
-    Undo { session: Uuid },
-    Redo { session: Uuid },
-    NewSession { user: User, session: Uuid },
+    Changes {
+        session: Uuid,
+        changes: Vec<Change>,
+    },
+    /// Tells that the a [`Self::Changes`] before this entry (with the same session id) should be ignored
+    Undo {
+        session: Uuid,
+    },
+    /// Tells that a [`Self::Undo`] before this entry (with the same session id) should be ignored
+    Redo {
+        session: Uuid,
+    },
+    /// Registers a new [`Session`] to associate it with the given [`User`]
+    NewSession {
+        user: User,
+        session: Uuid,
+    },
 }
 
+/// Record changes to be applied to a [`Project`]
+///
+/// Any change that should be applied to a [`Project`] must first be recorded
+/// by passing a [`ChangeBuilder`] on methods in [`ProjectView`], [`DocumentView`] or [`DataView`].
+///
+/// # Change Tracking
+/// - **Persistent Data and User Data**: All changes are tracked and can be undone/redone
+/// - **Session Data**: Changes are temporary and *not tracked* (lost on destruction of [`Project`])
+/// - **Shared Data**: Changes are temporary and *not tracked* (synchronized between users)
+///
+/// The recorded changes are only atomic (meaining always applied together and at once) for changes to [`Module::PersistentData`] and [`Module::PersistentUserData`] on a [`DataView`],
+/// changes on a [`ProjectView`] and changes on a [`DocumentView`].
+/// Meaning changes to [`Module::SharedData`] and [`Module::SessionData`] will once applied using [`Project::apply_changes`] not be
+/// reverted on undo.
+///
+/// # Features
+/// This system allows for correct handling of:
+/// - Undo/Redo across multiple different parts of a [`Project`]
+/// - Atomic grouping of multiple changes, even in multi-user scenarios and branching/merging
+/// - Complete history tracking of all changes ever applied to a [`Project`]'s persistent data
 #[derive(Clone, Debug, Default)]
 pub struct ChangeBuilder {
     changes: Vec<Change>,
@@ -493,44 +185,100 @@ impl ChangeBuilder {
     }
 }
 
-/// Represents a project within the `CADara` application.
+/// Project in the `CADara` application.
 ///
-/// Interact with this Project through a [`ProjectSession`] by calling [`Project::create_session`].
+/// A [`Project`] describes the whole state of a `project` including:
+/// - Metadata associated with the project (like name, tags)
+/// - All documents contained in the project
+/// - All data sections contained in the project (including [`Module::SessionData`] and [`Module::SharedData`] of all online users)
 ///
-/// A [`Project`] serves as the primary container for documents, which can represent parts,
-/// assemblies, or other data units. Each document is uniquely identified by a [`Uuid`].
+/// # Features
 ///
-/// Projects can be saved to and loaded from disk, but it is recommended to manage projects
-/// through a [`ProjectManager`] to ensure data integrity, especially in multi-user scenarios.
+/// [`Project`] will support advanced features for managin CAD projects, including:
+/// - Persistent undo/redo, even after restarts
+/// - A git like version control system, allowing branching, merging and rebasing
+/// - Support of storing any user required data by implementing [`Module`]
+/// - Complete storage of the complete history of a [`Project`]
+/// - Multi user collaborative editing including first in class offline support.
 ///
-/// [`ProjectManager`]: crate::manager::ProjectManager
-// TODO: remove `Project` and rename `InternalProject` to `Project`
+/// # Viewing the Project
+///
+/// Data contained in a [`Project`] can only be viewed through a [`ProjectView`] by using [`Project::create_view`].
+///
+/// # Making Changes
+///
+/// To make and save changes to a [`Project`], use a [`ChangeBuilder`] to record changes, then apply
+/// them using [`Project::apply_changes`].
+///
+/// # Serialization and Deserialization
+///
+/// Serialize a [`Project`] like any other type implementing [`serde::Deserialize`],
+/// this will not save any shared and session data.
+///
+/// To deserialize, you must use [`ProjectDeserializer`] with a [`ModuleRegistry`] with all containing [`Module`]s registered.
+/// While [`Project`] implements [`serde::Serialize`], it will error on any non trivial project
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Project {
-    /// Chronological list of all applied [`ProjectTransaction`]s.
+    /// Chronological list of entries required to rebuild the entire [`ProjectView`] excluding
+    /// shared and session data
     log: Vec<ProjectLogEntry>,
-    shared_data: HashMap<DataUuid, DynSharedData>,
+    #[serde(skip)]
+    #[expect(dead_code)]
+    shared_data: HashMap<DataUuid, module_data::DynSharedData>,
+    #[serde(skip)]
+    #[expect(dead_code)]
     session_data: HashMap<DataUuid, DynSessionData>,
 }
 
+/// Errors that can occur when creating a project view
+#[derive(thiserror::Error, Debug)]
+pub enum CreateViewError {
+    /// Attempted to load data for a module that isn't registered
+    #[error("The module {0} is required, but not registered in the registry")]
+    UnknownModule(ModuleUuid),
+    /// The [`Project`] is malformed or corrupted
+    // TODO: siltently handle this error
+    #[error("The project is malformed")]
+    InvalidProject,
+}
+
 impl Project {
-    //  TODO: document
-    #[must_use]
-    pub fn create_view(&self, reg: &ModuleRegistry) -> ProjectView {
+    /// Creates a new [`ProjectView`] by replaying the project's change history.
+    ///
+    /// # Description
+    /// Reconstructs the current state of the project by applying all logged changes
+    /// in chronological order, creating a consistent view of:
+    /// - All documents and their metadata
+    /// - All persistent data associated with modules
+    /// - Current document structure and relationships
+    ///
+    /// # Arguments
+    /// * `reg` - The [`ModuleRegistry`] containing all module implementations that were
+    ///           ever used in the project
+    ///
+    /// # Returns
+    /// Returns a [`ProjectView`] representing the current state of the project.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - A required module is not found in the registry
+    pub fn create_view(&self, reg: &ModuleRegistry) -> Result<ProjectView, CreateViewError> {
         let mut data = HashMap::new();
         let mut documents = HashMap::new();
         for e in &self.log {
             match e {
-                ProjectLogEntry::Change { session, entries } => {
+                ProjectLogEntry::Changes {
+                    session: _,
+                    changes: entries,
+                } => {
                     for e in entries {
                         match e {
-                            Change::CreateDocument { uuid, name } => {
+                            Change::CreateDocument { uuid } => {
                                 documents.insert(*uuid, DocumentRecord::default());
                             }
                             Change::DeleteDocument(document_uuid) => {
                                 documents.remove_entry(document_uuid);
                             }
-                            Change::RenameDocument { uuid, new_name } => {}
                             Change::CreateData {
                                 module: t,
                                 uuid,
@@ -540,13 +288,18 @@ impl Project {
                                     *uuid,
                                     DynData {
                                         module: *t,
-                                        data: (reg.0.get(t).unwrap().init_data)(),
+                                        data: (reg
+                                            .0
+                                            .get(t)
+                                            .ok_or(CreateViewError::UnknownModule(*t))?
+                                            .init_data)(
+                                        ),
                                     },
                                 );
                                 if let Some(owner) = owner {
                                     documents
                                         .entry(*owner)
-                                        .or_insert(Default::default())
+                                        .or_insert_with(Default::default)
                                         .data
                                         .push(*uuid);
                                 }
@@ -554,140 +307,58 @@ impl Project {
                             Change::DeleteData { uuid } => {
                                 data.remove(uuid);
                             }
-                            Change::MoveData { uuid, new_owner } => todo!(),
-                            Change::Transaction { target, data: d } => {
-                                let apply = reg.0.get(&d.module).unwrap().apply_transaction;
-                                match target {
-                                    TransactionTarget::PersistentData(data_uuid) => {
-                                        let d2 = data.get_mut(data_uuid).unwrap();
-                                        // TODO: assert if correct
-                                        apply(&mut d2.data, &d.data);
-                                    }
-                                    TransactionTarget::PersistendUserData(data_uuid, user) => {
-                                        todo!("add support for this, currently the trait does not support this")
-                                    }
-                                }
+                            Change::MoveData {
+                                uuid: _,
+                                new_owner: _,
+                            } => todo!(),
+                            Change::Transaction { uuid, data: d } => {
+                                let apply = reg
+                                    .0
+                                    .get(&d.module)
+                                    .ok_or(CreateViewError::UnknownModule(d.module))?
+                                    .apply_transaction;
+                                let d2 =
+                                    data.get_mut(uuid).ok_or(CreateViewError::InvalidProject)?;
+                                apply(&mut d2.data, &d.data);
                             }
+                            Change::UserTransaction {
+                                uuid: _,
+                                user: _,
+                                data: _,
+                            } => todo!(),
                         }
                     }
                 }
-                ProjectLogEntry::Undo { session } => todo!(),
-                ProjectLogEntry::Redo { session } => todo!(),
-                ProjectLogEntry::NewSession { user, session } => todo!(),
+                ProjectLogEntry::Undo { session: _ } => todo!("undo/redo is not supported yet"),
+                ProjectLogEntry::Redo { session: _ } => todo!("undo/redo is not supported yet"),
+                ProjectLogEntry::NewSession {
+                    user: _,
+                    session: _,
+                } => todo!(),
             };
         }
 
-        ProjectView {
+        Ok(ProjectView {
             user: User::local(),
             data,
             documents,
-        }
+        })
     }
 
-    /// Creates a new project with the given name.
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - The name of the project.
+    /// Creates a new empty project
     #[must_use]
-    pub fn new(_name: String) -> Self {
+    pub fn new() -> Self {
         Self::default()
     }
 
-    /// Creates a new project given the name, user and path.
-    /// TODO: replace this with a proper, maybe hide except for project manager
-    #[must_use]
-    pub fn new_with_path(_name: String, _user: User, _path: PathBuf) -> Self {
-        todo!("remove or implement this")
-    }
-
+    /// Apply the changes recorded using the [`ChangeBuilder`] to this project.
+    ///
+    /// After applying the changes, use [`Project::create_view`] to see the new state
+    /// of the [`Project`].
     pub fn apply_changes(&mut self, cb: ChangeBuilder) {
-        self.log.push(ProjectLogEntry::Change {
+        self.log.push(ProjectLogEntry::Changes {
             session: Uuid::new_v4(),
-            entries: cb.changes,
+            changes: cb.changes,
         });
-    }
-}
-
-/// TODO: document
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct ProjectView {
-    /// The user currently interacting with the project.
-    user: User,
-    /// TODO: document
-    data: HashMap<DataUuid, DynData>,
-    /// A map of all documents found in this project
-    documents: HashMap<DocumentUuid, DocumentRecord>,
-}
-
-impl ProjectView {
-    /// Opens a document
-    ///
-    /// # Arguments
-    ///
-    /// * `document_uuid` - The unique identifier of the document to open.
-    ///
-    /// # Returns
-    ///
-    /// An `Option` containing a [`DocumentSession`] if the document could be opened, or `None` otherwise.
-    #[must_use]
-    pub const fn open_document(&self, document_uuid: DocumentUuid) -> Option<DocumentView> {
-        Some(DocumentView {
-            document: document_uuid,
-            project: self,
-        })
-    }
-
-    /// Creates a new empty document within the project.
-    ///
-    /// # Returns
-    ///
-    /// The unique identifier [`Uuid`] of the newly created document.
-    #[must_use]
-    pub fn create_document(&self, cb: &mut ChangeBuilder) -> DocumentUuid {
-        let uuid = DocumentUuid::new_v4();
-
-        cb.changes.push(Change::CreateDocument {
-            uuid,
-            name: String::new(),
-        });
-        uuid
-    }
-
-    pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> DataUuid {
-        let uuid = DataUuid::new_v4();
-        cb.changes.push(Change::CreateData {
-            module: ModuleUuid::from_module::<M>(),
-            uuid,
-            owner: None,
-        });
-        uuid
-    }
-
-    /// Opens a data section
-    ///
-    /// Given a identifier of a data sections, that is in a document inside this project,
-    /// the data section can be directly be accessed, resiliant to moving of data between documents.
-    ///
-    /// # Arguments
-    ///
-    /// * `data_uuid` - The unique identifier of the data section to open.
-    ///
-    /// # Returns
-    ///
-    /// An `Option` containing a `DataSession` if found, or `None` otherwise.
-    #[must_use]
-    pub fn open_data<M: Module>(&self, data_uuid: DataUuid) -> Option<DataView<M>> {
-        // TODO: Option -> Result
-        let data = &self.data.get(&data_uuid)?.downcast_ref::<M>()?;
-
-        Some(DataView {
-            project: self,
-            data: data_uuid,
-            persistent: &data.persistent,
-            persistent_user: &data.persistent_user,
-            session_data: &data.session,
-            shared_data: &data.shared,
-        })
     }
 }

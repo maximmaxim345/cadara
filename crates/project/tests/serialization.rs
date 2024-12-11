@@ -38,7 +38,7 @@ fn test_serde_project_json() {
     }
 
     {
-        let seed = ProjectSeed {
+        let seed = ProjectDeserializer {
             registry: &{
                 let mut registry = ModuleRegistry::default();
                 registry.register::<TestModule>();

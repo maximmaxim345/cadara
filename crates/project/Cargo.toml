@@ -18,7 +18,8 @@ serde.workspace = true
 serde_json.workspace = true
 erased-serde.workspace = true
 dyn-clone.workspace = true
-paste = "1.0.15"
+paste.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 lazy_static.workspace = true

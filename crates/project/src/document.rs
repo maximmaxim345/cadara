@@ -1,7 +1,3 @@
-//! Document
-//!
-//! Each document is a collection of data sections, which is displayed to the user as a single item.
-
 use crate::{
     data::{DataUuid, DataView},
     Change, ChangeBuilder, ProjectView,
@@ -10,14 +6,7 @@ use module::Module;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Clone, Debug)]
-#[expect(clippy::module_name_repetitions)]
-pub struct DocumentView<'a> {
-    /// Identifier of this document
-    pub(crate) document: DocumentUuid,
-    pub project: &'a ProjectView,
-}
-
+/// Unique identifier of a `document` in a [`Project`].
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
 #[expect(clippy::module_name_repetitions)]
@@ -26,7 +15,6 @@ pub struct DocumentUuid {
 }
 
 impl DocumentUuid {
-    // TODO: make this pub(crate)
     #[must_use]
     pub const fn new(uuid: Uuid) -> Self {
         Self { uuid }
@@ -38,16 +26,35 @@ impl DocumentUuid {
     }
 }
 
+/// Document in a [`Project`]
+///
+/// Defines the metadata and the identifiers of containing data sections.
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[expect(clippy::module_name_repetitions)]
+pub struct DocumentRecord {
+    pub data: Vec<DataUuid>,
+}
+
+/// A read only view to `document` in a [`ProjectView`].
+#[derive(Clone, Debug)]
+#[expect(clippy::module_name_repetitions)]
+pub struct DocumentView<'a> {
+    pub(crate) document: DocumentUuid,
+    pub project: &'a ProjectView,
+    pub record: &'a DocumentRecord,
+}
+
 impl DocumentView<'_> {
-    /// Opens a data section contained in this document by UUID
+    /// Opens a read only [`DataView`] to data contained in this document.
     ///
     /// # Arguments
+    /// * `data_uuid` - The unique identifier of the document to open
     ///
-    /// * `data_uuid` - The unique identifier of the data section to open
+    /// # Type Parameters
+    /// * `M` - The [`Module`] expected to describe the data
     ///
     /// # Returns
-    ///
-    /// An `Option` containing a `DataSession` if the data section exists, or `None` otherwise.
+    /// An `Option` containing a [`DataView`] if the document was found in this document and is of type `M`, or `None` otherwise.
     #[must_use]
     pub fn open_data_by_uuid<M: Module>(&self, data_uuid: DataUuid) -> Option<DataView<M>> {
         if self.project.documents[&self.document]
@@ -61,32 +68,28 @@ impl DocumentView<'_> {
         }
     }
 
-    /// Opens all data sections of a specific type in this document
+    /// Opens read only [`DataView`]s to all data with the type `M`.
+    ///
+    /// # Type Parameters
+    /// * `M` - The [`Module`] to filter by
     ///
     /// # Returns
-    ///
-    /// A vector containing a [`DataSession`] for each data section of the type `M` found
-    /// in this document.
-    ///
-    /// TODO: make this an iterator, or return an Newtype of Uuid
-    #[must_use]
-    pub fn open_data_by_type<M: Module>(&self) -> Vec<DataView<M>> {
+    /// An iterator yielding [`DataView`]s of type `M` found in this document.
+    pub fn open_data_by_type<M: Module>(&self) -> impl Iterator<Item = DataView<M>> + '_ {
         self.project.documents[&self.document]
             .data
             .iter()
             .filter_map(|&uuid| self.open_data_by_uuid(uuid))
-            .collect()
     }
 
-    /// Creates a new data section inside this document
+    /// Plans the creation of a new empty data section with type `M`
+    ///
+    /// The new data section will be contained in this document
+    ///
+    /// This will not modify the [`Project`], just record this change to `cb`.
     ///
     /// # Returns
-    ///
-    /// The project-wide unique identifier [`Uuid`] of the newly created data section.
-    ///
-    /// # Panics
-    ///
-    /// If the document was deleted after creating this session object.
+    /// The unique identifier of the data recorded to `cb`.
     #[must_use]
     pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> DataUuid {
         let uuid = DataUuid::new_v4();
