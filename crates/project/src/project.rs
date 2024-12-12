@@ -1,13 +1,10 @@
-use crate::data::DataId;
-use crate::data::DataView;
-use crate::document::Document;
-use crate::document::DocumentId;
-use crate::document::DocumentView;
-use crate::module_data::ErasedData;
-use crate::module_data::ModuleId;
-use crate::user::User;
-use crate::Change;
-use crate::ChangeBuilder;
+use crate::{
+    data::{DataId, DataView},
+    document::{Document, DocumentId, DocumentView},
+    module_data::{ErasedData, ModuleId},
+    user::User,
+    Change, ChangeBuilder,
+};
 use module::Module;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

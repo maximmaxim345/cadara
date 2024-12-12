@@ -9,8 +9,6 @@
 #![warn(clippy::pedantic)]
 
 // TODO: complete refactoring of project
-// - check uses
-// - delete unused types
 // - refactor user.rs, including Session support
 // - add session support
 // - add support for data sections other than persistent
@@ -30,12 +28,9 @@ mod project;
 mod user;
 
 use document::Document;
-use module_data::ErasedData;
-use module_data::ErasedSessionData;
-use module_data::ErasedTransactionArgs;
-use module_data::ModuleRegistry;
-use module_data::ModuleId;
-use module_data::MODULE_REGISTRY;
+use module_data::{
+    ErasedData, ErasedSessionData, ErasedTransactionArgs, ModuleId, ModuleRegistry, MODULE_REGISTRY,
+};
 use serde::de::DeserializeSeed;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
@@ -284,11 +279,7 @@ impl Project {
                             Change::DeleteDocument(document_id) => {
                                 documents.remove_entry(document_id);
                             }
-                            Change::CreateData {
-                                id,
-                                module,
-                                owner,
-                            } => {
+                            Change::CreateData { id, module, owner } => {
                                 data.insert(
                                     *id,
                                     ErasedData {
