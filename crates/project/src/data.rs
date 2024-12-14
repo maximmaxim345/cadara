@@ -2,7 +2,14 @@ use module::{DataTransaction, Module};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{module_data::TransactionArgs, project::ProjectView, Change, ChangeBuilder};
+use crate::{
+    module_data::{
+        DataTransactionArgs, SessionDataTransactionArgs, SharedDataTransactionArgs,
+        UserDataTransactionArgs,
+    },
+    project::ProjectView,
+    Change, ChangeBuilder, PendingChange,
+};
 
 /// Unique identifier of a data section in a [`Project`].
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -47,9 +54,64 @@ impl<M: Module> DataView<'_, M> {
         args: <M::PersistentData as DataTransaction>::Args,
         cb: &mut ChangeBuilder,
     ) {
-        cb.changes.push(Change::Transaction {
+        cb.changes.push(PendingChange::Change(Change::Transaction {
             id: self.id,
-            args: TransactionArgs::<M>(args).into(),
+            args: DataTransactionArgs::<M>(args).into(),
+        }));
+    }
+
+    /// Plans to apply a transaction to [`Module::PersistentUserData`].
+    ///
+    /// This will not modify the [`Project`], just record this change to `cb`.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - Arguments of the transaction.
+    pub fn apply_persistent_user(
+        &mut self,
+        args: <M::PersistentUserData as DataTransaction>::Args,
+        cb: &mut ChangeBuilder,
+    ) {
+        cb.changes
+            .push(PendingChange::Change(Change::UserTransaction {
+                id: self.id,
+                args: UserDataTransactionArgs::<M>(args).into(),
+            }));
+    }
+
+    /// Plans to apply a transaction to [`Module::SessionData`].
+    ///
+    /// This will not modify the [`Project`], just record this change to `cb`.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - Arguments of the transaction.
+    pub fn apply_session(
+        &mut self,
+        args: <M::SessionData as DataTransaction>::Args,
+        cb: &mut ChangeBuilder,
+    ) {
+        cb.changes.push(PendingChange::SessionTransaction {
+            id: self.id,
+            args: SessionDataTransactionArgs::<M>(args).into(),
+        });
+    }
+
+    /// Plans to apply a transaction to [`Module::SharedData`].
+    ///
+    /// This will not modify the [`Project`], just record this change to `cb`.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - Arguments of the transaction.
+    pub fn apply_shared(
+        &mut self,
+        args: <M::SharedData as DataTransaction>::Args,
+        cb: &mut ChangeBuilder,
+    ) {
+        cb.changes.push(PendingChange::SharedTransaction {
+            id: self.id,
+            args: SharedDataTransactionArgs::<M>(args).into(),
         });
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     data::{DataId, DataView},
-    Change, ChangeBuilder, ProjectView,
+    Change, ChangeBuilder, PendingChange, ProjectView,
 };
 use module::Module;
 use serde::{Deserialize, Serialize};
@@ -86,11 +86,11 @@ impl DocumentView<'_> {
     #[must_use]
     pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> DataId {
         let id = DataId::new_v4();
-        cb.changes.push(Change::CreateData {
+        cb.changes.push(PendingChange::Change(Change::CreateData {
             module: crate::ModuleId::from_module::<M>(),
             id,
             owner: Some(self.id),
-        });
+        }));
         id
     }
 }

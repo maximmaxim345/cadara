@@ -9,7 +9,6 @@
 #![warn(clippy::pedantic)]
 
 // TODO: complete refactoring of project
-// - add support for data sections other than persistent
 // - adjust module to disallow errors
 // - allow for errors in project, in create view and deserialization
 // - add metadata, not only do documents, but also to projects and data
@@ -18,6 +17,9 @@
 // - update rest of codebase
 // - Design Task (branch) > Changes (checkpoint) > Actions (change -> action, changes -> actions)
 // - Revisions use CheckPoint, but also make a immutable ProjectArchive w.o redundant data
+// - ChangeBuilder -> ProjectChangeSet
+// - make registry functions type safe
+// - reduce registry function count by splitting data
 
 mod branch;
 mod checkpoint;
@@ -31,7 +33,9 @@ use branch::BranchId;
 use checkpoint::CheckpointId;
 use document::Document;
 use module_data::{
-    ErasedData, ErasedSessionData, ErasedTransactionArgs, ModuleId, ModuleRegistry, MODULE_REGISTRY,
+    ErasedData, ErasedDataTransactionArgs, ErasedSessionData, ErasedSessionDataTransactionArgs,
+    ErasedSharedDataTransactionArgs, ErasedUserDataTransactionArgs, ModuleId, ModuleRegistry,
+    MODULE_REGISTRY,
 };
 use serde::de::DeserializeSeed;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -83,7 +87,27 @@ where
     }
 }
 
-/// A single change persistently applied to the [`Project`]
+/// A single change to be applied to the [`Project`].
+#[derive(Clone, Serialize, Deserialize, Debug)]
+enum PendingChange {
+    Change(Change),
+    SessionTransaction {
+        id: DataId,
+        /// Stores the [`TransactionArgs`] for [`module::Module::SessionData`].
+        ///
+        /// The [`Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
+        args: ErasedSessionDataTransactionArgs,
+    },
+    SharedTransaction {
+        id: DataId,
+        /// Stores the [`TransactionArgs`] for [`module::Module::SharedData`].
+        ///
+        /// The [`Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
+        args: ErasedSharedDataTransactionArgs,
+    },
+}
+
+/// A single change persistently applied to the [`Project`].
 #[derive(Clone, Serialize, Deserialize, Debug)]
 enum Change {
     CreateDocument {
@@ -108,17 +132,17 @@ enum Change {
     },
     Transaction {
         id: DataId,
-        /// Stores the [`TransactionArgs`].
+        /// Stores the [`TransactionArgs`] for [`module::Module::PersistentData`].
         ///
         /// The [`Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
-        args: ErasedTransactionArgs,
+        args: ErasedDataTransactionArgs,
     },
     UserTransaction {
         id: DataId,
-        /// Stores the [`TransactionArgs`].
+        /// Stores the [`TransactionArgs`] for [`module::Module::PersistentUserData`].
         ///
         /// The [`Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
-        args: ErasedTransactionArgs,
+        args: ErasedUserDataTransactionArgs,
     },
 }
 
@@ -170,7 +194,7 @@ enum ProjectLogEntry {
 /// - Complete history tracking of all changes ever applied to a [`Project`]'s persistent data
 #[derive(Clone, Debug, Default)]
 pub struct ChangeBuilder {
-    changes: Vec<Change>,
+    changes: Vec<PendingChange>,
 }
 
 impl ChangeBuilder {
@@ -241,11 +265,9 @@ pub struct Project {
     log: Vec<ProjectLogEntry>,
     /// [`HashMap`] with all [`module::Module::SharedData`] (of this user) in this project.
     #[serde(skip)]
-    #[expect(dead_code)]
     shared_data: HashMap<DataId, module_data::ErasedSharedData>,
     /// [`HashMap`] with all [`module::Module::SessionData`] in this project.
     #[serde(skip)]
-    #[expect(dead_code)]
     session_data: HashMap<DataId, ErasedSessionData>,
 }
 
@@ -281,15 +303,15 @@ impl Project {
     /// # Errors
     /// Returns an error if:
     /// - A required module is not found in the registry
+    #[expect(clippy::too_many_lines)]
     pub fn create_view(&self, reg: &ModuleRegistry) -> Result<ProjectView, ProjectViewError> {
         let mut data = HashMap::new();
         let mut documents = HashMap::new();
+        let mut sessions = HashMap::new();
+
         for log_entry in &self.log {
             match log_entry {
-                ProjectLogEntry::Changes {
-                    session: _,
-                    changes,
-                } => {
+                ProjectLogEntry::Changes { session, changes } => {
                     for change in changes {
                         match change {
                             Change::CreateDocument { id } => {
@@ -327,28 +349,61 @@ impl Project {
                                 new_owner: _,
                             } => todo!(),
                             Change::Transaction { id, args } => {
-                                let apply_transaction = reg
+                                let apply = reg
                                     .0
                                     .get(&args.module)
                                     .ok_or(ProjectViewError::UnknownModule(args.module))?
-                                    .apply_transaction;
+                                    .apply_data_transaction;
                                 let data =
                                     data.get_mut(id).ok_or(ProjectViewError::InvalidProject)?;
-                                apply_transaction(&mut data.data, &args.data);
+                                apply(&mut data.data, &args.data);
                             }
-                            Change::UserTransaction { id: _, args: _ } => todo!(),
+                            Change::UserTransaction { id, args } => {
+                                let user = *sessions
+                                    .get(session)
+                                    .ok_or(ProjectViewError::InvalidProject)?;
+
+                                if self.user == user {
+                                    let apply = reg
+                                        .0
+                                        .get(&args.module)
+                                        .ok_or(ProjectViewError::UnknownModule(args.module))?
+                                        .apply_user_data_transaction;
+                                    let data =
+                                        data.get_mut(id).ok_or(ProjectViewError::InvalidProject)?;
+                                    apply(&mut data.data, &args.data);
+                                }
+                            }
                         }
                     }
                 }
                 ProjectLogEntry::Undo { session: _ } => todo!("undo/redo is not supported yet"),
                 ProjectLogEntry::Redo { session: _ } => todo!("undo/redo is not supported yet"),
                 ProjectLogEntry::NewSession {
-                    user: _,
-                    new_session: _,
+                    user,
+                    new_session,
                     branch: _,
-                } => todo!(),
+                } => {
+                    sessions.insert(*new_session, *user);
+                }
                 ProjectLogEntry::CheckPoint(_) => {}
             };
+        }
+
+        for (id, session_data) in &self.session_data {
+            let d = data.get_mut(id).ok_or(ProjectViewError::InvalidProject)?;
+            (reg.0
+                .get(&session_data.module)
+                .ok_or(ProjectViewError::UnknownModule(session_data.module))?
+                .replace_session_data)(&mut d.data, &session_data.data);
+        }
+
+        for (id, shared_data) in &self.shared_data {
+            let d = data.get_mut(id).ok_or(ProjectViewError::InvalidProject)?;
+            (reg.0
+                .get(&shared_data.module)
+                .ok_or(ProjectViewError::UnknownModule(shared_data.module))?
+                .replace_shared_data)(&mut d.data, &shared_data.data);
         }
 
         Ok(ProjectView {
@@ -368,8 +423,9 @@ impl Project {
     ///
     /// After applying the changes, use [`Project::create_view`] to see the new state
     /// of the [`Project`].
-    pub fn apply_changes(&mut self, cb: ChangeBuilder) {
-        let session = self.session.get_or_insert_with(|| {
+    #[expect(clippy::missing_panics_doc)]
+    pub fn apply_changes(&mut self, cb: ChangeBuilder, reg: &ModuleRegistry) {
+        let session = *self.session.get_or_insert_with(|| {
             let new_session = SessionId::new();
             self.log.push(ProjectLogEntry::NewSession {
                 user: self.user,
@@ -379,9 +435,40 @@ impl Project {
             new_session
         });
 
-        self.log.push(ProjectLogEntry::Changes {
-            session: *session,
-            changes: cb.changes,
-        });
+        let changes = cb
+            .changes
+            .into_iter()
+            .filter_map(|change| match change {
+                PendingChange::Change(change) => Some(change),
+                PendingChange::SessionTransaction { id, args } => {
+                    let apply = reg
+                        .0
+                        .get(&args.module)
+                        .expect("module unknown, project is now corrupted.")
+                        .apply_session_data_transaction;
+                    let data = self
+                        .session_data
+                        .get_mut(&id)
+                        .expect("project was corrupted");
+                    apply(&mut data.data, &args.data);
+                    None
+                }
+                PendingChange::SharedTransaction { id, args } => {
+                    let apply = reg
+                        .0
+                        .get(&args.module)
+                        .expect("module unknown, project is now corrupted.")
+                        .apply_shared_data_transaction;
+                    let data = self
+                        .shared_data
+                        .get_mut(&id)
+                        .expect("project was corrupted");
+                    apply(&mut data.data, &args.data);
+                    None
+                }
+            })
+            .collect();
+
+        self.log.push(ProjectLogEntry::Changes { session, changes });
     }
 }

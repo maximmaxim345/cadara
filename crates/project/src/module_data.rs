@@ -323,8 +323,29 @@ define_type_erased!(SessionData, deserialize_session);
 
 /// Wrapper type for transaction arguments that can be applied to a [`Module::PersistentData`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TransactionArgs<M: Module>(pub <M::PersistentData as DataTransaction>::Args);
-define_type_erased!(TransactionArgs, deserialize_transaction_args);
+pub struct DataTransactionArgs<M: Module>(pub <M::PersistentData as DataTransaction>::Args);
+define_type_erased!(DataTransactionArgs, deserialize_transaction_args);
+
+/// Wrapper type for transaction arguments that can be applied to a [`Module::PersistentData`].
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct UserDataTransactionArgs<M: Module>(pub <M::PersistentUserData as DataTransaction>::Args);
+define_type_erased!(UserDataTransactionArgs, deserialize_user_transaction_args);
+
+/// Wrapper type for transaction arguments that can be applied to a [`Module::SessionData`].
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SessionDataTransactionArgs<M: Module>(pub <M::SessionData as DataTransaction>::Args);
+define_type_erased!(
+    SessionDataTransactionArgs,
+    deserialize_session_transaction_args
+);
+
+/// Wrapper type for transaction arguments that can be applied to a [`Module::SharedData`].
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SharedDataTransactionArgs<M: Module>(pub <M::SharedData as DataTransaction>::Args);
+define_type_erased!(
+    SharedDataTransactionArgs,
+    deserialize_shared_transaction_args
+);
 
 /// Type alias for a function that dynamically deserializes type-erased data.
 ///
@@ -358,13 +379,32 @@ impl<'de, O: ?Sized> DeserializeSeed<'de> for ErasedDeserializeSeed<O> {
 #[derive(Clone, Debug)]
 pub struct ModuleRegistryEntry {
     pub deserialize_data: ErasedDeserializeFn<Box<dyn DataTrait>>,
-    pub deserialize_transaction_args: ErasedDeserializeFn<Box<dyn TransactionArgsTrait>>,
+    pub deserialize_transaction_args: ErasedDeserializeFn<Box<dyn DataTransactionArgsTrait>>,
+    pub deserialize_user_transaction_args:
+        ErasedDeserializeFn<Box<dyn UserDataTransactionArgsTrait>>,
+    pub deserialize_session_transaction_args:
+        ErasedDeserializeFn<Box<dyn SessionDataTransactionArgsTrait>>,
+    pub deserialize_shared_transaction_args:
+        ErasedDeserializeFn<Box<dyn SharedDataTransactionArgsTrait>>,
     pub deserialize_shared: ErasedDeserializeFn<Box<dyn SharedDataTrait>>,
     pub deserialize_session: ErasedDeserializeFn<Box<dyn SessionDataTrait>>,
     /// Creates a new instance of type-erased module data
     pub init_data: fn() -> Box<dyn DataTrait>,
-    /// Applies a type-erased transaction to type-erased module data
-    pub apply_transaction: fn(&mut Box<dyn DataTrait>, &Box<dyn TransactionArgsTrait>),
+    /// Applies a type-erased transaction to [`Module::PersistentData`].
+    pub apply_data_transaction: fn(&mut Box<dyn DataTrait>, &Box<dyn DataTransactionArgsTrait>),
+    /// Overrides [`Data::session`] with the given [`SessionData`]
+    pub replace_session_data: fn(&mut Box<dyn DataTrait>, &Box<dyn SessionDataTrait>),
+    /// Overrides [`Data::shared`] with the given [`SharedData`]
+    pub replace_shared_data: fn(&mut Box<dyn DataTrait>, &Box<dyn SharedDataTrait>),
+    /// Applies a type-erased transaction to [`Module::PersistentUserData`].
+    pub apply_user_data_transaction:
+        fn(&mut Box<dyn DataTrait>, &Box<dyn UserDataTransactionArgsTrait>),
+    /// Applies a type-erased transaction to [`Module::SessionData`].
+    pub apply_session_data_transaction:
+        fn(&mut Box<dyn SessionDataTrait>, &Box<dyn SessionDataTransactionArgsTrait>),
+    /// Applies a type-erased transaction to [`Module::SharedData`].
+    pub apply_shared_data_transaction:
+        fn(&mut Box<dyn SharedDataTrait>, &Box<dyn SharedDataTransactionArgsTrait>),
 }
 
 thread_local! {
@@ -397,6 +437,7 @@ impl ModuleRegistry {
     }
 
     /// Register a [`Module`] to be known by the [`ModuleRegistry`]
+    #[expect(clippy::too_many_lines)]
     pub fn register<M>(&mut self)
     where
         M: Module,
@@ -407,9 +448,24 @@ impl ModuleRegistry {
             ModuleRegistryEntry {
                 deserialize_data: |d| Ok(Box::new(erased_serde::deserialize::<Data<M>>(d)?)),
                 deserialize_transaction_args: |d| {
-                    Ok(Box::new(erased_serde::deserialize::<TransactionArgs<M>>(
-                        d,
-                    )?))
+                    Ok(Box::new(
+                        erased_serde::deserialize::<DataTransactionArgs<M>>(d)?,
+                    ))
+                },
+                deserialize_user_transaction_args: |d| {
+                    Ok(Box::new(erased_serde::deserialize::<
+                        UserDataTransactionArgs<M>,
+                    >(d)?))
+                },
+                deserialize_session_transaction_args: |d| {
+                    Ok(Box::new(erased_serde::deserialize::<
+                        SessionDataTransactionArgs<M>,
+                    >(d)?))
+                },
+                deserialize_shared_transaction_args: |d| {
+                    Ok(Box::new(erased_serde::deserialize::<
+                        SharedDataTransactionArgs<M>,
+                    >(d)?))
                 },
                 deserialize_shared: |d| {
                     Ok(Box::new(erased_serde::deserialize::<SharedData<M>>(d)?))
@@ -418,18 +474,84 @@ impl ModuleRegistry {
                     Ok(Box::new(erased_serde::deserialize::<SessionData<M>>(d)?))
                 },
                 init_data: || Box::new(Data::<M>::default()),
-                apply_transaction: |data, args| {
-                    let m = data
+                apply_data_transaction: |data, args| {
+                    let data = data
                         .as_mut()
                         .as_mut_any()
                         .downcast_mut::<Data<M>>()
                         .unwrap();
-                    let t = args
+                    let args = args
                         .as_ref()
                         .as_any()
-                        .downcast_ref::<TransactionArgs<M>>()
+                        .downcast_ref::<DataTransactionArgs<M>>()
                         .unwrap();
-                    module::DataTransaction::apply(&mut m.persistent, t.0.clone()).unwrap();
+                    module::DataTransaction::apply(&mut data.persistent, args.0.clone()).unwrap();
+                },
+                replace_session_data: |data, session_data| {
+                    let data = data
+                        .as_mut()
+                        .as_mut_any()
+                        .downcast_mut::<Data<M>>()
+                        .unwrap();
+                    let session_data = session_data
+                        .as_ref()
+                        .as_any()
+                        .downcast_ref::<SessionData<M>>()
+                        .unwrap();
+                    data.session = session_data.0.clone();
+                },
+                replace_shared_data: |data, shared_data| {
+                    let data = data
+                        .as_mut()
+                        .as_mut_any()
+                        .downcast_mut::<Data<M>>()
+                        .unwrap();
+                    let shared_data = shared_data
+                        .as_ref()
+                        .as_any()
+                        .downcast_ref::<SharedData<M>>()
+                        .unwrap();
+                    data.shared = shared_data.0.clone();
+                },
+                apply_user_data_transaction: |data, args| {
+                    let data = data
+                        .as_mut()
+                        .as_mut_any()
+                        .downcast_mut::<Data<M>>()
+                        .unwrap();
+                    let args = args
+                        .as_ref()
+                        .as_any()
+                        .downcast_ref::<UserDataTransactionArgs<M>>()
+                        .unwrap();
+                    module::DataTransaction::apply(&mut data.persistent_user, args.0.clone())
+                        .unwrap();
+                },
+                apply_session_data_transaction: |data, args| {
+                    let data = data
+                        .as_mut()
+                        .as_mut_any()
+                        .downcast_mut::<Data<M>>()
+                        .unwrap();
+                    let args = args
+                        .as_ref()
+                        .as_any()
+                        .downcast_ref::<SessionDataTransactionArgs<M>>()
+                        .unwrap();
+                    module::DataTransaction::apply(&mut data.session, args.0.clone()).unwrap();
+                },
+                apply_shared_data_transaction: |data, args| {
+                    let data = data
+                        .as_mut()
+                        .as_mut_any()
+                        .downcast_mut::<Data<M>>()
+                        .unwrap();
+                    let args = args
+                        .as_ref()
+                        .as_any()
+                        .downcast_ref::<SharedDataTransactionArgs<M>>()
+                        .unwrap();
+                    module::DataTransaction::apply(&mut data.shared, args.0.clone()).unwrap();
                 },
             },
         );
