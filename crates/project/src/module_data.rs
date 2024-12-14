@@ -7,7 +7,7 @@
 
 use core::fmt;
 use dyn_clone::DynClone;
-use module::{DataTransaction, Module};
+use module::{DataSection, Module};
 use paste::paste;
 use serde::de::{DeserializeSeed, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -323,17 +323,17 @@ define_type_erased!(SessionData, deserialize_session);
 
 /// Wrapper type for transaction arguments that can be applied to a [`Module::PersistentData`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DataTransactionArgs<M: Module>(pub <M::PersistentData as DataTransaction>::Args);
+pub struct DataTransactionArgs<M: Module>(pub <M::PersistentData as DataSection>::Args);
 define_type_erased!(DataTransactionArgs, deserialize_transaction_args);
 
 /// Wrapper type for transaction arguments that can be applied to a [`Module::PersistentData`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct UserDataTransactionArgs<M: Module>(pub <M::PersistentUserData as DataTransaction>::Args);
+pub struct UserDataTransactionArgs<M: Module>(pub <M::PersistentUserData as DataSection>::Args);
 define_type_erased!(UserDataTransactionArgs, deserialize_user_transaction_args);
 
 /// Wrapper type for transaction arguments that can be applied to a [`Module::SessionData`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SessionDataTransactionArgs<M: Module>(pub <M::SessionData as DataTransaction>::Args);
+pub struct SessionDataTransactionArgs<M: Module>(pub <M::SessionData as DataSection>::Args);
 define_type_erased!(
     SessionDataTransactionArgs,
     deserialize_session_transaction_args
@@ -341,7 +341,7 @@ define_type_erased!(
 
 /// Wrapper type for transaction arguments that can be applied to a [`Module::SharedData`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SharedDataTransactionArgs<M: Module>(pub <M::SharedData as DataTransaction>::Args);
+pub struct SharedDataTransactionArgs<M: Module>(pub <M::SharedData as DataSection>::Args);
 define_type_erased!(
     SharedDataTransactionArgs,
     deserialize_shared_transaction_args
@@ -485,7 +485,7 @@ impl ModuleRegistry {
                         .as_any()
                         .downcast_ref::<DataTransactionArgs<M>>()
                         .unwrap();
-                    module::DataTransaction::apply(&mut data.persistent, args.0.clone()).unwrap();
+                    module::DataSection::apply(&mut data.persistent, args.0.clone()).unwrap();
                 },
                 replace_session_data: |data, session_data| {
                     let data = data
@@ -524,8 +524,7 @@ impl ModuleRegistry {
                         .as_any()
                         .downcast_ref::<UserDataTransactionArgs<M>>()
                         .unwrap();
-                    module::DataTransaction::apply(&mut data.persistent_user, args.0.clone())
-                        .unwrap();
+                    module::DataSection::apply(&mut data.persistent_user, args.0.clone()).unwrap();
                 },
                 apply_session_data_transaction: |data, args| {
                     let data = data
@@ -538,7 +537,7 @@ impl ModuleRegistry {
                         .as_any()
                         .downcast_ref::<SessionDataTransactionArgs<M>>()
                         .unwrap();
-                    module::DataTransaction::apply(&mut data.session, args.0.clone()).unwrap();
+                    module::DataSection::apply(&mut data.session, args.0.clone()).unwrap();
                 },
                 apply_shared_data_transaction: |data, args| {
                     let data = data
@@ -551,7 +550,7 @@ impl ModuleRegistry {
                         .as_any()
                         .downcast_ref::<SharedDataTransactionArgs<M>>()
                         .unwrap();
-                    module::DataTransaction::apply(&mut data.shared, args.0.clone()).unwrap();
+                    module::DataSection::apply(&mut data.shared, args.0.clone()).unwrap();
                 },
             },
         );

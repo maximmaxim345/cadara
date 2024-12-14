@@ -1,4 +1,4 @@
-use module::{DataTransaction, Module};
+use module::{DataSection, Module};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -51,7 +51,7 @@ impl<M: Module> DataView<'_, M> {
     /// * `args` - Arguments of the transaction.
     pub fn apply_persistent(
         &mut self,
-        args: <M::PersistentData as DataTransaction>::Args,
+        args: <M::PersistentData as DataSection>::Args,
         cb: &mut ChangeBuilder,
     ) {
         cb.changes.push(PendingChange::Change(Change::Transaction {
@@ -69,7 +69,7 @@ impl<M: Module> DataView<'_, M> {
     /// * `args` - Arguments of the transaction.
     pub fn apply_persistent_user(
         &mut self,
-        args: <M::PersistentUserData as DataTransaction>::Args,
+        args: <M::PersistentUserData as DataSection>::Args,
         cb: &mut ChangeBuilder,
     ) {
         cb.changes
@@ -88,7 +88,7 @@ impl<M: Module> DataView<'_, M> {
     /// * `args` - Arguments of the transaction.
     pub fn apply_session(
         &mut self,
-        args: <M::SessionData as DataTransaction>::Args,
+        args: <M::SessionData as DataSection>::Args,
         cb: &mut ChangeBuilder,
     ) {
         cb.changes.push(PendingChange::SessionTransaction {
@@ -106,7 +106,7 @@ impl<M: Module> DataView<'_, M> {
     /// * `args` - Arguments of the transaction.
     pub fn apply_shared(
         &mut self,
-        args: <M::SharedData as DataTransaction>::Args,
+        args: <M::SharedData as DataSection>::Args,
         cb: &mut ChangeBuilder,
     ) {
         cb.changes.push(PendingChange::SharedTransaction {

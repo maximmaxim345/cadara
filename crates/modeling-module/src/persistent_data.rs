@@ -1,5 +1,5 @@
 use crate::operation::ModelingOperation;
-use module::{DataTransaction, ReversibleDataTransaction};
+use module::{DataSection, ReversibleDataTransaction};
 use occara::{
     geom::{Point, Vector},
     shape::{Edge, Wire},
@@ -37,7 +37,7 @@ pub struct ModelingTransactionOutput {
     uuid: Uuid,
 }
 
-impl DataTransaction for PersistentData {
+impl DataSection for PersistentData {
     type Args = ModelingTransaction;
     type Error = ();
     type Output = ModelingTransactionOutput;

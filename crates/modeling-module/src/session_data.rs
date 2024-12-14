@@ -1,10 +1,10 @@
-use module::{DataTransaction, ReversibleDataTransaction};
+use module::{DataSection, ReversibleDataTransaction};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionData {}
 
-impl DataTransaction for SessionData {
+impl DataSection for SessionData {
     type Args = ();
     type Error = ();
     type Output = ();

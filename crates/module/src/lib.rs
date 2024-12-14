@@ -13,7 +13,7 @@ use uuid::Uuid;
 /// If the transaction is reversible, it should implement the [`ReversibleDataTransaction`] trait too.
 ///
 /// [`Module`]: crate::Module
-pub trait DataTransaction {
+pub trait DataSection {
     // TODO: add Debug, Clone, ... to these types
     /// The type of arguments required to apply the transaction.
     type Args: Clone
@@ -82,7 +82,7 @@ pub trait DataTransaction {
 }
 
 /// A trait for transactions that can be reversed.
-pub trait ReversibleDataTransaction: DataTransaction {
+pub trait ReversibleDataTransaction: DataSection {
     /// The type of data required to undo the transaction.
     type UndoData: Clone + Debug + PartialEq + Hash + Send;
 
@@ -177,7 +177,7 @@ pub trait Module: Clone + Default + Debug + Send + Sync + 'static {
     /// # Notes
     /// - This data is not shared between users.
     /// - This data is not saved to disk.
-    type SessionData: DataTransaction
+    type SessionData: DataSection
         + Clone
         + Default
         + Debug
@@ -191,7 +191,7 @@ pub trait Module: Clone + Default + Debug + Send + Sync + 'static {
     /// # Notes
     /// - This data will be synchronized between users.
     /// - This data is not saved to disk.
-    type SharedData: DataTransaction
+    type SharedData: DataSection
         + Clone
         + Default
         + Debug

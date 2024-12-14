@@ -1,10 +1,10 @@
-use module::{DataTransaction, ReversibleDataTransaction};
+use module::{DataSection, ReversibleDataTransaction};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PersistentUserData {}
 
-impl DataTransaction for PersistentUserData {
+impl DataSection for PersistentUserData {
     type Args = ();
     type Error = ();
     type Output = ();

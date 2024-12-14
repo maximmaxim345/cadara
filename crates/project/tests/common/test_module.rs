@@ -1,4 +1,4 @@
-use module::{DataTransaction, Module, ReversibleDataTransaction};
+use module::{DataSection, Module, ReversibleDataTransaction};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -15,10 +15,7 @@ pub enum TransactionStatus {
     Undone,
 }
 
-pub type TransactionLog = Vec<(
-    TransactionStatus,
-    <TestDataSection as DataTransaction>::Args,
-)>;
+pub type TransactionLog = Vec<(TransactionStatus, <TestDataSection as DataSection>::Args)>;
 
 lazy_static! {
     static ref GLOBAL_TRANSACTION_LOG: Arc<RwLock<HashMap<Uuid, TransactionLog>>> =
@@ -81,7 +78,7 @@ pub enum TestTransactionError {
     InvalidNumber,
 }
 
-impl DataTransaction for TestDataSection {
+impl DataSection for TestDataSection {
     type Args = TestTransaction;
     type Error = TestTransactionError;
     type Output = String;
@@ -221,7 +218,7 @@ pub fn test_test_module() {
         "Transaction should have been applied"
     );
 
-    let result = DataTransaction::apply(&mut test_data, transaction_invalid_word.clone());
+    let result = DataSection::apply(&mut test_data, transaction_invalid_word.clone());
     assert!(result.is_err());
 
     let undodata_number =
@@ -233,7 +230,7 @@ pub fn test_test_module() {
         "Transaction should have been applied"
     );
 
-    let result = DataTransaction::apply(&mut test_data, transaction_invalid_number.clone());
+    let result = DataSection::apply(&mut test_data, transaction_invalid_number.clone());
     assert!(result.is_err());
 
     // Test if the transaction log is correct
@@ -273,10 +270,8 @@ pub fn test_test_module() {
     );
 
     // Try the failing transaction
-    assert!(DataTransaction::apply(&mut test_data, TestTransaction::SetNumber(99)).is_ok());
-    assert!(DataTransaction::apply(&mut test_data, TestTransaction::FailIfNumberIsOver100).is_ok());
-    assert!(DataTransaction::apply(&mut test_data, TestTransaction::SetNumber(101)).is_ok());
-    assert!(
-        DataTransaction::apply(&mut test_data, TestTransaction::FailIfNumberIsOver100).is_err()
-    );
+    assert!(DataSection::apply(&mut test_data, TestTransaction::SetNumber(99)).is_ok());
+    assert!(DataSection::apply(&mut test_data, TestTransaction::FailIfNumberIsOver100).is_ok());
+    assert!(DataSection::apply(&mut test_data, TestTransaction::SetNumber(101)).is_ok());
+    assert!(DataSection::apply(&mut test_data, TestTransaction::FailIfNumberIsOver100).is_err());
 }

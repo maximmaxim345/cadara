@@ -1,5 +1,5 @@
 // A second minimal test module, to test multiple different modules
-use module::{DataTransaction, Module, ReversibleDataTransaction};
+use module::{DataSection, Module, ReversibleDataTransaction};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -11,7 +11,7 @@ pub struct TestDataSection {
     pub num: i32,
 }
 
-impl DataTransaction for TestDataSection {
+impl DataSection for TestDataSection {
     type Args = i32;
     type Error = ();
     type Output = ();
@@ -58,7 +58,7 @@ impl Module for MinimalTestModule {
 pub fn test_minimal_test_module() {
     let mut data_section = TestDataSection::default();
     assert_eq!(data_section.num, 0);
-    assert!(DataTransaction::apply(&mut data_section, 4).is_ok());
+    assert!(DataSection::apply(&mut data_section, 4).is_ok());
     assert_eq!(data_section.num, 4);
     let undo_data = ReversibleDataTransaction::apply(&mut data_section, 40)
         .unwrap()
