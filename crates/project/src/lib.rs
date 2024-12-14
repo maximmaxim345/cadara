@@ -32,7 +32,7 @@ use branch::BranchId;
 use checkpoint::CheckpointId;
 use document::Document;
 use module_data::{
-    ErasedData, ErasedDataTransactionArgs, ErasedSessionData, ErasedSessionDataTransactionArgs,
+    ErasedDataTransactionArgs, ErasedSessionData, ErasedSessionDataTransactionArgs,
     ErasedSharedDataTransactionArgs, ErasedUserDataTransactionArgs, ModuleId, ModuleRegistry,
     MODULE_REGISTRY,
 };
@@ -302,7 +302,6 @@ impl Project {
     /// # Errors
     /// Returns an error if:
     /// - A required module is not found in the registry
-    #[expect(clippy::too_many_lines)]
     pub fn create_view(&self, reg: &ModuleRegistry) -> Result<ProjectView, ProjectViewError> {
         let mut data = HashMap::new();
         let mut documents = HashMap::new();
@@ -322,15 +321,10 @@ impl Project {
                             Change::CreateData { id, module, owner } => {
                                 data.insert(
                                     *id,
-                                    ErasedData {
-                                        module: *module,
-                                        data: (reg
-                                            .0
-                                            .get(module)
-                                            .ok_or(ProjectViewError::UnknownModule(*module))?
-                                            .init_data)(
-                                        ),
-                                    },
+                                    (reg.0
+                                        .get(module)
+                                        .ok_or(ProjectViewError::UnknownModule(*module))?
+                                        .init_data)(),
                                 );
                                 if let Some(owner) = owner {
                                     documents
@@ -355,7 +349,7 @@ impl Project {
                                     .apply_data_transaction;
                                 let data =
                                     data.get_mut(id).ok_or(ProjectViewError::InvalidProject)?;
-                                apply(&mut data.data, &args.data);
+                                apply(data, args);
                             }
                             Change::UserTransaction { id, args } => {
                                 let user = *sessions
@@ -370,7 +364,7 @@ impl Project {
                                         .apply_user_data_transaction;
                                     let data =
                                         data.get_mut(id).ok_or(ProjectViewError::InvalidProject)?;
-                                    apply(&mut data.data, &args.data);
+                                    apply(data, args);
                                 }
                             }
                         }
@@ -394,7 +388,7 @@ impl Project {
             (reg.0
                 .get(&session_data.module)
                 .ok_or(ProjectViewError::UnknownModule(session_data.module))?
-                .replace_session_data)(&mut d.data, &session_data.data);
+                .replace_session_data)(d, session_data);
         }
 
         for (id, shared_data) in &self.shared_data {
@@ -402,7 +396,7 @@ impl Project {
             (reg.0
                 .get(&shared_data.module)
                 .ok_or(ProjectViewError::UnknownModule(shared_data.module))?
-                .replace_shared_data)(&mut d.data, &shared_data.data);
+                .replace_shared_data)(d, shared_data);
         }
 
         Ok(ProjectView {
@@ -449,7 +443,7 @@ impl Project {
                         .session_data
                         .get_mut(&id)
                         .expect("project was corrupted");
-                    apply(&mut data.data, &args.data);
+                    apply(data, &args);
                     None
                 }
                 PendingChange::SharedTransaction { id, args } => {
@@ -462,7 +456,7 @@ impl Project {
                         .shared_data
                         .get_mut(&id)
                         .expect("project was corrupted");
-                    apply(&mut data.data, &args.data);
+                    apply(data, &args);
                     None
                 }
             })

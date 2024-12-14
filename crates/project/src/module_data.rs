@@ -389,22 +389,20 @@ pub struct ModuleRegistryEntry {
     pub deserialize_shared: ErasedDeserializeFn<Box<dyn SharedDataTrait>>,
     pub deserialize_session: ErasedDeserializeFn<Box<dyn SessionDataTrait>>,
     /// Creates a new instance of type-erased module data
-    pub init_data: fn() -> Box<dyn DataTrait>,
+    pub init_data: fn() -> ErasedData,
     /// Applies a type-erased transaction to [`Module::PersistentData`].
-    pub apply_data_transaction: fn(&mut Box<dyn DataTrait>, &Box<dyn DataTransactionArgsTrait>),
+    pub apply_data_transaction: fn(&mut ErasedData, &ErasedDataTransactionArgs),
     /// Overrides [`Data::session`] with the given [`SessionData`]
-    pub replace_session_data: fn(&mut Box<dyn DataTrait>, &Box<dyn SessionDataTrait>),
+    pub replace_session_data: fn(&mut ErasedData, &ErasedSessionData),
     /// Overrides [`Data::shared`] with the given [`SharedData`]
-    pub replace_shared_data: fn(&mut Box<dyn DataTrait>, &Box<dyn SharedDataTrait>),
+    pub replace_shared_data: fn(&mut ErasedData, &ErasedSharedData),
     /// Applies a type-erased transaction to [`Module::PersistentUserData`].
-    pub apply_user_data_transaction:
-        fn(&mut Box<dyn DataTrait>, &Box<dyn UserDataTransactionArgsTrait>),
+    pub apply_user_data_transaction: fn(&mut ErasedData, &ErasedUserDataTransactionArgs),
     /// Applies a type-erased transaction to [`Module::SessionData`].
     pub apply_session_data_transaction:
-        fn(&mut Box<dyn SessionDataTrait>, &Box<dyn SessionDataTransactionArgsTrait>),
+        fn(&mut ErasedSessionData, &ErasedSessionDataTransactionArgs),
     /// Applies a type-erased transaction to [`Module::SharedData`].
-    pub apply_shared_data_transaction:
-        fn(&mut Box<dyn SharedDataTrait>, &Box<dyn SharedDataTransactionArgsTrait>),
+    pub apply_shared_data_transaction: fn(&mut ErasedSharedData, &ErasedSharedDataTransactionArgs),
 }
 
 thread_local! {
@@ -437,7 +435,6 @@ impl ModuleRegistry {
     }
 
     /// Register a [`Module`] to be known by the [`ModuleRegistry`]
-    #[expect(clippy::too_many_lines)]
     pub fn register<M>(&mut self)
     where
         M: Module,
@@ -473,84 +470,39 @@ impl ModuleRegistry {
                 deserialize_session: |d| {
                     Ok(Box::new(erased_serde::deserialize::<SessionData<M>>(d)?))
                 },
-                init_data: || Box::new(Data::<M>::default()),
+                init_data: || ErasedData {
+                    module: ModuleId::from_module::<M>(),
+                    data: Box::new(Data::<M>::default()),
+                },
                 apply_data_transaction: |data, args| {
-                    let data = data
-                        .as_mut()
-                        .as_mut_any()
-                        .downcast_mut::<Data<M>>()
-                        .unwrap();
-                    let args = args
-                        .as_ref()
-                        .as_any()
-                        .downcast_ref::<DataTransactionArgs<M>>()
-                        .unwrap();
+                    let data = data.downcast_mut::<M>().unwrap();
+                    let args = args.downcast_ref::<M>().unwrap();
                     module::DataSection::apply(&mut data.persistent, args.0.clone());
                 },
                 replace_session_data: |data, session_data| {
-                    let data = data
-                        .as_mut()
-                        .as_mut_any()
-                        .downcast_mut::<Data<M>>()
-                        .unwrap();
-                    let session_data = session_data
-                        .as_ref()
-                        .as_any()
-                        .downcast_ref::<SessionData<M>>()
-                        .unwrap();
+                    let data = data.downcast_mut::<M>().unwrap();
+                    let session_data = session_data.downcast_ref::<M>().unwrap();
                     data.session = session_data.0.clone();
                 },
                 replace_shared_data: |data, shared_data| {
-                    let data = data
-                        .as_mut()
-                        .as_mut_any()
-                        .downcast_mut::<Data<M>>()
-                        .unwrap();
-                    let shared_data = shared_data
-                        .as_ref()
-                        .as_any()
-                        .downcast_ref::<SharedData<M>>()
-                        .unwrap();
+                    let data = data.downcast_mut::<M>().unwrap();
+                    let shared_data = shared_data.downcast_ref::<M>().unwrap();
                     data.shared = shared_data.0.clone();
                 },
                 apply_user_data_transaction: |data, args| {
-                    let data = data
-                        .as_mut()
-                        .as_mut_any()
-                        .downcast_mut::<Data<M>>()
-                        .unwrap();
-                    let args = args
-                        .as_ref()
-                        .as_any()
-                        .downcast_ref::<UserDataTransactionArgs<M>>()
-                        .unwrap();
+                    let data = data.downcast_mut::<M>().unwrap();
+                    let args = args.downcast_ref::<M>().unwrap();
                     module::DataSection::apply(&mut data.persistent_user, args.0.clone());
                 },
                 apply_session_data_transaction: |data, args| {
-                    let data = data
-                        .as_mut()
-                        .as_mut_any()
-                        .downcast_mut::<Data<M>>()
-                        .unwrap();
-                    let args = args
-                        .as_ref()
-                        .as_any()
-                        .downcast_ref::<SessionDataTransactionArgs<M>>()
-                        .unwrap();
-                    module::DataSection::apply(&mut data.session, args.0.clone());
+                    let data = data.downcast_mut::<M>().unwrap();
+                    let args = args.downcast_ref::<M>().unwrap();
+                    module::DataSection::apply(&mut data.0, args.0.clone());
                 },
                 apply_shared_data_transaction: |data, args| {
-                    let data = data
-                        .as_mut()
-                        .as_mut_any()
-                        .downcast_mut::<Data<M>>()
-                        .unwrap();
-                    let args = args
-                        .as_ref()
-                        .as_any()
-                        .downcast_ref::<SharedDataTransactionArgs<M>>()
-                        .unwrap();
-                    module::DataSection::apply(&mut data.shared, args.0.clone());
+                    let data = data.downcast_mut::<M>().unwrap();
+                    let args = args.downcast_ref::<M>().unwrap();
+                    module::DataSection::apply(&mut data.0, args.0.clone());
                 },
             },
         );
