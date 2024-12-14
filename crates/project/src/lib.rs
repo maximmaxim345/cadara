@@ -9,7 +9,6 @@
 #![warn(clippy::pedantic)]
 
 // TODO: complete refactoring of project
-// - adjust module to disallow errors
 // - allow for errors in project, in create view and deserialization
 // - add metadata, not only do documents, but also to projects and data
 // - support undo/redo

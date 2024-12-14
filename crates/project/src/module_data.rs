@@ -485,7 +485,7 @@ impl ModuleRegistry {
                         .as_any()
                         .downcast_ref::<DataTransactionArgs<M>>()
                         .unwrap();
-                    module::DataSection::apply(&mut data.persistent, args.0.clone()).unwrap();
+                    module::DataSection::apply(&mut data.persistent, args.0.clone());
                 },
                 replace_session_data: |data, session_data| {
                     let data = data
@@ -524,7 +524,7 @@ impl ModuleRegistry {
                         .as_any()
                         .downcast_ref::<UserDataTransactionArgs<M>>()
                         .unwrap();
-                    module::DataSection::apply(&mut data.persistent_user, args.0.clone()).unwrap();
+                    module::DataSection::apply(&mut data.persistent_user, args.0.clone());
                 },
                 apply_session_data_transaction: |data, args| {
                     let data = data
@@ -537,7 +537,7 @@ impl ModuleRegistry {
                         .as_any()
                         .downcast_ref::<SessionDataTransactionArgs<M>>()
                         .unwrap();
-                    module::DataSection::apply(&mut data.session, args.0.clone()).unwrap();
+                    module::DataSection::apply(&mut data.session, args.0.clone());
                 },
                 apply_shared_data_transaction: |data, args| {
                     let data = data
@@ -550,7 +550,7 @@ impl ModuleRegistry {
                         .as_any()
                         .downcast_ref::<SharedDataTransactionArgs<M>>()
                         .unwrap();
-                    module::DataSection::apply(&mut data.shared, args.0.clone()).unwrap();
+                    module::DataSection::apply(&mut data.shared, args.0.clone());
                 },
             },
         );
