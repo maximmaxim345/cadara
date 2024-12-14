@@ -19,6 +19,7 @@
 // - Design Task (branch) > Changes (checkpoint) > Actions (change -> action, changes -> actions)
 // - Revisions use CheckPoint, but also make a immutable ProjectArchive w.o redundant data
 
+mod branch;
 mod checkpoint;
 mod data;
 mod document;
@@ -26,6 +27,7 @@ mod module_data;
 mod project;
 mod user;
 
+use branch::BranchId;
 use checkpoint::CheckpointId;
 use document::Document;
 use module_data::{
@@ -35,7 +37,7 @@ use serde::de::DeserializeSeed;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
-use user::{BranchId, SessionId};
+use user::SessionId;
 
 // Public reexports
 pub use data::DataId;
@@ -122,6 +124,7 @@ enum Change {
 
 /// Entry in the log stored in [`Project`]
 #[derive(Clone, Serialize, Deserialize, Debug)]
+// TODO: add data for Ord
 enum ProjectLogEntry {
     Changes {
         session: SessionId,
