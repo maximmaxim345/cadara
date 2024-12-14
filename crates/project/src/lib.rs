@@ -9,8 +9,6 @@
 #![warn(clippy::pedantic)]
 
 // TODO: complete refactoring of project
-// - refactor user.rs, including Session support
-// - add session support
 // - add support for data sections other than persistent
 // - adjust module to disallow errors
 // - allow for errors in project, in create view and deserialization
@@ -35,8 +33,7 @@ use serde::de::DeserializeSeed;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
-use user::User;
-use uuid::Uuid;
+use user::{BranchId, SessionId};
 
 // Public reexports
 pub use data::DataId;
@@ -44,6 +41,7 @@ pub use data::DataView;
 pub use document::DocumentId;
 pub use document::DocumentView;
 pub use project::ProjectView;
+pub use user::UserId;
 
 /// Helper to deserialize a [`Project`].
 ///
@@ -124,21 +122,22 @@ enum Change {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 enum ProjectLogEntry {
     Changes {
-        session: Uuid,
+        session: SessionId,
         changes: Vec<Change>,
     },
-    /// Tells that the a [`Self::Changes`] before this entry (with the same session id) should be ignored
-    Undo {
-        session: Uuid,
-    },
-    /// Tells that a [`Self::Undo`] before this entry (with the same session id) should be ignored
-    Redo {
-        session: Uuid,
-    },
-    /// Registers a new [`Session`] to associate it with the given [`User`]
+    /// Tells that the a [`Self::Changes`] before this entry (with the same [`SessionId`]) should be ignored
+    Undo { session: SessionId },
+    /// Tells that a [`Self::Undo`] before this entry (with the same [`SessionId`]) should be ignored
+    Redo { session: SessionId },
+    /// Registers a new [`SessionId`] to associate it with editing of the given user.
+    ///
+    /// All sessions happening on the same branch must also be registered with the same [`BranchId`].
+    ///
+    /// Any in [`Project::log`] used [`SessionId`] must be previously registered using this entry.
     NewSession {
-        user: User,
-        session: Uuid,
+        user: UserId,
+        branch: BranchId,
+        new_session: SessionId,
     },
 }
 
@@ -217,6 +216,19 @@ impl ChangeBuilder {
 /// While [`Project`] implements [`serde::Serialize`], it will error on any non trivial project
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Project {
+    /// The user owning this [`Project`] struct.
+    ///
+    /// By default, this is the `local` user.
+    user: UserId,
+    /// Session that will be used for new changes.
+    ///
+    /// Must be reset in case this [`Project`] is sent to another device to avoid
+    /// undo/redo conflicts.
+    session: Option<SessionId>,
+    /// The id of the branch, this [`Project`] is representing.
+    ///
+    /// By default, this is `main`.
+    branch: BranchId,
     /// Chronological list of entries required to rebuild the entire [`ProjectView`] excluding
     /// shared and session data
     log: Vec<ProjectLogEntry>,
@@ -325,13 +337,14 @@ impl Project {
                 ProjectLogEntry::Redo { session: _ } => todo!("undo/redo is not supported yet"),
                 ProjectLogEntry::NewSession {
                     user: _,
-                    session: _,
+                    new_session: _,
+                    branch: _,
                 } => todo!(),
             };
         }
 
         Ok(ProjectView {
-            user: User::local(),
+            user: UserId::local(),
             data,
             documents,
         })
@@ -348,8 +361,18 @@ impl Project {
     /// After applying the changes, use [`Project::create_view`] to see the new state
     /// of the [`Project`].
     pub fn apply_changes(&mut self, cb: ChangeBuilder) {
+        let session = self.session.get_or_insert_with(|| {
+            let new_session = SessionId::new();
+            self.log.push(ProjectLogEntry::NewSession {
+                user: self.user,
+                branch: self.branch,
+                new_session,
+            });
+            new_session
+        });
+
         self.log.push(ProjectLogEntry::Changes {
-            session: Uuid::new_v4(),
+            session: *session,
             changes: cb.changes,
         });
     }

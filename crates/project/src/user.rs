@@ -1,79 +1,93 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Represents a user within the `CADara` application.
+/// Unique identifier of a user within `CADara`.
 ///
-/// Each user is uniquely identified by a [`Uuid`]. The [`User`] struct is used to
-/// represent different types of users and their permissions within the application.
+/// [`UserId`] serve two main functions:
+/// 1. Dictate what [`module::Module::PersistentUserData`] should be used.
+/// 2. To create [`SessionId`]s to associate a changes to a project with a user.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct User {
-    /// The unique identifier for the user.
-    pub uuid: Uuid,
-}
+#[serde(transparent)]
+#[expect(clippy::module_name_repetitions)]
+pub struct UserId(Uuid);
 
-impl User {
-    /// Creates a new user with a randomly generated UUID.
-    ///
-    /// This method is typically used for creating a standard user with unique credentials.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use project::user::User;
-    /// # use uuid::Uuid;
-    /// let user = User::new();
-    /// println!("New user UUID: {}", user.uuid);
-    /// ```
+impl UserId {
+    /// Creates a new user with a randomly generated id.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            uuid: Uuid::new_v4(),
-        }
+        Self(Uuid::new_v4())
     }
 
     /// Creates a user reserved for local host operations.
     ///
-    /// This user is identified by a "nil" UUID, which is a special UUID with all bits set to zero.
     /// It is intended for locally saved projects.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use project::user::User;
-    /// # use uuid::Uuid;
-    /// let local_user = User::local();
-    /// assert_eq!(local_user.uuid, Uuid::from_u128(0));
-    /// ```
     #[must_use]
     pub const fn local() -> Self {
-        Self {
-            uuid: Uuid::from_u128(0),
-        }
-    }
-
-    /// Creates a read-only local user.
-    ///
-    /// This user is intended for operations that should not modify data, such as viewing or auditing.
-    /// The UUID for the read-only user is predefined and distinct from other user UUIDs.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use project::user::User;
-    /// # use uuid::Uuid;
-    /// let read_only_user = User::local_read_only();
-    /// assert_eq!(read_only_user.uuid, uuid::Uuid::from_u128(1));
-    /// ```
-    #[must_use]
-    pub const fn local_read_only() -> Self {
-        Self {
-            uuid: Uuid::from_u128(1), // Replace with the actual UUID for the read-only user.
-        }
+        Self(Uuid::from_u128(0))
     }
 }
 
-impl Default for User {
+impl Default for UserId {
     fn default() -> Self {
-        Self::new()
+        Self::local()
+    }
+}
+
+/// Unique identifier of a branch in a project.
+///
+/// Branches in [`Project`]s are used to indicate (past) branching of a [`Project`].
+/// While leave nodes internally exist as separate [`Project`]s, mearging them combines
+/// the history to a single linear [`Project::log`].
+///
+/// Giving branches a unique [`BranchId`] allows us reconstruct the non linear history from
+/// a single linear log.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct BranchId(Uuid);
+
+impl BranchId {
+    /// Creates a new random branch identifier.
+    #[must_use]
+    #[expect(dead_code)]
+    pub fn new() -> Self {
+        Self(Uuid::new_v4())
+    }
+
+    /// Creates a new identifier for the main branch.
+    ///
+    /// The `main` branch has a special constant [`BranchId`].
+    #[must_use]
+    pub const fn main() -> Self {
+        Self(Uuid::from_u128(0))
+    }
+}
+
+impl Default for BranchId {
+    fn default() -> Self {
+        Self::main()
+    }
+}
+
+/// Unique identifier to associate changes with the origin.
+///
+/// We don't directly associate project changes to a [`UserId`], but to a
+/// [`SessionId`] registered to it through [`crate::ProjectLogEntry::NewSession`].
+///
+/// This has two main advantages:
+/// - undo/redo will be limited to a single session, meaning: A single user can have
+///   multiple simultaneous sessions with separate undo/redo history.
+/// - merging multiple branches of the same user will not have spooky effecty due to
+///   incorrectly associated undo/redo commands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct SessionId(Uuid);
+
+impl SessionId {
+    /// Create a new random unique identifier of a Session.
+    ///
+    /// Before use, this must first be registered in [`crate::ProjectLogEntry::NewSession`].
+    #[must_use]
+    pub fn new() -> Self {
+        Self(Uuid::new_v4())
     }
 }

@@ -2,7 +2,7 @@ use crate::{
     data::{DataId, DataView},
     document::{Document, DocumentId, DocumentView},
     module_data::{ErasedData, ModuleId},
-    user::User,
+    user::UserId,
     Change, ChangeBuilder,
 };
 use module::Module;
@@ -17,7 +17,7 @@ use std::fmt::Debug;
 #[expect(clippy::module_name_repetitions)]
 pub struct ProjectView {
     /// The user currently interacting with the project.
-    pub user: User,
+    pub user: UserId,
     /// A map containing all [`Data`]
     pub data: HashMap<DataId, ErasedData>,
     /// A map of all documents found in this project
