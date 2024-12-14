@@ -1,5 +1,6 @@
 use module::{DataSection, Module};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use uuid::Uuid;
 
 use crate::{
@@ -22,6 +23,12 @@ impl DataId {
     #[must_use]
     pub(crate) fn new_v4() -> Self {
         Self(Uuid::new_v4())
+    }
+}
+
+impl fmt::Display for DataId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "DataId({})", self.0)
     }
 }
 

@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{
     data::{DataId, DataView},
     Change, ChangeBuilder, PendingChange, ProjectView,
@@ -17,6 +19,12 @@ impl DocumentId {
     #[must_use]
     pub(crate) fn new_v4() -> Self {
         Self(Uuid::new_v4())
+    }
+}
+
+impl fmt::Display for DocumentId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "DocumentId({})", self.0)
     }
 }
 
