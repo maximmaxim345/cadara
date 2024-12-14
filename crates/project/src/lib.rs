@@ -19,12 +19,14 @@
 // - Design Task (branch) > Changes (checkpoint) > Actions (change -> action, changes -> actions)
 // - Revisions use CheckPoint, but also make a immutable ProjectArchive w.o redundant data
 
+mod checkpoint;
 mod data;
 mod document;
 mod module_data;
 mod project;
 mod user;
 
+use checkpoint::CheckpointId;
 use document::Document;
 use module_data::{
     ErasedData, ErasedSessionData, ErasedTransactionArgs, ModuleId, ModuleRegistry, MODULE_REGISTRY,
@@ -139,6 +141,8 @@ enum ProjectLogEntry {
         branch: BranchId,
         new_session: SessionId,
     },
+    /// Add a named identifier to this position in the [`Project::log`].
+    CheckPoint(CheckpointId),
 }
 
 /// Record changes to be applied to a [`Project`]
@@ -340,6 +344,7 @@ impl Project {
                     new_session: _,
                     branch: _,
                 } => todo!(),
+                ProjectLogEntry::CheckPoint(_) => {}
             };
         }
 
