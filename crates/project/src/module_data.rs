@@ -440,6 +440,11 @@ impl ModuleRegistry {
         M: Module,
         M::PersistentData: for<'de> Deserialize<'de>,
     {
+        const DOWNCAST_DATA_ERROR: &str =
+            "Failed to downcast module data, 'ModuleRegistryEntry' was incorrectly used";
+        const DOWNCAST_ARGS_ERROR: &str =
+            "Failed to downcast transaction arguments, 'ModuleRegistryEntry' was incorrectly used";
+
         self.0.insert(
             ModuleId::from_module::<M>(),
             ModuleRegistryEntry {
@@ -475,33 +480,33 @@ impl ModuleRegistry {
                     data: Box::new(Data::<M>::default()),
                 },
                 apply_data_transaction: |data, args| {
-                    let data = data.downcast_mut::<M>().unwrap();
-                    let args = args.downcast_ref::<M>().unwrap();
+                    let data = data.downcast_mut::<M>().expect(DOWNCAST_DATA_ERROR);
+                    let args = args.downcast_ref::<M>().expect(DOWNCAST_ARGS_ERROR);
                     module::DataSection::apply(&mut data.persistent, args.0.clone());
                 },
                 replace_session_data: |data, session_data| {
-                    let data = data.downcast_mut::<M>().unwrap();
-                    let session_data = session_data.downcast_ref::<M>().unwrap();
+                    let data = data.downcast_mut::<M>().expect(DOWNCAST_DATA_ERROR);
+                    let session_data = session_data.downcast_ref::<M>().expect(DOWNCAST_ARGS_ERROR);
                     data.session = session_data.0.clone();
                 },
                 replace_shared_data: |data, shared_data| {
-                    let data = data.downcast_mut::<M>().unwrap();
-                    let shared_data = shared_data.downcast_ref::<M>().unwrap();
+                    let data = data.downcast_mut::<M>().expect(DOWNCAST_DATA_ERROR);
+                    let shared_data = shared_data.downcast_ref::<M>().expect(DOWNCAST_ARGS_ERROR);
                     data.shared = shared_data.0.clone();
                 },
                 apply_user_data_transaction: |data, args| {
-                    let data = data.downcast_mut::<M>().unwrap();
-                    let args = args.downcast_ref::<M>().unwrap();
+                    let data = data.downcast_mut::<M>().expect(DOWNCAST_DATA_ERROR);
+                    let args = args.downcast_ref::<M>().expect(DOWNCAST_ARGS_ERROR);
                     module::DataSection::apply(&mut data.persistent_user, args.0.clone());
                 },
                 apply_session_data_transaction: |data, args| {
-                    let data = data.downcast_mut::<M>().unwrap();
-                    let args = args.downcast_ref::<M>().unwrap();
+                    let data = data.downcast_mut::<M>().expect(DOWNCAST_DATA_ERROR);
+                    let args = args.downcast_ref::<M>().expect(DOWNCAST_ARGS_ERROR);
                     module::DataSection::apply(&mut data.0, args.0.clone());
                 },
                 apply_shared_data_transaction: |data, args| {
-                    let data = data.downcast_mut::<M>().unwrap();
-                    let args = args.downcast_ref::<M>().unwrap();
+                    let data = data.downcast_mut::<M>().expect(DOWNCAST_DATA_ERROR);
+                    let args = args.downcast_ref::<M>().expect(DOWNCAST_ARGS_ERROR);
                     module::DataSection::apply(&mut data.0, args.0.clone());
                 },
             },
