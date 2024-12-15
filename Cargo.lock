@@ -3505,6 +3505,7 @@ dependencies = [
  "dyn-clone",
  "erased-serde",
  "lazy_static",
+ "log",
  "module",
  "paste",
  "serde",

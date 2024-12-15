@@ -16,6 +16,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use thiserror::Error;
 use uuid::Uuid;
 
 /// Globally unique identifier of a [`Module`].
@@ -375,7 +376,17 @@ impl<'de, O: ?Sized> DeserializeSeed<'de> for ErasedDeserializeSeed<O> {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum ModuleRegistryError {
+    #[error("Failed to downcast module data")]
+    DataDowncastError,
+    #[error("Failed to downcast transaction arguments")]
+    ArgsDowncastError,
+}
+
 /// Registry entry containing type-erased functions for module specific operations.
+///
+/// This is effectively a v-table for runtime polymorphism.
 #[derive(Clone, Debug)]
 pub struct ModuleRegistryEntry {
     pub deserialize_data: ErasedDeserializeFn<Box<dyn DataTrait>>,
@@ -390,19 +401,32 @@ pub struct ModuleRegistryEntry {
     pub deserialize_session: ErasedDeserializeFn<Box<dyn SessionDataTrait>>,
     /// Creates a new instance of type-erased module data
     pub init_data: fn() -> ErasedData,
+    /// Creates a new instance of type-erased session data
+    pub init_session_data: fn() -> ErasedSessionData,
+    /// Creates a new instance of type-erased shared data
+    pub init_shared_data: fn() -> ErasedSharedData,
     /// Applies a type-erased transaction to [`Module::PersistentData`].
-    pub apply_data_transaction: fn(&mut ErasedData, &ErasedDataTransactionArgs),
+    pub apply_data_transaction:
+        fn(&mut ErasedData, &ErasedDataTransactionArgs) -> Result<(), ModuleRegistryError>,
     /// Overrides [`Data::session`] with the given [`SessionData`]
-    pub replace_session_data: fn(&mut ErasedData, &ErasedSessionData),
+    pub replace_session_data:
+        fn(&mut ErasedData, &ErasedSessionData) -> Result<(), ModuleRegistryError>,
     /// Overrides [`Data::shared`] with the given [`SharedData`]
-    pub replace_shared_data: fn(&mut ErasedData, &ErasedSharedData),
+    pub replace_shared_data:
+        fn(&mut ErasedData, &ErasedSharedData) -> Result<(), ModuleRegistryError>,
     /// Applies a type-erased transaction to [`Module::PersistentUserData`].
-    pub apply_user_data_transaction: fn(&mut ErasedData, &ErasedUserDataTransactionArgs),
+    pub apply_user_data_transaction:
+        fn(&mut ErasedData, &ErasedUserDataTransactionArgs) -> Result<(), ModuleRegistryError>,
     /// Applies a type-erased transaction to [`Module::SessionData`].
-    pub apply_session_data_transaction:
-        fn(&mut ErasedSessionData, &ErasedSessionDataTransactionArgs),
+    pub apply_session_data_transaction: fn(
+        &mut ErasedSessionData,
+        &ErasedSessionDataTransactionArgs,
+    ) -> Result<(), ModuleRegistryError>,
     /// Applies a type-erased transaction to [`Module::SharedData`].
-    pub apply_shared_data_transaction: fn(&mut ErasedSharedData, &ErasedSharedDataTransactionArgs),
+    pub apply_shared_data_transaction: fn(
+        &mut ErasedSharedData,
+        &ErasedSharedDataTransactionArgs,
+    ) -> Result<(), ModuleRegistryError>,
 }
 
 thread_local! {
@@ -435,16 +459,12 @@ impl ModuleRegistry {
     }
 
     /// Register a [`Module`] to be known by the [`ModuleRegistry`]
+    #[expect(clippy::too_many_lines)]
     pub fn register<M>(&mut self)
     where
         M: Module,
         M::PersistentData: for<'de> Deserialize<'de>,
     {
-        const DOWNCAST_DATA_ERROR: &str =
-            "Failed to downcast module data, 'ModuleRegistryEntry' was incorrectly used";
-        const DOWNCAST_ARGS_ERROR: &str =
-            "Failed to downcast transaction arguments, 'ModuleRegistryEntry' was incorrectly used";
-
         self.0.insert(
             ModuleId::from_module::<M>(),
             ModuleRegistryEntry {
@@ -479,35 +499,73 @@ impl ModuleRegistry {
                     module: ModuleId::from_module::<M>(),
                     data: Box::new(Data::<M>::default()),
                 },
+                init_session_data: || ErasedSessionData {
+                    module: ModuleId::from_module::<M>(),
+                    data: Box::new(SessionData::<M>::default()),
+                },
+                init_shared_data: || ErasedSharedData {
+                    module: ModuleId::from_module::<M>(),
+                    data: Box::new(SharedData::<M>::default()),
+                },
                 apply_data_transaction: |data, args| {
-                    let data = data.downcast_mut::<M>().expect(DOWNCAST_DATA_ERROR);
-                    let args = args.downcast_ref::<M>().expect(DOWNCAST_ARGS_ERROR);
+                    let data = data
+                        .downcast_mut::<M>()
+                        .ok_or(ModuleRegistryError::DataDowncastError)?;
+                    let args = args
+                        .downcast_ref::<M>()
+                        .ok_or(ModuleRegistryError::ArgsDowncastError)?;
                     module::DataSection::apply(&mut data.persistent, args.0.clone());
+                    Ok(())
                 },
                 replace_session_data: |data, session_data| {
-                    let data = data.downcast_mut::<M>().expect(DOWNCAST_DATA_ERROR);
-                    let session_data = session_data.downcast_ref::<M>().expect(DOWNCAST_ARGS_ERROR);
+                    let data = data
+                        .downcast_mut::<M>()
+                        .ok_or(ModuleRegistryError::DataDowncastError)?;
+                    let session_data = session_data
+                        .downcast_ref::<M>()
+                        .ok_or(ModuleRegistryError::ArgsDowncastError)?;
                     data.session = session_data.0.clone();
+                    Ok(())
                 },
                 replace_shared_data: |data, shared_data| {
-                    let data = data.downcast_mut::<M>().expect(DOWNCAST_DATA_ERROR);
-                    let shared_data = shared_data.downcast_ref::<M>().expect(DOWNCAST_ARGS_ERROR);
+                    let data = data
+                        .downcast_mut::<M>()
+                        .ok_or(ModuleRegistryError::DataDowncastError)?;
+                    let shared_data = shared_data
+                        .downcast_ref::<M>()
+                        .ok_or(ModuleRegistryError::ArgsDowncastError)?;
                     data.shared = shared_data.0.clone();
+                    Ok(())
                 },
                 apply_user_data_transaction: |data, args| {
-                    let data = data.downcast_mut::<M>().expect(DOWNCAST_DATA_ERROR);
-                    let args = args.downcast_ref::<M>().expect(DOWNCAST_ARGS_ERROR);
+                    let data = data
+                        .downcast_mut::<M>()
+                        .ok_or(ModuleRegistryError::DataDowncastError)?;
+                    let args = args
+                        .downcast_ref::<M>()
+                        .ok_or(ModuleRegistryError::ArgsDowncastError)?;
                     module::DataSection::apply(&mut data.persistent_user, args.0.clone());
+                    Ok(())
                 },
                 apply_session_data_transaction: |data, args| {
-                    let data = data.downcast_mut::<M>().expect(DOWNCAST_DATA_ERROR);
-                    let args = args.downcast_ref::<M>().expect(DOWNCAST_ARGS_ERROR);
+                    let data = data
+                        .downcast_mut::<M>()
+                        .ok_or(ModuleRegistryError::DataDowncastError)?;
+                    let args = args
+                        .downcast_ref::<M>()
+                        .ok_or(ModuleRegistryError::ArgsDowncastError)?;
                     module::DataSection::apply(&mut data.0, args.0.clone());
+                    Ok(())
                 },
                 apply_shared_data_transaction: |data, args| {
-                    let data = data.downcast_mut::<M>().expect(DOWNCAST_DATA_ERROR);
-                    let args = args.downcast_ref::<M>().expect(DOWNCAST_ARGS_ERROR);
+                    let data = data
+                        .downcast_mut::<M>()
+                        .ok_or(ModuleRegistryError::DataDowncastError)?;
+                    let args = args
+                        .downcast_ref::<M>()
+                        .ok_or(ModuleRegistryError::ArgsDowncastError)?;
                     module::DataSection::apply(&mut data.0, args.0.clone());
+                    Ok(())
                 },
             },
         );

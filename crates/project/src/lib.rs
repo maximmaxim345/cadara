@@ -9,7 +9,6 @@
 #![warn(clippy::pedantic)]
 
 // TODO: complete refactoring of project
-// - allow for errors in project, in create view and deserialization
 // - add metadata, not only do documents, but also to projects and data
 // - support undo/redo
 // - reenable tests
@@ -31,6 +30,7 @@ mod user;
 use branch::BranchId;
 use checkpoint::CheckpointId;
 use document::Document;
+use log::{error, warn};
 use module_data::{
     ErasedDataTransactionArgs, ErasedSessionData, ErasedSessionDataTransactionArgs,
     ErasedSharedDataTransactionArgs, ErasedUserDataTransactionArgs, ModuleId, ModuleRegistry,
@@ -130,6 +130,9 @@ enum Change {
         new_owner: Option<DocumentId>,
     },
     Transaction {
+        // Id of the Data this Transaction should be applied to.
+        //
+        // If `id` does not exist yet or was deleted, this Transaction will be ignored.
         id: DataId,
         /// Stores the [`TransactionArgs`] for [`module::Module::PersistentData`].
         ///
@@ -137,6 +140,9 @@ enum Change {
         args: ErasedDataTransactionArgs,
     },
     UserTransaction {
+        // Id of the Data this Transaction should be applied to.
+        //
+        // If `id` does not exist yet or was deleted, this Transaction will be ignored.
         id: DataId,
         /// Stores the [`TransactionArgs`] for [`module::Module::PersistentUserData`].
         ///
@@ -274,12 +280,17 @@ pub struct Project {
 #[derive(thiserror::Error, Debug)]
 pub enum ProjectViewError {
     /// Attempted to load data for a module that isn't registered
-    #[error("The module {0} is required, but not registered in the registry")]
+    #[error("The module {0} is used, but not registered in the registry")]
     UnknownModule(ModuleId),
-    /// The [`Project`] is malformed or corrupted
-    // TODO: siltently handle this error
-    #[error("The project is malformed")]
-    InvalidProject,
+}
+
+/// Errors that occur
+#[derive(thiserror::Error, Debug)]
+pub enum ApplyError {
+    #[error("The module {0} is used, but not registered in the registry")]
+    UnknownModule(ModuleId),
+    #[error("ModuleMismatch")]
+    ModuleMismatch,
 }
 
 impl Project {
@@ -302,6 +313,8 @@ impl Project {
     /// # Errors
     /// Returns an error if:
     /// - A required module is not found in the registry
+    #[expect(clippy::too_many_lines)]
+    #[expect(clippy::cognitive_complexity)]
     pub fn create_view(&self, reg: &ModuleRegistry) -> Result<ProjectView, ProjectViewError> {
         let mut data = HashMap::new();
         let mut documents = HashMap::new();
@@ -342,29 +355,45 @@ impl Project {
                                 new_owner: _,
                             } => todo!(),
                             Change::Transaction { id, args } => {
-                                let apply = reg
+                                let reg = reg
                                     .0
                                     .get(&args.module)
-                                    .ok_or(ProjectViewError::UnknownModule(args.module))?
-                                    .apply_data_transaction;
-                                let data =
-                                    data.get_mut(id).ok_or(ProjectViewError::InvalidProject)?;
-                                apply(data, args);
+                                    .ok_or(ProjectViewError::UnknownModule(args.module))?;
+                                match data.get_mut(id) {
+                                    Some(data) if data.module == args.module => {
+                                        if let Err(err) = (reg.apply_data_transaction)(data, args) {
+                                            error!("Failed to apply Transaction: {}", err);
+                                        }
+                                    }
+                                    Some(_) => {
+                                        error!(
+                                            "Data and DataArgs of {id} do not have the same Module type"
+                                        );
+                                    }
+                                    None => {}
+                                }
                             }
                             Change::UserTransaction { id, args } => {
-                                let user = *sessions
-                                    .get(session)
-                                    .ok_or(ProjectViewError::InvalidProject)?;
-
-                                if self.user == user {
-                                    let apply = reg
-                                        .0
-                                        .get(&args.module)
-                                        .ok_or(ProjectViewError::UnknownModule(args.module))?
-                                        .apply_user_data_transaction;
-                                    let data =
-                                        data.get_mut(id).ok_or(ProjectViewError::InvalidProject)?;
-                                    apply(data, args);
+                                if let Some(user) = sessions.get(session) {
+                                    if self.user == *user {
+                                        let reg = reg
+                                            .0
+                                            .get(&args.module)
+                                            .ok_or(ProjectViewError::UnknownModule(args.module))?;
+                                        match data.get_mut(id) {
+                                            Some(data) if data.module == args.module => {
+                                                if let Err(err) =
+                                                    (reg.apply_user_data_transaction)(data, args)
+                                                {
+                                                    error!("Failed to apply Transaction: {}", err);
+                                                }
+                                            }
+                                            Some(_) => {
+                                                error!("UserData and UserDataArgs of {id} do not have the same Module type");
+                                            }
+                                            None => {}
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -384,19 +413,41 @@ impl Project {
         }
 
         for (id, session_data) in &self.session_data {
-            let d = data.get_mut(id).ok_or(ProjectViewError::InvalidProject)?;
-            (reg.0
-                .get(&session_data.module)
-                .ok_or(ProjectViewError::UnknownModule(session_data.module))?
-                .replace_session_data)(d, session_data);
+            match data.get_mut(id) {
+                Some(data) if data.module == session_data.module => {
+                    if let Err(err) =
+                        (reg.0
+                            .get(&session_data.module)
+                            .ok_or(ProjectViewError::UnknownModule(session_data.module))?
+                            .replace_session_data)(data, session_data)
+                    {
+                        error!("Failed to replace Data::session with SessionData: {err}");
+                    }
+                }
+                Some(_) => {
+                    error!("SessionData and Data of {id} do not have the same Module type");
+                }
+                None => {}
+            }
         }
 
         for (id, shared_data) in &self.shared_data {
-            let d = data.get_mut(id).ok_or(ProjectViewError::InvalidProject)?;
-            (reg.0
-                .get(&shared_data.module)
-                .ok_or(ProjectViewError::UnknownModule(shared_data.module))?
-                .replace_shared_data)(d, shared_data);
+            match data.get_mut(id) {
+                Some(data) if data.module == shared_data.module => {
+                    if let Err(err) =
+                        (reg.0
+                            .get(&shared_data.module)
+                            .ok_or(ProjectViewError::UnknownModule(shared_data.module))?
+                            .replace_shared_data)(data, shared_data)
+                    {
+                        error!("Failed to replace Data::shared with SharedData: {err}");
+                    }
+                }
+                Some(_) => {
+                    error!("SharedData and Data of {id} do not have the same Module type");
+                }
+                None => {}
+            }
         }
 
         Ok(ProjectView {
@@ -416,8 +467,18 @@ impl Project {
     ///
     /// After applying the changes, use [`Project::create_view`] to see the new state
     /// of the [`Project`].
-    #[expect(clippy::missing_panics_doc)]
-    pub fn apply_changes(&mut self, cb: ChangeBuilder, reg: &ModuleRegistry) {
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - A required module is not found in the registry
+    /// - Transaction assumes an incorrect Module
+    ///   (should normally never happen)
+    #[expect(clippy::missing_panics_doc, reason = "expects are prechecked")]
+    pub fn apply_changes(
+        &mut self,
+        cb: ChangeBuilder,
+        reg: &ModuleRegistry,
+    ) -> Result<(), ApplyError> {
         let session = *self.session.get_or_insert_with(|| {
             let new_session = SessionId::new();
             self.log.push(ProjectLogEntry::NewSession {
@@ -428,40 +489,73 @@ impl Project {
             new_session
         });
 
+        // Verify all changes first
+        for change in &cb.changes {
+            match change {
+                PendingChange::Change(_) => {
+                    // This targets persistent data, so if this crates usage of ChangeBuilder
+                    // are correct and we assume Uuids are unique, this is already correct.
+                    // If in case for some reason this is not correct, this crate can still handle malformed Projects.
+                }
+                PendingChange::SessionTransaction { id, args } => {
+                    if let Some(data) = self.session_data.get(id) {
+                        if data.module != args.module {
+                            return Err(ApplyError::ModuleMismatch);
+                        }
+                        if !reg.0.contains_key(&args.module) {
+                            return Err(ApplyError::UnknownModule(args.module));
+                        }
+                    } else {
+                        // We will create the data in the next step
+                    }
+                }
+                PendingChange::SharedTransaction { id, args } => {
+                    if let Some(data) = self.shared_data.get(id) {
+                        if data.module != args.module {
+                            return Err(ApplyError::ModuleMismatch);
+                        }
+                        if !reg.0.contains_key(&args.module) {
+                            return Err(ApplyError::UnknownModule(args.module));
+                        }
+                    } else {
+                        // We will create the data in the next step
+                    }
+                }
+            }
+        }
+
+        // Now apply the changes
         let changes = cb
             .changes
             .into_iter()
             .filter_map(|change| match change {
                 PendingChange::Change(change) => Some(change),
                 PendingChange::SessionTransaction { id, args } => {
-                    let apply = reg
-                        .0
-                        .get(&args.module)
-                        .expect("module unknown, project is now corrupted.")
-                        .apply_session_data_transaction;
+                    let reg = reg.0.get(&args.module).expect("already checked above");
                     let data = self
                         .session_data
-                        .get_mut(&id)
-                        .expect("project was corrupted");
-                    apply(data, &args);
+                        .entry(id)
+                        .or_insert_with(|| (reg.init_session_data)());
+                    if let Err(err) = (reg.apply_session_data_transaction)(data, &args) {
+                        error!("Failed to apply SessionData Transaction: {}", err);
+                    }
                     None
                 }
                 PendingChange::SharedTransaction { id, args } => {
-                    let apply = reg
-                        .0
-                        .get(&args.module)
-                        .expect("module unknown, project is now corrupted.")
-                        .apply_shared_data_transaction;
+                    let reg = reg.0.get(&args.module).expect("already checked above");
                     let data = self
                         .shared_data
-                        .get_mut(&id)
-                        .expect("project was corrupted");
-                    apply(data, &args);
+                        .entry(id)
+                        .or_insert_with(|| (reg.init_shared_data)());
+                    if let Err(err) = (reg.apply_shared_data_transaction)(data, &args) {
+                        error!("Failed to apply SharedData Transaction: {}", err);
+                    }
                     None
                 }
             })
             .collect();
 
         self.log.push(ProjectLogEntry::Changes { session, changes });
+        Ok(())
     }
 }
