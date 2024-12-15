@@ -9,7 +9,6 @@
 #![warn(clippy::pedantic)]
 
 // TODO: complete refactoring of project
-// - add metadata, not only do documents, but also to projects and data
 // - support undo/redo
 // - reenable tests
 // - update rest of codebase
@@ -47,6 +46,7 @@ pub use data::DataId;
 pub use data::DataView;
 pub use document::DocumentId;
 pub use document::DocumentView;
+pub use document::Path;
 pub use project::ProjectView;
 pub use user::UserId;
 
@@ -106,19 +106,49 @@ enum PendingChange {
     },
 }
 
+/// Like [`Path`], but also allowing the Root folder
+#[derive(PartialEq, PartialOrd, Eq, Ord, Clone, Debug, Deserialize, Serialize)]
+pub enum FolderPath {
+    Root,
+    Path(Path),
+}
+
+#[derive(PartialEq, PartialOrd, Eq, Ord, Clone, Debug, Deserialize, Serialize)]
+pub enum FolderTarget {
+    Root,
+    Path(Path),
+    OneBack,
+}
+
 /// A single change persistently applied to the [`Project`].
 #[derive(Clone, Serialize, Deserialize, Debug)]
 enum Change {
     CreateDocument {
         id: DocumentId,
-        // TODO: add metadata, not only do documents, but also to projects and data
-        // name: String,
+        /// Path of the document as it will be shown to the user.
+        ///
+        /// In case a Document with the given `path` already exists,
+        /// this `path` will automatically be renamed with [`DocumentPath::increment_name_suffix`]
+        /// as many times as necessary to avoid duplicates.
+        path: Path,
     },
+    /// This will delete the document and all data contained in it.
     DeleteDocument(DocumentId),
-    // RenameDocument {
-    //     id: DocumentId,
-    //     new_name: String,
-    // },
+    // rename the document without changing its location.
+    RenameDocument {
+        id: DocumentId,
+        new_name: String,
+    },
+    // Move the document to another location, keeping its name.
+    MoveDocument {
+        id: DocumentId,
+        new_folder: FolderPath,
+    },
+    // All containing folders/documents to a new location.
+    MoveFolder {
+        old_path: Path,
+        new_path: FolderTarget,
+    },
     CreateData {
         id: DataId,
         module: ModuleId,
@@ -325,11 +355,26 @@ impl Project {
                 ProjectLogEntry::Changes { session, changes } => {
                     for change in changes {
                         match change {
-                            Change::CreateDocument { id } => {
+                            Change::CreateDocument { id, path: _ } => {
                                 documents.insert(*id, Document::default());
                             }
                             Change::DeleteDocument(document_id) => {
-                                documents.remove_entry(document_id);
+                                if let Some((_, document)) = documents.remove_entry(document_id) {
+                                    for data_id in &document.data {
+                                        data.remove(data_id);
+                                    }
+                                }
+                            }
+                            Change::RenameDocument { id: _, new_name: _ }
+                            | Change::MoveDocument {
+                                id: _,
+                                new_folder: _,
+                            }
+                            | Change::MoveFolder {
+                                old_path: _,
+                                new_path: _,
+                            } => {
+                                // TODO: implement this
                             }
                             Change::CreateData { id, module, owner } => {
                                 data.insert(
@@ -350,10 +395,18 @@ impl Project {
                             Change::DeleteData(id) => {
                                 data.remove(id);
                             }
-                            Change::MoveData {
-                                id: _,
-                                new_owner: _,
-                            } => todo!(),
+                            Change::MoveData { id, new_owner } => {
+                                for document in documents.values_mut() {
+                                    document.data.retain(|data_id| data_id != id);
+                                }
+                                if let Some(new_owner) = new_owner {
+                                    if let Some(doc) = documents.get_mut(new_owner) {
+                                        doc.data.push(*id);
+                                    } else {
+                                        error!("Can not move data to non existent document");
+                                    }
+                                }
+                            }
                             Change::Transaction { id, args } => {
                                 let reg = reg
                                     .0

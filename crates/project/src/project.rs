@@ -3,7 +3,7 @@ use crate::{
     document::{Document, DocumentId, DocumentView},
     module_data::{ErasedData, ModuleId},
     user::UserId,
-    Change, ChangeBuilder, PendingChange,
+    Change, ChangeBuilder, Path, PendingChange,
 };
 use module::Module;
 use serde::{Deserialize, Serialize};
@@ -48,11 +48,11 @@ impl ProjectView {
     /// # Returns
     /// The unique identifier of the document recorded to `cb`.
     #[must_use]
-    pub fn create_document(&self, cb: &mut ChangeBuilder) -> DocumentId {
+    pub fn create_document(&self, cb: &mut ChangeBuilder, path: Path) -> DocumentId {
         let id = DocumentId::new_v4();
 
         cb.changes
-            .push(PendingChange::Change(Change::CreateDocument { id }));
+            .push(PendingChange::Change(Change::CreateDocument { id, path }));
         id
     }
 
