@@ -5,7 +5,7 @@ use crate::{
     Change, ChangeBuilder, PendingChange, ProjectView,
 };
 use module::Module;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use uuid::Uuid;
 
 /// Unique identifier of a `document` in a [`Project`].
@@ -100,5 +100,116 @@ impl DocumentView<'_> {
             owner: Some(self.id),
         }));
         id
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum PathCreationError {
+    #[error("'{0} is not a valid Path")]
+    InvalidPath(String),
+}
+
+/// Path of a document/folder in a [`Project`].
+///
+/// A [`DocumentPath`] should uniquely identify the location of a document or folder
+/// (excluding the root folder) inside a [`Project`] and consists of two parts:
+/// location and name, with `/` used as a separator.
+///
+/// The location must start with `/`, with  `/` indicating the location in the folder.
+///
+/// A `/` can be escaped using `\/` (`\\` is `\`)
+///
+/// Examples for valid paths:
+/// - `/part` => `part` in root folder
+/// - `/assemblies and drawings/drawing` => `drawing` in `assemblies and drawings`
+/// - `/parts/screws\/bolts/bolt1` => `bolt1` in `parts` / `screws/bolts`
+///
+/// Invalid paths:
+/// - `part`
+/// - `/parts/`
+/// - `//part`
+/// - `/`
+#[derive(PartialEq, PartialOrd, Eq, Ord, Clone, Debug, Serialize)]
+#[serde(transparent)]
+pub struct Path(String);
+
+impl TryFrom<String> for Path {
+    type Error = PathCreationError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl TryFrom<&str> for Path {
+    type Error = PathCreationError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::new(value.to_string())
+    }
+}
+
+impl Path {
+    /// Try to create a new [`Path`] from a [`String`].
+    ///
+    /// # Errors
+    /// If the `path` is not a valid [`Path`] identifier.
+    pub fn new(path: String) -> Result<Self, PathCreationError> {
+        if !path.starts_with('/') {
+            return Err(PathCreationError::InvalidPath(path));
+        }
+
+        let mut escaped = false;
+        let mut last_char_was_slash = false;
+        for char in path.chars() {
+            if escaped {
+                escaped = false;
+                last_char_was_slash = false;
+            } else if char == '\\' {
+                escaped = true;
+                last_char_was_slash = false;
+            } else if char == '/' {
+                if last_char_was_slash {
+                    // Two '/' are not allowed
+                    return Err(PathCreationError::InvalidPath(path));
+                }
+                last_char_was_slash = true;
+            } else {
+                last_char_was_slash = false;
+            }
+        }
+        if last_char_was_slash || escaped {
+            // Path must not end with a '/' or unescaped '\'
+            return Err(PathCreationError::InvalidPath(path));
+        }
+        Ok(Self(path))
+    }
+
+    /// Gets the string representation of the Path
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Increments the numeric suffix of a name, or adds one if not present.
+    #[must_use]
+    pub fn increment_name_suffix(&self) -> Self {
+        todo!("implement")
+    }
+}
+
+impl fmt::Display for Path {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for Path {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let path = String::deserialize(deserializer)?;
+        Self::new(path).map_err(serde::de::Error::custom)
     }
 }
