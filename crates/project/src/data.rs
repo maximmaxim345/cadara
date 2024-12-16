@@ -121,4 +121,12 @@ impl<M: Module> DataView<'_, M> {
             args: SharedDataTransactionArgs::<M>(args).into(),
         });
     }
+
+    /// Plans the deletion of this data
+    ///
+    /// This will not modify the [`Project`], just record this change to `cb`.
+    pub fn delete(&self, cb: &mut ChangeBuilder) {
+        cb.changes
+            .push(PendingChange::Change(Change::DeleteData(self.id)));
+    }
 }

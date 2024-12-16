@@ -101,6 +101,14 @@ impl DocumentView<'_> {
         }));
         id
     }
+
+    /// Plans the deletion of this document and all its contained data
+    ///
+    /// This will not modify the [`Project`], just record this change to `cb`.
+    pub fn delete(&self, cb: &mut ChangeBuilder) {
+        cb.changes
+            .push(PendingChange::Change(Change::DeleteDocument(self.id)));
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
