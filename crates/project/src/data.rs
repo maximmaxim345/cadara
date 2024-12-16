@@ -48,6 +48,12 @@ pub struct DataView<'a, M: Module> {
     pub shared_data: &'a M::SharedData,
 }
 
+impl<M: Module> From<DataView<'_, M>> for DataId {
+    fn from(dv: DataView<'_, M>) -> Self {
+        dv.id
+    }
+}
+
 impl<M: Module> DataView<'_, M> {
     /// Plans to apply a transaction to [`Module::PersistentData`].
     ///

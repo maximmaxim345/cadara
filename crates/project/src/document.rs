@@ -45,6 +45,12 @@ pub struct DocumentView<'a> {
     pub document: &'a Document,
 }
 
+impl From<DocumentView<'_>> for DocumentId {
+    fn from(dv: DocumentView<'_>) -> Self {
+        dv.id
+    }
+}
+
 impl DocumentView<'_> {
     /// Opens a read only [`DataView`] to data contained in this document.
     ///
