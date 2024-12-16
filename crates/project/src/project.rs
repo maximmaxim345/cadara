@@ -84,7 +84,7 @@ impl ProjectView {
     /// # Returns
     /// An `Option` containing a [`DataView`] if the document was found and is of type `M`, or `None` otherwise.
     #[must_use]
-    pub fn open_data<M: Module>(&self, data_id: DataId) -> Option<DataView<M>> {
+    pub fn open_data_by_id<M: Module>(&self, data_id: DataId) -> Option<DataView<M>> {
         // TODO: Option -> Result
         let data = &self.data.get(&data_id)?.downcast_ref::<M>()?;
 

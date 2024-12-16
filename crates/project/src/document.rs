@@ -63,7 +63,7 @@ impl DocumentView<'_> {
             .iter()
             .any(|u| *u == data_id)
         {
-            self.project.open_data(data_id)
+            self.project.open_data_by_id(data_id)
         } else {
             None
         }
