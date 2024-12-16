@@ -60,7 +60,6 @@ impl fmt::Display for ModuleId {
 /// - `TTrait` - Common behavior trait for type-erased operations
 /// - `DynT` - Type-erased wrapper with serialization capabilities
 /// - `TDeserializer` - Deserializer for type-erased data
-#[macro_export] // TODO: make private
 macro_rules! define_type_erased {
     ($d:ty, $reg_entry:ident) => {
         paste! {
@@ -90,18 +89,18 @@ macro_rules! define_type_erased {
             #[derive(Debug, Serialize, Clone)]
             pub struct [<Erased $d>] {
                 // globally unique identifier of the module, over that the struct contained in `data` is generic
-                pub module: ModuleId,
+                pub(crate) module: ModuleId,
                 #[doc = "Type erased [`" $d "`]"]
-                pub data: Box<dyn [<$d Trait>]>,
+                pub(crate) data: Box<dyn [<$d Trait>]>,
             }
 
             #[allow(dead_code)]
             impl [<Erased $d>] {
-                pub fn downcast_ref<M: Module>(&self) -> Option<&$d<M>> {
+                pub(crate) fn downcast_ref<M: Module>(&self) -> Option<&$d<M>> {
                     self.data.as_any().downcast_ref()
                 }
 
-                pub fn downcast_mut<M: Module>(&mut self) -> Option<&mut $d<M>> {
+                pub(crate) fn downcast_mut<M: Module>(&mut self) -> Option<&mut $d<M>> {
                     self.data.as_mut_any().downcast_mut()
                 }
 
@@ -140,7 +139,7 @@ macro_rules! define_type_erased {
             }
 
             struct [<$d Deserializer>]<'a> {
-                pub registry: &'a ModuleRegistry,
+                pub(crate) registry: &'a ModuleRegistry,
             }
 
             // We manually implement deserialization logic to support runtime polymorphism
@@ -389,41 +388,41 @@ pub enum ModuleRegistryError {
 /// This is effectively a v-table for runtime polymorphism.
 #[derive(Clone, Debug)]
 pub struct ModuleRegistryEntry {
-    pub deserialize_data: ErasedDeserializeFn<Box<dyn DataTrait>>,
-    pub deserialize_transaction_args: ErasedDeserializeFn<Box<dyn DataTransactionArgsTrait>>,
-    pub deserialize_user_transaction_args:
+    pub(crate) deserialize_data: ErasedDeserializeFn<Box<dyn DataTrait>>,
+    pub(crate) deserialize_transaction_args: ErasedDeserializeFn<Box<dyn DataTransactionArgsTrait>>,
+    pub(crate) deserialize_user_transaction_args:
         ErasedDeserializeFn<Box<dyn UserDataTransactionArgsTrait>>,
-    pub deserialize_session_transaction_args:
+    pub(crate) deserialize_session_transaction_args:
         ErasedDeserializeFn<Box<dyn SessionDataTransactionArgsTrait>>,
-    pub deserialize_shared_transaction_args:
+    pub(crate) deserialize_shared_transaction_args:
         ErasedDeserializeFn<Box<dyn SharedDataTransactionArgsTrait>>,
-    pub deserialize_shared: ErasedDeserializeFn<Box<dyn SharedDataTrait>>,
-    pub deserialize_session: ErasedDeserializeFn<Box<dyn SessionDataTrait>>,
+    pub(crate) deserialize_shared: ErasedDeserializeFn<Box<dyn SharedDataTrait>>,
+    pub(crate) deserialize_session: ErasedDeserializeFn<Box<dyn SessionDataTrait>>,
     /// Creates a new instance of type-erased module data
-    pub init_data: fn() -> ErasedData,
+    pub(crate) init_data: fn() -> ErasedData,
     /// Creates a new instance of type-erased session data
-    pub init_session_data: fn() -> ErasedSessionData,
+    pub(crate) init_session_data: fn() -> ErasedSessionData,
     /// Creates a new instance of type-erased shared data
-    pub init_shared_data: fn() -> ErasedSharedData,
+    pub(crate) init_shared_data: fn() -> ErasedSharedData,
     /// Applies a type-erased transaction to [`Module::PersistentData`].
-    pub apply_data_transaction:
+    pub(crate) apply_data_transaction:
         fn(&mut ErasedData, &ErasedDataTransactionArgs) -> Result<(), ModuleRegistryError>,
     /// Overrides [`Data::session`] with the given [`SessionData`]
-    pub replace_session_data:
+    pub(crate) replace_session_data:
         fn(&mut ErasedData, &ErasedSessionData) -> Result<(), ModuleRegistryError>,
     /// Overrides [`Data::shared`] with the given [`SharedData`]
-    pub replace_shared_data:
+    pub(crate) replace_shared_data:
         fn(&mut ErasedData, &ErasedSharedData) -> Result<(), ModuleRegistryError>,
     /// Applies a type-erased transaction to [`Module::PersistentUserData`].
-    pub apply_user_data_transaction:
+    pub(crate) apply_user_data_transaction:
         fn(&mut ErasedData, &ErasedUserDataTransactionArgs) -> Result<(), ModuleRegistryError>,
     /// Applies a type-erased transaction to [`Module::SessionData`].
-    pub apply_session_data_transaction: fn(
+    pub(crate) apply_session_data_transaction: fn(
         &mut ErasedSessionData,
         &ErasedSessionDataTransactionArgs,
     ) -> Result<(), ModuleRegistryError>,
     /// Applies a type-erased transaction to [`Module::SharedData`].
-    pub apply_shared_data_transaction: fn(
+    pub(crate) apply_shared_data_transaction: fn(
         &mut ErasedSharedData,
         &ErasedSharedDataTransactionArgs,
     ) -> Result<(), ModuleRegistryError>,

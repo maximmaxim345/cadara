@@ -164,7 +164,7 @@ impl<M: Module> DataView<'_, M> {
 pub struct PlannedData<'a, M: Module> {
     pub id: DataId,
     pub project: &'a ProjectView,
-    pub phantomdata: PhantomData<M>,
+    pub(crate) phantomdata: PhantomData<M>,
 }
 
 impl<M: Module> From<PlannedData<'_, M>> for DataId {

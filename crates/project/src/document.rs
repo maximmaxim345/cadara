@@ -42,7 +42,7 @@ pub struct Document {
 pub struct DocumentView<'a> {
     pub id: DocumentId,
     pub project: &'a ProjectView,
-    pub document: &'a Document,
+    pub(crate) document: &'a Document,
 }
 
 impl From<DocumentView<'_>> for DocumentId {

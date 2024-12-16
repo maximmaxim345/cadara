@@ -17,11 +17,11 @@ use std::{collections::HashMap, marker::PhantomData};
 #[expect(clippy::module_name_repetitions)]
 pub struct ProjectView {
     /// The user currently interacting with the project.
-    pub user: UserId,
+    pub(crate) user: UserId,
     /// A map containing all [`crate::module_data::Data`]
-    pub data: HashMap<DataId, ErasedData>,
+    pub(crate) data: HashMap<DataId, ErasedData>,
     /// A map of all documents found in this project
-    pub documents: HashMap<DocumentId, Document>,
+    pub(crate) documents: HashMap<DocumentId, Document>,
 }
 
 impl ProjectView {
