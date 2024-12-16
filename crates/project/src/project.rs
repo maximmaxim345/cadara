@@ -7,8 +7,8 @@ use crate::{
 };
 use module::Module;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt::Debug;
+use std::{collections::HashMap, marker::PhantomData};
 
 /// A read only view to all data stored in a [`crate::Project`].
 ///
@@ -53,7 +53,11 @@ impl ProjectView {
 
         cb.changes
             .push(PendingChange::Change(Change::CreateDocument { id, path }));
-        PlannedDocument { id, project: self }
+        PlannedDocument {
+            id,
+            project: self,
+            phantomdata: PhantomData,
+        }
     }
 
     /// Plans the creation of a new empty data section with type `M`.

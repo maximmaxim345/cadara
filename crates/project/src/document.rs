@@ -123,6 +123,7 @@ impl DocumentView<'_> {
 pub struct PlannedDocument<'a> {
     pub id: DocumentId,
     pub project: &'a ProjectView,
+    pub(crate) phantomdata: PhantomData<()>,
 }
 
 impl From<PlannedDocument<'_>> for DocumentId {
