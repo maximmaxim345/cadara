@@ -10,15 +10,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-/// A read only view to all data stored in a [`Project`].
+/// A read only view to all data stored in a [`crate::Project`].
 ///
-/// Use [`Project::create_view`] create a [`ProjectView`].
+/// Use [`crate::Project::create_view`] create a [`ProjectView`].
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[expect(clippy::module_name_repetitions)]
 pub struct ProjectView {
     /// The user currently interacting with the project.
     pub user: UserId,
-    /// A map containing all [`Data`]
+    /// A map containing all [`crate::module_data::Data`]
     pub data: HashMap<DataId, ErasedData>,
     /// A map of all documents found in this project
     pub documents: HashMap<DocumentId, Document>,
@@ -43,7 +43,7 @@ impl ProjectView {
 
     /// Plans the creation of a new empty document.
     ///
-    /// This will not modify the [`Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
     ///
     /// # Returns
     /// The unique identifier of the document recorded to `cb`.
@@ -58,7 +58,7 @@ impl ProjectView {
 
     /// Plans the creation of a new empty data section with type `M`.
     ///
-    /// This will not modify the [`Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
     ///
     /// # Returns
     ///

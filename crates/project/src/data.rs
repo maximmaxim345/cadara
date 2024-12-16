@@ -12,7 +12,7 @@ use crate::{
     Change, ChangeBuilder, PendingChange,
 };
 
-/// Unique identifier of a data section in a [`Project`].
+/// Unique identifier of a data section in a [`crate::Project`].
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
 #[expect(clippy::module_name_repetitions)]
@@ -57,7 +57,7 @@ impl<M: Module> From<DataView<'_, M>> for DataId {
 impl<M: Module> DataView<'_, M> {
     /// Plans to apply a transaction to [`Module::PersistentData`].
     ///
-    /// This will not modify the [`Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
     ///
     /// # Arguments
     ///
@@ -75,7 +75,7 @@ impl<M: Module> DataView<'_, M> {
 
     /// Plans to apply a transaction to [`Module::PersistentUserData`].
     ///
-    /// This will not modify the [`Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
     ///
     /// # Arguments
     ///
@@ -94,7 +94,7 @@ impl<M: Module> DataView<'_, M> {
 
     /// Plans to apply a transaction to [`Module::SessionData`].
     ///
-    /// This will not modify the [`Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
     ///
     /// # Arguments
     ///
@@ -112,7 +112,7 @@ impl<M: Module> DataView<'_, M> {
 
     /// Plans to apply a transaction to [`Module::SharedData`].
     ///
-    /// This will not modify the [`Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
     ///
     /// # Arguments
     ///
@@ -126,7 +126,7 @@ impl<M: Module> DataView<'_, M> {
 
     /// Plans the deletion of this data
     ///
-    /// This will not modify the [`Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
     pub fn delete(&self, cb: &mut ChangeBuilder) {
         cb.changes
             .push(PendingChange::Change(Change::DeleteData(self.id)));
@@ -134,7 +134,7 @@ impl<M: Module> DataView<'_, M> {
 
     /// Plans to move this data section to another document.
     ///
-    /// This will not modify the [`Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
     ///
     /// # Arguments
     ///
@@ -148,7 +148,7 @@ impl<M: Module> DataView<'_, M> {
 
     /// Plans to make this data section an orphan (not owned by any document).
     ///
-    /// This will not modify the [`Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
     pub fn make_orphan(&self, cb: &mut ChangeBuilder) {
         // TODO: what if we call this multiple times?
         cb.changes.push(PendingChange::Change(Change::MoveData {
@@ -183,7 +183,7 @@ impl<M: Module> Deref for PlannedData<'_, M> {
 impl<M: Module> PlannedData<'_, M> {
     /// Plans to apply a transaction to [`Module::PersistentData`].
     ///
-    /// This will not modify the [`Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
     ///
     /// # Arguments
     ///
@@ -201,7 +201,7 @@ impl<M: Module> PlannedData<'_, M> {
 
     /// Plans to apply a transaction to [`Module::PersistentUserData`].
     ///
-    /// This will not modify the [`Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
     ///
     /// # Arguments
     ///
@@ -220,7 +220,7 @@ impl<M: Module> PlannedData<'_, M> {
 
     /// Plans to apply a transaction to [`Module::SessionData`].
     ///
-    /// This will not modify the [`Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
     ///
     /// # Arguments
     ///
@@ -238,7 +238,7 @@ impl<M: Module> PlannedData<'_, M> {
 
     /// Plans to apply a transaction to [`Module::SharedData`].
     ///
-    /// This will not modify the [`Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
     ///
     /// # Arguments
     ///

@@ -46,7 +46,7 @@ pub use user::UserId;
 
 /// Helper to deserialize a [`Project`].
 ///
-/// Use this to deserialize a [`Project`]. The passed [`ModuleRegistry`] needs to contain all [`Module`]s
+/// Use this to deserialize a [`Project`]. The passed [`ModuleRegistry`] needs to contain all [`module::Module`]s
 /// contained in the [`Project`].
 pub struct ProjectDeserializer<'a> {
     pub registry: &'a ModuleRegistry,
@@ -88,14 +88,14 @@ enum PendingChange {
         id: DataId,
         /// Stores the [`TransactionArgs`] for [`module::Module::SessionData`].
         ///
-        /// The [`Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
+        /// The [`module::Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
         args: ErasedSessionDataTransactionArgs,
     },
     SharedTransaction {
         id: DataId,
         /// Stores the [`TransactionArgs`] for [`module::Module::SharedData`].
         ///
-        /// The [`Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
+        /// The [`module::Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
         args: ErasedSharedDataTransactionArgs,
     },
 }
@@ -160,7 +160,7 @@ enum Change {
         id: DataId,
         /// Stores the [`TransactionArgs`] for [`module::Module::PersistentData`].
         ///
-        /// The [`Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
+        /// The [`module::Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
         args: ErasedDataTransactionArgs,
     },
     UserTransaction {
@@ -170,7 +170,7 @@ enum Change {
         id: DataId,
         /// Stores the [`TransactionArgs`] for [`module::Module::PersistentUserData`].
         ///
-        /// The [`Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
+        /// The [`module::Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
         args: ErasedUserDataTransactionArgs,
     },
 }
@@ -211,9 +211,9 @@ enum ProjectLogEntry {
 /// - **Session Data**: Changes are temporary and *not tracked* (lost on destruction of [`Project`])
 /// - **Shared Data**: Changes are temporary and *not tracked* (synchronized between users)
 ///
-/// The recorded changes are only atomic (meaining always applied together and at once) for changes to [`Module::PersistentData`] and [`Module::PersistentUserData`] on a [`DataView`],
+/// The recorded changes are only atomic (meaining always applied together and at once) for changes to [`module::Module::PersistentData`] and [`module::Module::PersistentUserData`] on a [`DataView`],
 /// changes on a [`ProjectView`] and changes on a [`DocumentView`].
-/// Meaning changes to [`Module::SharedData`] and [`Module::SessionData`] will once applied using [`Project::apply_changes`] not be
+/// Meaning changes to [`module::Module::SharedData`] and [`module::Module::SessionData`] will once applied using [`Project::apply_changes`] not be
 /// reverted on undo.
 ///
 /// # Features
@@ -247,14 +247,14 @@ impl ChangeBuilder {
 /// A [`Project`] describes the whole state of a `project` including:
 /// - Metadata associated with the project (like name, tags)
 /// - All documents contained in the project
-/// - All data sections contained in the project (including [`Module::SessionData`] and [`Module::SharedData`] of all online users)
+/// - All data sections contained in the project (including [`module::Module::SessionData`] and [`module::Module::SharedData`] of all online users)
 ///
 /// # Features
 ///
 /// [`Project`] will support advanced features for managin CAD projects, including:
 /// - Persistent undo/redo, even after restarts
 /// - A git like version control system, allowing branching, merging and rebasing
-/// - Support of storing any user required data by implementing [`Module`]
+/// - Support of storing any user required data by implementing [`module::Module`]
 /// - Complete storage of the complete history of a [`Project`]
 /// - Multi user collaborative editing including first in class offline support.
 ///
@@ -272,7 +272,7 @@ impl ChangeBuilder {
 /// Serialize a [`Project`] like any other type implementing [`serde::Deserialize`],
 /// this will not save any shared and session data.
 ///
-/// To deserialize, you must use [`ProjectDeserializer`] with a [`ModuleRegistry`] with all containing [`Module`]s registered.
+/// To deserialize, you must use [`ProjectDeserializer`] with a [`ModuleRegistry`] with all containing [`module::Module`]s registered.
 /// While [`Project`] implements [`serde::Serialize`], it will error on any non trivial project
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Project {

@@ -6,6 +6,9 @@
 //!
 //! Giving branches a unique [`BranchId`] allows us reconstruct the non linear history from
 //! a single linear log.
+//!
+//! [`Project`]: crate::Project
+//! [`Project::log`]: crate::Project::log
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

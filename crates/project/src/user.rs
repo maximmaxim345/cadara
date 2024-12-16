@@ -5,7 +5,7 @@ use uuid::Uuid;
 ///
 /// [`UserId`] serve two main functions:
 /// 1. Dictate what [`module::Module::PersistentUserData`] should be used.
-/// 2. To create [`SessionId`]s to associate a changes to a project with a user.
+/// 2. To create sessions to associate changes with a user.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 #[expect(clippy::module_name_repetitions)]

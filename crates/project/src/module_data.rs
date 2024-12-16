@@ -46,12 +46,12 @@ impl fmt::Display for ModuleId {
 /// - Dynamic wrapper types with safe downcasting capabilities
 /// - Clone functionality for dynamic types
 ///
-/// Using [`serde::Deserialize`] only works when inside a [`Project`] and using [`ProjectDeserializer`]
+/// Using [`serde::Deserialize`] only works when inside a [`crate::Project`] and using [`crate::ProjectDeserializer`]
 /// since [`MODULE_REGISTRY`] is accessed.
 ///
 /// # Arguments
 /// * `$d` - The data type to implement type erasure for
-/// * `$reg_entry` - Field name in [`ModuleRegEntry`] containing the deserializer function.
+/// * `$reg_entry` - Field name in [`ModuleRegistryEntry`] containing the deserializer function.
 ///    The field must be of type `BoxedDeserializeFunction<Box<dyn dTrait>>` where `d` is
 ///    the name of the type passed into this macro.
 ///
@@ -445,7 +445,7 @@ thread_local! {
     pub static MODULE_REGISTRY: RefCell<Option<*const ModuleRegistry>> = const { RefCell::new(None) };
 }
 
-/// A registry containing all supported modules necessary for working with [`Project`]s
+/// A registry containing all supported modules necessary for working with [`crate::Project`]s
 #[derive(Clone, Debug, Default)]
 pub struct ModuleRegistry(pub(crate) HashMap<ModuleId, ModuleRegistryEntry>);
 

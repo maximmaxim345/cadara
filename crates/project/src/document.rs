@@ -8,7 +8,7 @@ use module::Module;
 use serde::{Deserialize, Deserializer, Serialize};
 use uuid::Uuid;
 
-/// Unique identifier of a `document` in a [`Project`].
+/// Unique identifier of a `document` in a [`crate::Project`].
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
 #[expect(clippy::module_name_repetitions)]
@@ -28,7 +28,7 @@ impl fmt::Display for DocumentId {
     }
 }
 
-/// Document in a [`Project`]
+/// Document in a [`crate::Project`]
 ///
 /// Defines the metadata and the identifiers of containing data sections.
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -93,7 +93,7 @@ impl DocumentView<'_> {
     ///
     /// The new data section will be contained in this document
     ///
-    /// This will not modify the [`Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
     ///
     /// # Returns
     /// The unique identifier of the data recorded to `cb`.
@@ -114,7 +114,7 @@ impl DocumentView<'_> {
 
     /// Plans the deletion of this document and all its contained data
     ///
-    /// This will not modify the [`Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
     pub fn delete(&self, cb: &mut ChangeBuilder) {
         cb.changes
             .push(PendingChange::Change(Change::DeleteDocument(self.id)));
@@ -148,7 +148,7 @@ impl PlannedDocument<'_> {
     ///
     /// The new data section will be contained in this document
     ///
-    /// This will not modify the [`Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
     ///
     /// # Returns
     /// The unique identifier of the data recorded to `cb`.
@@ -174,10 +174,10 @@ pub enum PathCreationError {
     InvalidPath(String),
 }
 
-/// Path of a document/folder in a [`Project`].
+/// Path of a document/folder in a [`crate::Project`].
 ///
-/// A [`DocumentPath`] should uniquely identify the location of a document or folder
-/// (excluding the root folder) inside a [`Project`] and consists of two parts:
+/// A [`Path`] should uniquely identify the location of a document or folder
+/// (excluding the root folder) inside a [`crate::Project`] and consists of two parts:
 /// location and name, with `/` used as a separator.
 ///
 /// The location must start with `/`, with  `/` indicating the location in the folder.
