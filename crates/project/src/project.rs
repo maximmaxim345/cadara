@@ -97,4 +97,15 @@ impl ProjectView {
             shared_data: &data.shared,
         })
     }
+
+    /// Opens read only [`DataView`]s to all data with the type `M`.
+    ///
+    /// # Type Parameters
+    /// * `M` - The [`Module`] to filter by
+    ///
+    /// # Returns
+    /// An iterator yielding [`DataView`]s of type `M` found in this document.
+    pub fn open_data_by_type<M: Module>(&self) -> impl Iterator<Item = DataView<M>> + '_ {
+        self.data.keys().filter_map(|id| self.open_data_by_id(*id))
+    }
 }
