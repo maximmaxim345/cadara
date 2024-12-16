@@ -1,7 +1,7 @@
-use std::fmt;
+use std::{fmt, marker::PhantomData, ops::Deref};
 
 use crate::{
-    data::{DataId, DataView},
+    data::{DataId, DataView, PlannedData},
     Change, ChangeBuilder, PendingChange, ProjectView,
 };
 use module::Module;
@@ -98,14 +98,18 @@ impl DocumentView<'_> {
     /// # Returns
     /// The unique identifier of the data recorded to `cb`.
     #[must_use]
-    pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> DataId {
+    pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> PlannedData<'_, M> {
         let id = DataId::new_v4();
         cb.changes.push(PendingChange::Change(Change::CreateData {
             module: crate::ModuleId::from_module::<M>(),
             id,
             owner: Some(self.id),
         }));
-        id
+        PlannedData {
+            id,
+            project: self.project,
+            phantomdata: PhantomData::<M>,
+        }
     }
 
     /// Plans the deletion of this document and all its contained data
@@ -114,6 +118,53 @@ impl DocumentView<'_> {
     pub fn delete(&self, cb: &mut ChangeBuilder) {
         cb.changes
             .push(PendingChange::Change(Change::DeleteDocument(self.id)));
+    }
+}
+
+/// Pending version of [`DocumentView`] that does not yet exist in the [`ProjectView`].
+#[derive(Clone, Debug)]
+#[expect(clippy::module_name_repetitions)]
+pub struct PlannedDocument<'a> {
+    pub id: DocumentId,
+    pub project: &'a ProjectView,
+}
+
+impl From<PlannedDocument<'_>> for DocumentId {
+    fn from(dv: PlannedDocument<'_>) -> Self {
+        dv.id
+    }
+}
+
+impl Deref for PlannedDocument<'_> {
+    type Target = DocumentId;
+
+    fn deref(&self) -> &Self::Target {
+        &self.id
+    }
+}
+
+impl PlannedDocument<'_> {
+    /// Plans the creation of a new empty data section with type `M`
+    ///
+    /// The new data section will be contained in this document
+    ///
+    /// This will not modify the [`Project`], just record this change to `cb`.
+    ///
+    /// # Returns
+    /// The unique identifier of the data recorded to `cb`.
+    #[must_use]
+    pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> PlannedData<'_, M> {
+        let id = DataId::new_v4();
+        cb.changes.push(PendingChange::Change(Change::CreateData {
+            module: crate::ModuleId::from_module::<M>(),
+            id,
+            owner: Some(self.id),
+        }));
+        PlannedData {
+            id,
+            project: self.project,
+            phantomdata: PhantomData::<M>,
+        }
     }
 }
 

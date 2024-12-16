@@ -46,8 +46,8 @@ pub fn setup_project() -> ProjectSetup {
     let view = project.create_view(&reg).unwrap();
 
     // Create Documents
-    let doc1 = view.create_document(&mut cb, "/doc1".try_into().unwrap());
-    let doc2 = view.create_document(&mut cb, "/doc2".try_into().unwrap());
+    let doc1 = *view.create_document(&mut cb, "/doc1".try_into().unwrap());
+    let doc2 = *view.create_document(&mut cb, "/doc2".try_into().unwrap());
 
     // Apply
     project.apply_changes(cb, &reg).unwrap();
@@ -55,11 +55,11 @@ pub fn setup_project() -> ProjectSetup {
     let view = project.create_view(&reg).unwrap();
 
     // Create Data
-    let doc1_minimal_data = view
+    let doc1_minimal_data = *view
         .open_document(doc1)
         .unwrap()
         .create_data::<MinimalTestModule>(&mut cb);
-    let doc2_test_data = view
+    let doc2_test_data = *view
         .open_document(doc2)
         .unwrap()
         .create_data::<TestModule>(&mut cb);

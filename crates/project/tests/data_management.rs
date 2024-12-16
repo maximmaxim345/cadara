@@ -180,3 +180,28 @@ fn test_make_orphan() {
         .open_data_by_id::<MinimalTestModule>(p.doc1_minimal_data)
         .is_some());
 }
+
+#[test]
+fn test_pending_document_data() {
+    let mut p = setup_project();
+    let v = p.view();
+    let mut cb = ChangeBuilder::new();
+
+    let doc = v.create_document(&mut cb, "/new document".try_into().unwrap());
+    let data = doc.create_data::<MinimalTestModule>(&mut cb);
+    data.apply_persistent(11, &mut cb);
+    data.apply_persistent_user(12, &mut cb);
+    data.apply_session(13, &mut cb);
+    data.apply_shared(14, &mut cb);
+
+    p.project.apply_changes(cb, &p.reg).unwrap();
+    let v = p.view();
+
+    let doc = v.open_document(*doc).unwrap();
+    let data = doc.open_data_by_id::<MinimalTestModule>(*data).unwrap();
+
+    assert_eq!(data.persistent.num, 11);
+    assert_eq!(data.persistent_user.num, 12);
+    assert_eq!(data.session_data.num, 13);
+    assert_eq!(data.shared_data.num, 14);
+}

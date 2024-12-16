@@ -1,6 +1,6 @@
 use crate::{
     data::{DataId, DataView},
-    document::{Document, DocumentId, DocumentView},
+    document::{Document, DocumentId, DocumentView, PlannedDocument},
     module_data::{ErasedData, ModuleId},
     user::UserId,
     Change, ChangeBuilder, Path, PendingChange,
@@ -48,12 +48,12 @@ impl ProjectView {
     /// # Returns
     /// The unique identifier of the document recorded to `cb`.
     #[must_use]
-    pub fn create_document(&self, cb: &mut ChangeBuilder, path: Path) -> DocumentId {
+    pub fn create_document(&self, cb: &mut ChangeBuilder, path: Path) -> PlannedDocument {
         let id = DocumentId::new_v4();
 
         cb.changes
             .push(PendingChange::Change(Change::CreateDocument { id, path }));
-        id
+        PlannedDocument { id, project: self }
     }
 
     /// Plans the creation of a new empty data section with type `M`.
