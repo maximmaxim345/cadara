@@ -57,7 +57,7 @@ impl<M: Module> DataView<'_, M> {
     ///
     /// * `args` - Arguments of the transaction.
     pub fn apply_persistent(
-        &mut self,
+        &self,
         args: <M::PersistentData as DataSection>::Args,
         cb: &mut ChangeBuilder,
     ) {
@@ -75,7 +75,7 @@ impl<M: Module> DataView<'_, M> {
     ///
     /// * `args` - Arguments of the transaction.
     pub fn apply_persistent_user(
-        &mut self,
+        &self,
         args: <M::PersistentUserData as DataSection>::Args,
         cb: &mut ChangeBuilder,
     ) {
@@ -94,7 +94,7 @@ impl<M: Module> DataView<'_, M> {
     ///
     /// * `args` - Arguments of the transaction.
     pub fn apply_session(
-        &mut self,
+        &self,
         args: <M::SessionData as DataSection>::Args,
         cb: &mut ChangeBuilder,
     ) {
@@ -111,11 +111,7 @@ impl<M: Module> DataView<'_, M> {
     /// # Arguments
     ///
     /// * `args` - Arguments of the transaction.
-    pub fn apply_shared(
-        &mut self,
-        args: <M::SharedData as DataSection>::Args,
-        cb: &mut ChangeBuilder,
-    ) {
+    pub fn apply_shared(&self, args: <M::SharedData as DataSection>::Args, cb: &mut ChangeBuilder) {
         cb.changes.push(PendingChange::SharedTransaction {
             id: self.id,
             args: SharedDataTransactionArgs::<M>(args).into(),

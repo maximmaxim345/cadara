@@ -70,7 +70,7 @@ pub fn setup_project() -> ProjectSetup {
     let mut cb = ChangeBuilder::new();
     let view = project.create_view(&reg).unwrap();
 
-    let mut minimal_view = view
+    let minimal_view = view
         .open_data_by_id::<MinimalTestModule>(doc1_minimal_data)
         .unwrap();
     minimal_view.apply_persistent(10, &mut cb);
