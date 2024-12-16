@@ -129,4 +129,18 @@ impl<M: Module> DataView<'_, M> {
         cb.changes
             .push(PendingChange::Change(Change::DeleteData(self.id)));
     }
+
+    /// Plans to move this data section to another document.
+    ///
+    /// This will not modify the [`Project`], just record this change to `cb`.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_owner` - The document to move the data to.
+    pub fn move_to_document(&self, new_owner: &crate::DocumentView, cb: &mut ChangeBuilder) {
+        cb.changes.push(PendingChange::Change(Change::MoveData {
+            id: self.id,
+            new_owner: Some(new_owner.id),
+        }));
+    }
 }
