@@ -32,8 +32,7 @@ use document::Document;
 use log::{error, warn};
 use module_data::{
     ErasedDataTransactionArgs, ErasedSessionData, ErasedSessionDataTransactionArgs,
-    ErasedSharedDataTransactionArgs, ErasedUserDataTransactionArgs, ModuleId, ModuleRegistry,
-    MODULE_REGISTRY,
+    ErasedSharedDataTransactionArgs, ErasedUserDataTransactionArgs, ModuleId, MODULE_REGISTRY,
 };
 use serde::de::DeserializeSeed;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -47,6 +46,7 @@ pub use data::DataView;
 pub use document::DocumentId;
 pub use document::DocumentView;
 pub use document::Path;
+pub use module_data::ModuleRegistry;
 pub use project::ProjectView;
 pub use user::UserId;
 
