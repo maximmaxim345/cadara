@@ -9,3 +9,8 @@ fn test_test_module() {
 fn test_minimal_test_module() {
     common::minimal_test_module::test_minimal_test_module();
 }
+
+#[test]
+fn test_setup_project() {
+    common::test_setup_project();
+}

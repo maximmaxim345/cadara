@@ -1,4 +1,4 @@
-use module::{DataSection, Module, ReversibleDataTransaction};
+use module::{DataSection, Module};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -10,9 +10,8 @@ use std::{
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TransactionStatus {
-    ApplyFailed,
+    Skipped,
     Applied,
-    Undone,
 }
 
 pub type TransactionLog = Vec<(TransactionStatus, <TestDataSection as DataSection>::Args)>;
@@ -59,90 +58,39 @@ impl Default for TestDataSection {
     }
 }
 
-#[derive(Clone, Hash, PartialEq, Debug)]
+#[derive(Clone, Hash, PartialEq, Debug, Serialize, Deserialize)]
 pub enum TestTransaction {
     SetWord(String),
     SetNumber(i32),
-    FailIfNumberIsOver100,
-}
-
-#[derive(Clone, Hash, PartialEq, Debug)]
-pub enum TestTransactionUndoData {
-    SetWord { before: String, after: String },
-    SetNumber { before: i32, after: i32 },
-}
-
-#[derive(Clone, PartialEq, Debug)]
-pub enum TestTransactionError {
-    InvalidString,
-    InvalidNumber,
+    ResetIfNumberIsOver100,
 }
 
 impl DataSection for TestDataSection {
     type Args = TestTransaction;
-    type Error = TestTransactionError;
-    type Output = String;
-    fn apply(&mut self, args: Self::Args) -> Result<Self::Output, Self::Error> {
-        // Use the undoable transaction to implement this
-        <Self as ReversibleDataTransaction>::apply(self, args).map(|(output, _undo_data)| output)
-    }
-
-    fn undo_history_name(args: &Self::Args) -> String {
-        match args {
-            TestTransaction::SetWord(word) => format!("Set word to {word}"),
-            TestTransaction::SetNumber(number) => format!("Set number to {number}"),
-            TestTransaction::FailIfNumberIsOver100 => "Fail if number is over 100".to_string(),
-        }
-    }
-}
-
-impl ReversibleDataTransaction for TestDataSection {
-    type UndoData = (TestTransactionUndoData, Self::Args);
-    fn apply(&mut self, args: Self::Args) -> Result<(Self::Output, Self::UndoData), Self::Error> {
+    fn apply(&mut self, args: Self::Args) {
         let result = match args.clone() {
             TestTransaction::SetWord(word) => {
                 if word.contains(' ') {
-                    Result::Err(TestTransactionError::InvalidString)
+                    TransactionStatus::Skipped
                 } else {
-                    let old_word = self.single_word.clone();
-                    let message = format!("changed word from {old_word} to {word}");
                     self.single_word.clone_from(&word);
-                    Result::Ok((
-                        message,
-                        TestTransactionUndoData::SetWord {
-                            before: old_word,
-                            after: word,
-                        },
-                    ))
+                    TransactionStatus::Applied
                 }
             }
             TestTransaction::SetNumber(number) => {
                 if number % 2 == 0 {
-                    Result::Err(TestTransactionError::InvalidNumber)
+                    TransactionStatus::Skipped
                 } else {
-                    let old_number = self.odd_number;
                     self.odd_number = number;
-                    let message = format!("changed number from {old_number} to {number}");
-                    Result::Ok((
-                        message,
-                        TestTransactionUndoData::SetNumber {
-                            before: old_number,
-                            after: number,
-                        },
-                    ))
+                    TransactionStatus::Applied
                 }
             }
-            TestTransaction::FailIfNumberIsOver100 => {
+            TestTransaction::ResetIfNumberIsOver100 => {
                 if self.odd_number > 100 {
-                    Result::Err(TestTransactionError::InvalidNumber)
+                    self.odd_number = 0;
+                    TransactionStatus::Applied
                 } else {
-                    Result::Ok((
-                        "".to_string(),
-                        TestTransactionUndoData::SetNumber {
-                            before: self.odd_number,
-                            after: self.odd_number,
-                        },
-                    ))
+                    TransactionStatus::Skipped
                 }
             }
         };
@@ -150,32 +98,14 @@ impl ReversibleDataTransaction for TestDataSection {
         let log = map.entry(self.logging_uuid).or_default();
 
         // log the result
-        match result {
-            Err(err) => {
-                log.push((TransactionStatus::ApplyFailed, args.clone()));
-                Err(err)
-            }
-            Ok((output, undo_data)) => {
-                log.push((TransactionStatus::Applied, args.clone()));
-                Ok((output, (undo_data, args)))
-            }
-        }
+        log.push((result, args.clone()));
     }
-    fn undo(&mut self, undo_data: Self::UndoData) {
-        let mut map = GLOBAL_TRANSACTION_LOG.write().unwrap();
-        let log = map.entry(self.logging_uuid).or_default();
 
-        // log the undo operation
-        log.push((TransactionStatus::Undone, undo_data.1));
-        match undo_data.0 {
-            TestTransactionUndoData::SetWord { before, after } => {
-                assert_eq!(self.single_word, after);
-                self.single_word = before;
-            }
-            TestTransactionUndoData::SetNumber { before, after } => {
-                assert_eq!(self.odd_number, after);
-                self.odd_number = before;
-            }
+    fn undo_history_name(args: &Self::Args) -> String {
+        match args {
+            TestTransaction::SetWord(word) => format!("Set word to {word}"),
+            TestTransaction::SetNumber(number) => format!("Set number to {number}"),
+            TestTransaction::ResetIfNumberIsOver100 => "Fail if number is over 100".to_string(),
         }
     }
 }
@@ -199,39 +129,58 @@ impl Module for TestModule {
 #[allow(dead_code)]
 pub fn test_test_module() {
     let mut test_data = TestDataSection::default();
-    let test_data_before = test_data.clone();
     let uuid = test_data.logging_uuid;
 
     let transaction_valid_word = TestTransaction::SetWord("Test".to_string());
     let transaction_invalid_word = TestTransaction::SetWord("Test Test".to_string());
     let transaction_valid_number = TestTransaction::SetNumber(3);
     let transaction_invalid_number = TestTransaction::SetNumber(2);
+    let transaction_reset = TestTransaction::ResetIfNumberIsOver100;
+    let transaction_large_number = TestTransaction::SetNumber(103);
 
     // Try applying all 4 transactions
     clear_transaction_log(uuid);
-    let undodata_word =
-        ReversibleDataTransaction::apply(&mut test_data, transaction_valid_word.clone())
-            .unwrap()
-            .1;
+    DataSection::apply(&mut test_data, transaction_valid_word.clone());
     assert_eq!(
         test_data.single_word, "Test",
         "Transaction should have been applied"
     );
 
-    let result = DataSection::apply(&mut test_data, transaction_invalid_word.clone());
-    assert!(result.is_err());
+    DataSection::apply(&mut test_data, transaction_invalid_word.clone());
+    assert_eq!(
+        test_data.single_word, "Test",
+        "Transaction should have been skipped"
+    );
 
-    let undodata_number =
-        ReversibleDataTransaction::apply(&mut test_data, transaction_valid_number.clone())
-            .unwrap()
-            .1;
+    DataSection::apply(&mut test_data, transaction_valid_number.clone());
     assert_eq!(
         test_data.odd_number, 3,
         "Transaction should have been applied"
     );
 
-    let result = DataSection::apply(&mut test_data, transaction_invalid_number.clone());
-    assert!(result.is_err());
+    DataSection::apply(&mut test_data, transaction_invalid_number.clone());
+    assert_eq!(
+        test_data.odd_number, 3,
+        "Transaction should have been skipped"
+    );
+
+    DataSection::apply(&mut test_data, transaction_reset.clone());
+    assert_eq!(
+        test_data.odd_number, 3,
+        "Transaction should have been skipped"
+    );
+
+    DataSection::apply(&mut test_data, transaction_large_number.clone());
+    assert_eq!(
+        test_data.odd_number, 103,
+        "Transaction should have been applied"
+    );
+
+    DataSection::apply(&mut test_data, transaction_reset.clone());
+    assert_eq!(
+        test_data.odd_number, 0,
+        "Transaction should have been applied"
+    );
 
     // Test if the transaction log is correct
     let log = get_transaction_log(uuid);
@@ -239,39 +188,15 @@ pub fn test_test_module() {
         log,
         vec![
             (TransactionStatus::Applied, transaction_valid_word.clone()),
-            (
-                TransactionStatus::ApplyFailed,
-                transaction_invalid_word.clone()
-            ),
+            (TransactionStatus::Skipped, transaction_invalid_word.clone()),
             (TransactionStatus::Applied, transaction_valid_number.clone()),
             (
-                TransactionStatus::ApplyFailed,
+                TransactionStatus::Skipped,
                 transaction_invalid_number.clone()
             ),
+            (TransactionStatus::Skipped, transaction_reset.clone()),
+            (TransactionStatus::Applied, transaction_large_number.clone()),
+            (TransactionStatus::Applied, transaction_reset.clone()),
         ],
     );
-
-    // Try undoing the 2 successful transactions
-    clear_transaction_log(uuid);
-    ReversibleDataTransaction::undo(&mut test_data, undodata_number);
-    ReversibleDataTransaction::undo(&mut test_data, undodata_word);
-    let log = get_transaction_log(uuid);
-    assert_eq!(
-        log,
-        vec![
-            (TransactionStatus::Undone, transaction_valid_number.clone()),
-            (TransactionStatus::Undone, transaction_valid_word.clone()),
-        ],
-    );
-
-    assert_eq!(
-        test_data, test_data_before,
-        "All Transactions should have been undone"
-    );
-
-    // Try the failing transaction
-    assert!(DataSection::apply(&mut test_data, TestTransaction::SetNumber(99)).is_ok());
-    assert!(DataSection::apply(&mut test_data, TestTransaction::FailIfNumberIsOver100).is_ok());
-    assert!(DataSection::apply(&mut test_data, TestTransaction::SetNumber(101)).is_ok());
-    assert!(DataSection::apply(&mut test_data, TestTransaction::FailIfNumberIsOver100).is_err());
 }

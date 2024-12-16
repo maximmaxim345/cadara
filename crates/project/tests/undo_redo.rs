@@ -1,3 +1,5 @@
+/*
+TODO: port this once undo/redo is implemented
 mod common;
 use common::test_module::*;
 use data::{DataUuid, DataView};
@@ -725,3 +727,4 @@ fn test_undo_redo_on_failed_transactions() {
     );
     assert_eq!(get_user_log_and_clear(), vec![]);
 }
+*/

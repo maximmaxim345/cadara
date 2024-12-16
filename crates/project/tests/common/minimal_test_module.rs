@@ -1,24 +1,21 @@
 // A second minimal test module, to test multiple different modules
-use module::{DataSection, Module, ReversibleDataTransaction};
+use module::{DataSection, Module};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Clone, Default, Debug, PartialEq)]
+#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MinimalTestModule {}
 
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
-pub struct TestDataSection {
+pub struct MinimalTestDataSection {
     pub num: i32,
 }
 
-impl DataSection for TestDataSection {
+impl DataSection for MinimalTestDataSection {
     type Args = i32;
-    type Error = ();
-    type Output = ();
 
-    fn apply(&mut self, args: Self::Args) -> Result<Self::Output, Self::Error> {
-        // Use the undoable transaction to implement this
-        <Self as ReversibleDataTransaction>::apply(self, args).map(|(output, _undo_data)| output)
+    fn apply(&mut self, args: Self::Args) {
+        self.num = args;
     }
 
     fn undo_history_name(args: &Self::Args) -> String {
@@ -26,23 +23,11 @@ impl DataSection for TestDataSection {
     }
 }
 
-impl ReversibleDataTransaction for TestDataSection {
-    type UndoData = i32;
-    fn apply(&mut self, args: Self::Args) -> Result<(Self::Output, Self::UndoData), Self::Error> {
-        let old_num = self.num;
-        self.num = args;
-        Ok(((), old_num))
-    }
-    fn undo(&mut self, undo_data: Self::UndoData) {
-        self.num = undo_data;
-    }
-}
-
 impl Module for MinimalTestModule {
-    type PersistentData = TestDataSection;
-    type PersistentUserData = TestDataSection;
-    type SessionData = TestDataSection;
-    type SharedData = TestDataSection;
+    type PersistentData = MinimalTestDataSection;
+    type PersistentUserData = MinimalTestDataSection;
+    type SessionData = MinimalTestDataSection;
+    type SharedData = MinimalTestDataSection;
 
     fn name() -> String {
         "A Minimal Test Module".to_string()
@@ -56,14 +41,10 @@ impl Module for MinimalTestModule {
 // since otherwise it will be run every time another test includes this module
 #[allow(dead_code)]
 pub fn test_minimal_test_module() {
-    let mut data_section = TestDataSection::default();
+    let mut data_section = MinimalTestDataSection::default();
     assert_eq!(data_section.num, 0);
-    assert!(DataSection::apply(&mut data_section, 4).is_ok());
+    DataSection::apply(&mut data_section, 4);
     assert_eq!(data_section.num, 4);
-    let undo_data = ReversibleDataTransaction::apply(&mut data_section, 40)
-        .unwrap()
-        .1;
+    DataSection::apply(&mut data_section, 40);
     assert_eq!(data_section.num, 40);
-    ReversibleDataTransaction::undo(&mut data_section, undo_data);
-    assert_eq!(data_section.num, 4);
 }
