@@ -143,4 +143,15 @@ impl<M: Module> DataView<'_, M> {
             new_owner: Some(new_owner.id),
         }));
     }
+
+    /// Plans to make this data section an orphan (not owned by any document).
+    ///
+    /// This will not modify the [`Project`], just record this change to `cb`.
+    pub fn make_orphan(&self, cb: &mut ChangeBuilder) {
+        // TODO: what if we call this multiple times?
+        cb.changes.push(PendingChange::Change(Change::MoveData {
+            id: self.id,
+            new_owner: None,
+        }));
+    }
 }
