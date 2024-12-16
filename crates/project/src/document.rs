@@ -64,11 +64,7 @@ impl DocumentView<'_> {
     /// An `Option` containing a [`DataView`] if the document was found in this document and is of type `M`, or `None` otherwise.
     #[must_use]
     pub fn open_data_by_id<M: Module>(&self, data_id: DataId) -> Option<DataView<M>> {
-        if self.project.documents[&self.id]
-            .data
-            .iter()
-            .any(|u| *u == data_id)
-        {
+        if self.document.data.iter().any(|u| *u == data_id) {
             self.project.open_data_by_id(data_id)
         } else {
             None
@@ -83,7 +79,7 @@ impl DocumentView<'_> {
     /// # Returns
     /// An iterator yielding [`DataView`]s of type `M` found in this document.
     pub fn open_data_by_type<M: Module>(&self) -> impl Iterator<Item = DataView<M>> + '_ {
-        self.project.documents[&self.id]
+        self.document
             .data
             .iter()
             .filter_map(|&id| self.open_data_by_id(id))
