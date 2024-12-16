@@ -9,14 +9,8 @@
 #![warn(clippy::pedantic)]
 
 // TODO: complete refactoring of project
-// - support undo/redo
-// - reenable tests
-// - update rest of codebase
-// - Design Task (branch) > Changes (checkpoint) > Actions (change -> action, changes -> actions)
-// - Revisions use CheckPoint, but also make a immutable ProjectArchive w.o redundant data
-// - ChangeBuilder -> ProjectChangeSet
-// - make registry functions type safe
 // - reduce registry function count by splitting data
+// - implement+test: multi user, undo/redo
 
 mod branch;
 mod checkpoint;

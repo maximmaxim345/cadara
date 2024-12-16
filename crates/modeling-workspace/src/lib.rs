@@ -10,7 +10,7 @@ use ::viewport::DynamicViewportPlugin;
 
 #[derive(Debug)]
 pub struct ModelingWorkspace {
-    pub data_uuid: project::data::DataUuid,
+    pub data_uuid: project::DataId,
 }
 
 impl workspace::Workspace for ModelingWorkspace {

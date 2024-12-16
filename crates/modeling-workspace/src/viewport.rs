@@ -11,7 +11,7 @@ pub struct ModelingViewportPluginOutput {}
 
 #[derive(Clone, Debug)]
 pub struct ModelingViewportPlugin {
-    pub data_uuid: project::data::DataUuid,
+    pub data_uuid: project::DataId,
 }
 
 #[node(ModelingViewportPlugin -> (scene, output))]

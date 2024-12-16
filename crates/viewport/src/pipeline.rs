@@ -456,7 +456,7 @@ impl ViewportPipeline {
     /// from the last plugin in the chain.
     ///
     /// # Parameters
-    /// - `project_session`: This session will be passed to all nodes of the [`ViewportPlugin`]s and the [`SceneGraph`].
+    /// - `project_view`: This [`ProjectView`] will be passed to all nodes of the [`ViewportPlugin`]s and the [`SceneGraph`].
     ///
     /// # Returns
     ///
@@ -467,11 +467,11 @@ impl ViewportPipeline {
     /// - `Err(ExecuteError::EmptyPipeline)` if the pipeline is empty.
     /// - `Err(ExecuteError::ComputeError)` if there's an error during computation
     ///     of the added [`ViewportPlugin`]s.
-    pub fn compute_scene(&self, project_session: ProjectView) -> Result<SceneGraph, ExecuteError> {
-        // TODO: pass ProjectSession to ViewportPluginNodes
+    pub fn compute_scene(&self, project_view: ProjectView) -> Result<SceneGraph, ExecuteError> {
+        // TODO: pass ProjectView to ViewportPluginNodes
         let last_node = self.nodes.last().ok_or(ExecuteError::EmptyPipeline)?;
         let mut ctx = ComputationContext::default();
-        ctx.set_fallback(project_session);
+        ctx.set_fallback(project_view);
         let scene = self
             .graph
             .compute_with_context(last_node.scene_output.clone(), &ctx)?;
@@ -483,9 +483,9 @@ impl ViewportPipeline {
         &self,
         state: &mut ViewportPipelineState,
         events: ViewportEvent,
-        project_session: ProjectView,
+        project_view: ProjectView,
     ) -> Result<(), ExecuteError> {
-        let scene = self.compute_scene(project_session.clone())?;
+        let scene = self.compute_scene(project_view.clone())?;
 
         let s = state.state.take();
         let s = match s {
@@ -496,7 +496,7 @@ impl ViewportPipeline {
         let mut ctx = ComputationContext::default();
         ctx.set_override_untyped(scene.update_state_in.clone(), s);
         ctx.set_override(scene.update_event_in, events);
-        ctx.set_fallback(project_session);
+        ctx.set_fallback(project_view);
 
         let result = scene
             .graph
@@ -509,9 +509,9 @@ impl ViewportPipeline {
     pub(crate) fn compute_primitive(
         &self,
         state: &mut ViewportPipelineState,
-        project_session: ProjectView,
+        project_view: ProjectView,
     ) -> Result<Box<dyn iced::widget::shader::Primitive>, ExecuteError> {
-        let scene = self.compute_scene(project_session.clone())?;
+        let scene = self.compute_scene(project_view.clone())?;
 
         let s = state.state.take();
         let s = match s {
@@ -521,7 +521,7 @@ impl ViewportPipeline {
 
         let mut ctx = ComputationContext::default();
         ctx.set_override_untyped(scene.render_state_in.clone(), s);
-        ctx.set_fallback(project_session);
+        ctx.set_fallback(project_view);
 
         let result = scene
             .graph

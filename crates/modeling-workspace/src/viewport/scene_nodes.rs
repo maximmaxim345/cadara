@@ -9,15 +9,15 @@ use super::{
 
 #[derive(Clone, Debug)]
 pub struct ModelNode {
-    pub data_uuid: project::data::DataUuid,
+    pub data_uuid: project::DataId,
 }
 
 #[node(ModelNode)]
 fn run(&self, project: &project::ProjectView) -> occara::shape::Shape {
-    let data_session: project::data::DataView<modeling_module::ModelingModule> =
-        project.open_data(self.data_uuid).unwrap();
+    let data_view: project::DataView<modeling_module::ModelingModule> =
+        project.open_data_by_id(self.data_uuid).unwrap();
 
-    data_session.snapshot().persistent.shape()
+    data_view.persistent.shape()
 }
 
 #[derive(Clone, Debug)]
@@ -56,7 +56,7 @@ fn run(&self, state: &ViewportState, mesh: &MeshData) -> Box<dyn shader::Primiti
 
 #[derive(Clone, Debug)]
 pub struct UpdateStateNode {
-    pub data_uuid: project::data::DataUuid,
+    pub data_uuid: project::DataId,
 }
 
 #[node(UpdateStateNode)]
@@ -67,8 +67,8 @@ fn run(
     project: &project::ProjectView,
 ) -> ViewportState {
     let mut state = (*state).clone();
-    let mut _data_session: project::data::DataView<modeling_module::ModelingModule> =
-        project.open_data(self.data_uuid).unwrap();
+    let mut _data_view: project::DataView<modeling_module::ModelingModule> =
+        project.open_data_by_id(self.data_uuid).unwrap();
     if let shader::Event::Mouse(m) = event.event {
         match m {
             iced::mouse::Event::ButtonPressed(iced::mouse::Button::Left) => {

@@ -122,8 +122,10 @@ fn run(&self, scene: &SceneGraph, input: &CounterState) -> (SceneGraph, CounterS
 ///
 /// For use with [`InitialCounterNode`] and [`IncrementCounterNode`]
 pub fn node_count(pipeline: &ViewportPipeline) -> Result<usize, Box<dyn std::error::Error>> {
-    let p = project::Project::new("project".to_string());
-    let g = pipeline.compute_scene(p.create_view())?.graph;
+    let p = project::Project::new();
+    let g = pipeline
+        .compute_scene(p.create_view(&project::ModuleRegistry::default()).unwrap())?
+        .graph;
     let out_port = computegraph::OutputPortUntyped {
         node: computegraph::NodeHandle {
             node_name: "output".to_string(),

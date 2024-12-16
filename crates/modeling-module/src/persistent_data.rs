@@ -1,5 +1,5 @@
 use crate::operation::ModelingOperation;
-use module::{DataSection, ReversibleDataTransaction};
+use module::DataSection;
 use occara::{
     geom::{Point, Vector},
     shape::{Edge, Wire},
@@ -32,29 +32,10 @@ pub enum ModelingTransaction {
     Delete,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub struct ModelingTransactionOutput {
-    uuid: Uuid,
-}
-
 impl DataSection for PersistentData {
     type Args = ModelingTransaction;
-    type Error = ();
-    type Output = ModelingTransactionOutput;
 
-    fn apply(&mut self, args: Self::Args) -> Result<Self::Output, Self::Error> {
-        ReversibleDataTransaction::apply(self, args).map(|a| a.0)
-    }
-
-    fn undo_history_name(_args: &Self::Args) -> String {
-        String::new()
-    }
-}
-
-impl ReversibleDataTransaction for PersistentData {
-    type UndoData = ();
-
-    fn apply(&mut self, args: Self::Args) -> Result<(Self::Output, Self::UndoData), Self::Error> {
+    fn apply(&mut self, args: Self::Args) {
         match args {
             ModelingTransaction::Create(c) => {
                 let uuid = Uuid::new_v4();
@@ -63,15 +44,14 @@ impl ReversibleDataTransaction for PersistentData {
                     operation: c.operation,
                     uuid,
                 });
-                Ok((ModelingTransactionOutput { uuid }, ()))
             }
             ModelingTransaction::Update => todo!(),
             ModelingTransaction::Delete => todo!(),
         }
     }
 
-    fn undo(&mut self, _undo_data: Self::UndoData) {
-        unimplemented!("not supported")
+    fn undo_history_name(_args: &Self::Args) -> String {
+        String::new()
     }
 }
 
