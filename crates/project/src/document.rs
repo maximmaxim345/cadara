@@ -410,6 +410,27 @@ impl Path {
         }
     }
 
+    /// Escapes a string by adding backslashes before backslashes and slashes
+    #[must_use]
+    pub fn escape(string: &str) -> Cow<'_, str> {
+        // TODO: proptest???
+        let escape_count = string.chars().filter(|&c| c == '\\' || c == '/').count();
+        if escape_count == 0 {
+            Cow::Borrowed(string)
+        } else {
+            let mut unescaped = String::with_capacity(string.len() + escape_count);
+
+            for c in string.chars() {
+                if c == '\\' || c == '/' {
+                    unescaped.push('\\');
+                }
+                unescaped.push(c);
+            }
+
+            Cow::Owned(unescaped)
+        }
+    }
+
     /// Increments the numeric suffix of a name, or adds one if not present.
     #[must_use]
     pub fn increment_name_suffix(&self) -> Self {
