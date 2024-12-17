@@ -1,4 +1,4 @@
-use std::{fmt, marker::PhantomData, ops::Deref};
+use std::{borrow::Cow, fmt, marker::PhantomData, ops::Deref};
 
 use crate::{
     data::{DataId, DataView, PlannedData},
@@ -175,6 +175,57 @@ pub enum PathCreationError {
     InvalidPath(String),
 }
 
+pub struct AncestorsUnescapedIter<'a> {
+    path: &'a str,
+    end_index: Option<usize>,
+}
+
+impl<'a> Iterator for AncestorsUnescapedIter<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(a) = self.end_index {
+            self.path = &self.path[a..];
+        }
+        let a = self.path.char_indices().find_map(|(i, char)| match char {
+            '/' => {
+                let mut escaped = false;
+                for prev_c in self.path[..i].chars().rev() {
+                    if prev_c == '\\' {
+                        escaped = !escaped;
+                    } else {
+                        break;
+                    }
+                }
+
+                if escaped {
+                    None
+                } else {
+                    Some(i)
+                }
+            }
+            _ => None,
+        });
+        if let Some(a) = a {
+            let b = &self.path[..a];
+            self.end_index = Some(a + 1);
+            Some(b)
+        } else {
+            None
+        }
+    }
+}
+
+pub struct AncestorsIter<'a>(AncestorsUnescapedIter<'a>);
+
+impl<'a> Iterator for AncestorsIter<'a> {
+    type Item = Cow<'a, str>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(Path::unescape(self.0.next()?))
+    }
+}
+
 /// Path of a document/folder in a [`crate::Project`].
 ///
 /// A [`Path`] should uniquely identify the location of a document or folder
@@ -259,6 +310,104 @@ impl Path {
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    /// Returns the unescaped name of the document/folder of this [`Path`].
+    ///
+    /// Get the unescaped Name of this [`Path`], corresponding to the last component separated
+    /// with a `/`. The returned `&str` still has escaped characters, so `\` will be `\\` and
+    /// `/` will be `\/`, so use [`Self::get_name`] in case this is a problem.
+    #[must_use]
+    pub fn get_name_escaped(&self) -> &str {
+        let path = &self.0;
+        let beginning = path
+            .char_indices()
+            .rev()
+            .find_map(|(i, c)| match c {
+                '/' => {
+                    let mut escaped = false;
+                    for prev_c in path[..i].chars().rev() {
+                        if prev_c == '\\' {
+                            escaped = !escaped;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    if escaped {
+                        None
+                    } else {
+                        Some(i + 1)
+                    }
+                }
+                _ => None,
+            })
+            .unwrap_or(0); // Default to 0 if no unescaped '/' is found
+        &path[beginning..]
+    }
+
+    /// Iterate through all parent folders of this document. Unescaped Version.
+    ///
+    /// Iterate through unescaped folder names of this [`Path`], starting from the root.
+    /// The returned `&str` still has escaped characters, so `\` will be `\\` and
+    /// `/` will be `\/`.
+    ///
+    /// Use [`Self::ancestors`] or convert the `&str`s with [`Self::unescape`] to
+    /// convert it to the correct folder name.
+    #[must_use]
+    pub fn ancestors_unescaped(&self) -> AncestorsUnescapedIter {
+        AncestorsUnescapedIter {
+            path: &self.0[1..],
+            end_index: None,
+        }
+    }
+
+    /// Iterate through all parent folders of this document.
+    ///
+    /// Iterate through folder names of this [`Path`], starting from the root.
+    ///
+    /// This function might allocate. If this is not desired, use [`Self::ancestors_unescaped`] instead.
+    #[must_use]
+    pub fn ancestors(&self) -> AncestorsIter {
+        AncestorsIter(AncestorsUnescapedIter {
+            path: &self.0[1..],
+            end_index: None,
+        })
+    }
+
+    /// Returns the name of the document/folder of this [`Path`].
+    ///
+    /// Get the Name of this [`Path`], corresponding to the last component separated
+    /// with a `/`.
+    ///
+    /// This function might allocate. If this is not desired, use [`Self::get_name_escaped`] instead.
+    #[must_use]
+    pub fn get_name(&self) -> Cow<'_, str> {
+        Self::unescape(self.get_name_escaped())
+    }
+
+    /// Unescapes a string by removing backslashes before escaped characters.
+    #[must_use]
+    pub fn unescape(escaped: &str) -> Cow<'_, str> {
+        let escape_count = escaped.chars().filter(|&c| c == '\\').count();
+        if escape_count == 0 {
+            Cow::Borrowed(escaped)
+        } else {
+            let mut unescaped = String::with_capacity(escaped.len() - escape_count);
+
+            let mut chars = escaped.chars();
+            while let Some(c) = chars.next() {
+                if c == '\\' {
+                    if let Some(next_char) = chars.next() {
+                        unescaped.push(next_char);
+                    }
+                } else {
+                    unescaped.push(c);
+                }
+            }
+
+            Cow::Owned(unescaped)
+        }
     }
 
     /// Increments the numeric suffix of a name, or adds one if not present.
