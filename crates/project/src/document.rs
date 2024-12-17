@@ -260,7 +260,18 @@ impl Path {
     /// Increments the numeric suffix of a name, or adds one if not present.
     #[must_use]
     pub fn increment_name_suffix(&self) -> Self {
-        todo!("implement")
+        // Split at last parenthesis pair if it exists
+        if let Some((name, num)) = self.0.rsplit_once(" (").and_then(|(name, end)| {
+            end.strip_suffix(')')
+                .and_then(|num| num.parse::<usize>().ok())
+                .map(|num| (name, num))
+        }) {
+            // If we found a valid number suffix, increment it
+            Self(format!("{name} ({})", num + 1))
+        } else {
+            // If no number suffix exists, add (2)
+            Self(format!("{} (2)", self.0))
+        }
     }
 }
 
