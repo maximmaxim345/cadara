@@ -228,11 +228,15 @@ impl Path {
         let mut escaped = false;
         let mut last_char_was_slash = false;
         for char in path.chars() {
-            if escaped {
-                escaped = false;
+            if char == '\\' {
+                escaped = !escaped;
                 last_char_was_slash = false;
-            } else if char == '\\' {
-                escaped = true;
+            } else if escaped {
+                if char != '/' {
+                    // Lone '\' is not allowed
+                    return Err(PathCreationError::InvalidPath(path));
+                }
+                escaped = false;
                 last_char_was_slash = false;
             } else if char == '/' {
                 if last_char_was_slash {
