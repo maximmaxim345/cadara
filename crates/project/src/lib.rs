@@ -37,9 +37,11 @@ use user::SessionId;
 // Public reexports
 pub use data::DataId;
 pub use data::DataView;
+pub use data::PlannedData;
 pub use document::DocumentId;
 pub use document::DocumentView;
 pub use document::Path;
+pub use document::PlannedDocument;
 pub use module_data::ModuleRegistry;
 pub use project::ProjectView;
 pub use user::UserId;
