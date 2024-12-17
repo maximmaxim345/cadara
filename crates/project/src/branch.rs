@@ -1,14 +1,11 @@
 //! Branching and merging.
 //!
-//! Branches in [`Project`]s are used to indicate (past) branching of a [`Project`].
-//! While leave nodes internally exist as separate [`Project`]s, mearging them combines
-//! the history to a single linear [`Project::log`].
+//! Branches in [`Project`](crate::Project)s are used to indicate (past) branching of a [`Project`](crate::Project).
+//! While leave nodes internally exist as separate [`Project`](crate::Project)s, mearging them combines
+//! the history to a single linear [`Project::log`](crate::Project::log).
 //!
 //! Giving branches a unique [`BranchId`] allows us reconstruct the non linear history from
 //! a single linear log.
-//!
-//! [`Project`]: crate::Project
-//! [`Project::log`]: crate::Project::log
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

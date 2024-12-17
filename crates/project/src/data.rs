@@ -32,7 +32,11 @@ impl fmt::Display for DataId {
     }
 }
 
-/// A read only view to a data section in a [`ProjectView`].
+/// A read-only view to a data section in a [`ProjectView`].
+///
+/// [`DataView`] provides access to the 4 data sections associated with a specific module `M`.
+/// It allows you to inspect the persistent, user-specific, session, and shared data, but not to modify the project directly.
+/// Modifications must be made through a [`ChangeBuilder`] and applied to the [`crate::Project`] using [`crate::Project::apply_changes`].
 #[derive(Clone, Debug)]
 #[expect(clippy::module_name_repetitions)]
 pub struct DataView<'a, M: Module> {

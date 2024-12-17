@@ -10,7 +10,9 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::{collections::HashMap, marker::PhantomData};
 
-/// A read only view to all data stored in a [`crate::Project`].
+/// A read-only snapshot of a [`crate::Project`] at a specific point in time.
+///
+/// [`ProjectView`] provides a consistent and immutable view of the project's state, including all documents and data sections.
 ///
 /// Use [`crate::Project::create_view`] create a [`ProjectView`].
 #[derive(Clone, Serialize, Deserialize, Debug)]

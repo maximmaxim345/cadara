@@ -36,7 +36,11 @@ pub struct Document {
     pub data: Vec<DataId>,
 }
 
-/// A read only view to `document` in a [`ProjectView`].
+/// A read-only view to a `Document` within a [`ProjectView`].
+///
+/// [`DocumentView`] provides access to the metadata and data sections contained within a specific document
+/// in a project. It allows you to inspect the document's contents and create data sections, but not to modify the project directly.
+/// Modifications must be made through a [`ChangeBuilder`] and applied to the [`crate::Project`] using [`crate::Project::apply_changes`].
 #[derive(Clone, Debug)]
 #[expect(clippy::module_name_repetitions)]
 pub struct DocumentView<'a> {

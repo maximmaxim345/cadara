@@ -444,7 +444,9 @@ thread_local! {
     pub static MODULE_REGISTRY: RefCell<Option<*const ModuleRegistry>> = const { RefCell::new(None) };
 }
 
-/// A registry containing all supported modules necessary for working with [`crate::Project`]s
+/// A registry containing all supported modules necessary for working with a [`crate::Project`].
+///
+/// By default the [`ModuleRegistry`] is empty. You must first register [`Module`]s with [`ModuleRegistry::register`].
 #[derive(Clone, Debug, Default)]
 pub struct ModuleRegistry(pub(crate) HashMap<ModuleId, ModuleRegistryEntry>);
 
