@@ -48,8 +48,15 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
-          key: cargo-${{ runner.os }}-stable-${{ hashFiles('**/Cargo.lock') }}
+            target/*
+            !target/opencascade-sys
+          key: cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
+      - name: Load OpenCASCADE Cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            target/opencascade-sys/
+          key: occt-${{ runner.os }}-stable-${{ hashFiles('crates/opencascade-sys/**') }}
       - name: Run clippy
         uses: giraffate/clippy-action@v1
         with:
