@@ -228,16 +228,16 @@ enum PendingChange {
     Change(Change),
     SessionTransaction {
         id: DataId,
-        /// Stores the [`TransactionArgs`] for [`module::Module::SessionData`].
+        /// Stores the [`module::DataSection::Args`] for [`module::Module::SessionData`].
         ///
-        /// The [`module::Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
+        /// The [`module::Module`] is equal to in the last [`Change::CreateData`] with the same [`DataId`].
         args: ErasedSessionDataTransactionArgs,
     },
     SharedTransaction {
         id: DataId,
-        /// Stores the [`TransactionArgs`] for [`module::Module::SharedData`].
+        /// Stores the [`module::DataSection::Args`] for [`module::Module::SharedData`].
         ///
-        /// The [`module::Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
+        /// The [`module::Module`] is equal to in the last [`Change::CreateData`] with the same [`DataId`].
         args: ErasedSharedDataTransactionArgs,
     },
 }
@@ -264,7 +264,7 @@ enum Change {
         /// Path of the document as it will be shown to the user.
         ///
         /// In case a Document with the given `path` already exists,
-        /// this `path` will automatically be renamed with [`DocumentPath::increment_name_suffix`]
+        /// this `path` will automatically be renamed with [`Path::increment_name_suffix`]
         /// as many times as necessary to avoid duplicates.
         path: Path,
     },
@@ -300,7 +300,7 @@ enum Change {
         //
         // If `id` does not exist yet or was deleted, this Transaction will be ignored.
         id: DataId,
-        /// Stores the [`TransactionArgs`] for [`module::Module::PersistentData`].
+        /// Stores the [`module::DataSection::Args`] for [`module::Module::PersistentData`].
         ///
         /// The [`module::Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
         args: ErasedDataTransactionArgs,
@@ -310,7 +310,7 @@ enum Change {
         //
         // If `id` does not exist yet or was deleted, this Transaction will be ignored.
         id: DataId,
-        /// Stores the [`TransactionArgs`] for [`module::Module::PersistentUserData`].
+        /// Stores the [`module::DataSection::Args`] for [`module::Module::PersistentUserData`].
         ///
         /// The [`module::Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
         args: ErasedUserDataTransactionArgs,

@@ -10,7 +10,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Unique identifier of a branch in a [`Project`].
+/// Unique identifier of a branch in a [`crate::Project`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 #[expect(clippy::module_name_repetitions)]

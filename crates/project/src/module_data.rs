@@ -301,7 +301,7 @@ macro_rules! define_type_erased {
     };
 }
 
-/// Complete state of the data of a module, publicly accessible through a [`DataView`].
+/// Complete state of the data of a module, publicly accessible through a [`crate::DataView`].
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct Data<M: Module> {
     pub persistent: M::PersistentData,
