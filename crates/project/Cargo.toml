@@ -17,6 +17,10 @@ module.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 erased-serde.workspace = true
+dyn-clone.workspace = true
+paste.workspace = true
+thiserror.workspace = true
+log.workspace = true
 
 [dev-dependencies]
 lazy_static.workspace = true

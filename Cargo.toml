@@ -38,6 +38,7 @@ serde = { version = "1.0", features = ["derive", "alloc", "rc"] }
 bytemuck = "1.20"
 glam = { version = "0.29", features = ["bytemuck"] }
 walkdir = "2.4"
+paste = "1.0"
 
 cxx = "1.0"
 cxx-build = { version = "1.0", features = ["parallel"] }

@@ -7,179 +7,84 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
 use uuid::Uuid;
 
-/// A trait for transactions that can be applied to data section as defined by the [`Module`] trait.
+/// A trait for data sections that can be modified by transactions defined by the [`Module`] trait.
 ///
 /// Implements the Command pattern.
-/// If the transaction is reversible, it should implement the [`ReversibleDataTransaction`] trait too.
 ///
 /// [`Module`]: crate::Module
-pub trait DataTransaction {
-    // TODO: add Debug, Clone, ... to these types
+pub trait DataSection:
+    Clone + Default + Debug + PartialEq + Serialize + Send + Sync + for<'a> Deserialize<'a>
+{
     /// The type of arguments required to apply the transaction.
-    type Args: Clone + Debug + PartialEq + Hash + Send;
-    /// The type of error that can occur when applying the transaction.
-    type Error: Clone + Debug + PartialEq + Send;
-    /// The type of the successful output of the transaction.
-    type Output: Clone + Debug + PartialEq + Send;
+    type Args: Clone
+        + Debug
+        + PartialEq
+        + Hash
+        + Send
+        + Serialize
+        + for<'a> Deserialize<'a>
+        + Send
+        + Sync;
 
-    /// Applies the transaction to the object.
+    /// Applies the transaction to the data section.
     ///
     /// # Arguments
     /// * `args` - The arguments needed to apply the transaction.
     ///
-    /// # Returns
-    /// A result containing either the output of the transaction or an error.
-    ///
-    /// # Errors
-    /// If the transaction cannot be applied, an error variant will be returned. This error contains
-    /// information about why the transaction failed.
-    ///
     /// # Notes
-    /// - This function is pure, meaning it does not have side effects and will always produce the same output
-    ///   and leave the object in the same state when called with the same arguments.
-    /// - This function should not alter the object state if an error occurs.
-    fn apply(&mut self, args: Self::Args) -> Result<Self::Output, Self::Error>;
-
-    /// Applies the transaction without performing any checks.
-    ///
-    /// # Arguments
-    /// * `args` - The arguments needed to apply the transaction.
-    ///
-    /// # Returns
-    /// The output of the transaction.
-    ///
-    /// # Errors
-    /// If the transaction cannot be applied, an error variant will be returned. This error contains
-    /// information about why the transaction failed.
-    ///
-    /// # Panics
-    /// Panics if the transaction fails, use `apply` instead if you want to handle errors.
-    ///
-    /// # Notes
-    /// - This function assumes that all preconditions are met and does not need to perform any validation.
-    ///   It is intended for use cases where the caller guarantees the correctness of the arguments,
-    ///   by previously calling apply with the same arguments (on a equivalent object).
-    /// - This function should otherwise behave the same as apply.
-    fn apply_unchecked(&mut self, args: Self::Args) -> Self::Output {
-        self.apply(args)
-            .unwrap_or_else(|_| panic!("Unchecked transaction failed with error"))
-    }
+    /// - This function is deterministic: when called with the same arguments, it will always modify the state of the data section in the same way.
+    /// - This function is expected to be without side-effects outside of the modification of the object it was called on.
+    /// - This function is expected to not error for any valid `args` object.
+    // TODO: maybe args should be a ref?
+    fn apply(&mut self, args: Self::Args);
 
     /// Returns the name of the transaction for the undo history.
+    ///
+    /// # Arguments
+    /// * `args` - The arguments for the transaction.
     ///
     /// # Returns
     /// The name of the transaction, should be a short string, ideally max 20 characters.
     fn undo_history_name(args: &Self::Args) -> String;
 }
 
-/// A trait for transactions that can be reversed.
-pub trait ReversibleDataTransaction: DataTransaction {
-    /// The type of data required to undo the transaction.
-    type UndoData: Clone + Debug + PartialEq + Hash + Send;
-
-    /// Applies the transaction and returns the necessary data to undo it.
-    ///
-    /// # Arguments
-    /// * `args` - The arguments needed to apply the transaction.
-    ///
-    /// # Returns
-    /// A result containing either a tuple of the transaction output and undo data, or an error.
-    ///
-    /// # Errors
-    /// If the transaction cannot be applied, an error variant will be returned. This error contains
-    /// information about why the transaction failed.
-    ///
-    /// # Notes
-    /// - This function is pure, meaning it does not have side effects and will always produce the same output
-    ///   and leave the object in the same state when called with the same arguments.
-    /// - This function should not alter the object state if an error occurs.
-    fn apply(&mut self, args: Self::Args) -> Result<(Self::Output, Self::UndoData), Self::Error>;
-
-    /// Applies the transaction without performing any checks and returns the undo data.
-    ///
-    /// # Arguments
-    /// * `args` - The arguments needed to apply the transaction.
-    ///
-    /// # Returns
-    /// A tuple of the transaction output and undo data.
-    ///
-    /// # Panics
-    /// Panics if the transaction fails, which should never happen.
-    ///
-    /// # Notes
-    /// - This function assumes that all preconditions are met and does not need to perform any validation.
-    ///   It is intended for use cases where the caller guarantees the correctness of the arguments,
-    ///   by previously calling apply with the same arguments (on a equivalent object).
-    /// - This function should otherwise behave the same as apply.
-    fn apply_unchecked(&mut self, args: Self::Args) -> (Self::Output, Self::UndoData) {
-        ReversibleDataTransaction::apply(self, args)
-            .unwrap_or_else(|_| panic!("Unchecked transaction failed with error"))
-    }
-
-    /// Undoes the transaction using the provided undo data.
-    ///
-    /// # Arguments
-    /// * `undo_data` - The undo data returned by a previous call to `apply` or `apply_unchecked`.
-    ///
-    /// # Notes
-    /// - This function should restore the object to the state it was in before the transaction was applied.
-    /// - This function is pure, therefore when called on a equivalent object with the same undo data,
-    ///   it should always produce the same output and leave the object in the same state.
-    fn undo(&mut self, undo_data: Self::UndoData);
-}
-
-/// Modules are the main building blocks of a document in `CADara`.
+/// Modules are the main building blocks of a project in `CADara`.
 ///
-/// A document is a collection of data sections, which are represented by modules, which define the data structure stored in it.
+/// A project is essentially a collection of data sections (grouped into documents), which are represented by modules.
+/// Modules define the data structure stored in them and how it can be modified.
+///
 /// A module is responsible for defining the following aspects of a data section:
-/// - Data Structure: The data that is stored for each section, separated into four categories.
+/// - Data Structure: The data that is stored for each section, separated into four categories:
+///     - `PersistentData`: Data that is saved to disk and should be enough to load the data from disk.
+///     - `PersistentUserData`: Data that is saved to disk, but not required to load data.
+///     - `SessionData`: Data that persists until the user closes the session and is not saved.
+///     - `SharedData`: Data that is shared between all users and is not saved.
 /// - Transactions: How transactions are applied to each of the four data structures, which is used to modify the data.
-pub trait Module: Clone + Default + Debug + Send + 'static {
+pub trait Module: Clone + Default + Debug + Send + Sync + 'static {
     /// Data structure used for persistent storage of the data.
     ///
     /// # Notes
     /// - This data is saved to disk and should be enough to load the data from disk.
-    type PersistentData: ReversibleDataTransaction
-        + Clone
-        + Default
-        + Debug
-        + PartialEq
-        + Serialize
-        + Send
-        + for<'a> Deserialize<'a>;
+    type PersistentData: DataSection;
     /// Data structure used for persistent storage of the user's state.
     ///
     /// This data is saved to disk, but should not be necessary to load the data from disk.
     ///
     /// # Notes
     /// - This data is not shared between different users.
-    type PersistentUserData: ReversibleDataTransaction
-        + Clone
-        + Default
-        + Debug
-        + PartialEq
-        + Serialize
-        + Send
-        + for<'a> Deserialize<'a>;
+    type PersistentUserData: DataSection;
     /// Data structure used for data which persists until the user closes the session.
     ///
     /// # Notes
     /// - This data is not shared between users.
     /// - This data is not saved to disk.
-    type SessionData: DataTransaction + Clone + Default + Debug + PartialEq + Send;
-    /// Data structure used for data, which is shared between all sessions/users.
+    type SessionData: DataSection;
+    /// Data structure used for data, which is shared with all sessions/users.
     ///
     /// # Notes
-    /// - This data will be synchronized between users.
+    /// - This data will be sent to all other users.
     /// - This data is not saved to disk.
-    type SharedData: DataTransaction
-        + Clone
-        + Default
-        + Debug
-        + PartialEq
-        + Send
-        + Serialize
-        + for<'a> Deserialize<'a>;
+    type SharedData: DataSection;
 
     /// Returns the human-readable name of the module.
     fn name() -> String;

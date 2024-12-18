@@ -1,17 +1,19 @@
+/*
+TODO: port this once undo/redo is implemented
 mod common;
 use common::test_module::*;
-use data::{DataSession, DataUuid};
+use data::{DataUuid, DataView};
 use project::data::transaction::TransactionArgs;
 use project::*;
 
 fn create_undo_redo_test_setup() -> (
-    ProjectSession,
-    DataSession<TestModule>,
-    DataSession<TestModule>,
+    ProjectView,
+    DataView<TestModule>,
+    DataView<TestModule>,
     DataUuid,
     Vec<TestTransaction>,
 ) {
-    let project = Project::new("Project".to_string()).create_session();
+    let project = Project::new("Project".to_string()).create_view();
     let doc = project.create_document();
     let doc = project.open_document(doc).unwrap();
     let data_uuid = doc.create_data::<TestModule>();
@@ -473,7 +475,7 @@ fn test_redo_document_one_user() {
 
 #[test]
 fn test_undo_redo_on_failed_transactions() {
-    let project = Project::new("Project".to_string()).create_session();
+    let project = Project::new("Project".to_string()).create_view();
     let doc_uuid = project.create_document();
     let data_uuid = project
         .open_document(doc_uuid)
@@ -725,3 +727,4 @@ fn test_undo_redo_on_failed_transactions() {
     );
     assert_eq!(get_user_log_and_clear(), vec![]);
 }
+*/

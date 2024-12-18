@@ -11,13 +11,13 @@ pub struct ModelingViewportPluginOutput {}
 
 #[derive(Clone, Debug)]
 pub struct ModelingViewportPlugin {
-    pub data_uuid: project::data::DataUuid,
+    pub data_uuid: project::DataId,
 }
 
 #[node(ModelingViewportPlugin -> (scene, output))]
 fn run(
     &self,
-    _project: &project::ProjectSession,
+    _project: &project::ProjectView,
 ) -> (viewport::SceneGraph, ModelingViewportPluginOutput) {
     let mut graph = ComputeGraph::new();
     let model_node = graph

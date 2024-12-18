@@ -48,7 +48,7 @@
 //! is than executed by the viewport to render to the screen.
 
 use iced::widget::shader;
-use project::ProjectSession;
+use project::ProjectView;
 use shader::wgpu;
 use std::sync::{Arc, Mutex};
 
@@ -76,15 +76,15 @@ pub struct ViewportState {
 #[derive(Clone)]
 pub struct Viewport {
     pub pipeline: ViewportPipeline,
-    pub project_session: ProjectSession,
+    pub project_view: ProjectView,
 }
 
 impl Viewport {
     #[must_use]
-    pub fn new(project_session: ProjectSession) -> Self {
+    pub fn new(project_view: ProjectView) -> Self {
         Self {
             pipeline: ViewportPipeline::default(),
-            project_session,
+            project_view,
         }
     }
 }
@@ -103,7 +103,7 @@ impl<Message> shader::Program<Message> for Viewport {
         ShaderPrimitive {
             pipeline: self.pipeline.clone(),
             state: state.clone(),
-            project_session: self.project_session.clone(),
+            project_view: self.project_view.clone(),
         }
     }
 
@@ -127,7 +127,7 @@ impl<Message> shader::Program<Message> for Viewport {
             .update(
                 &mut state.state.lock().unwrap(),
                 event,
-                self.project_session.clone(),
+                self.project_view.clone(),
             )
             .unwrap();
         (iced::advanced::graphics::core::event::Status::Ignored, None)
@@ -147,7 +147,7 @@ impl<Message> shader::Program<Message> for Viewport {
 pub struct ShaderPrimitive {
     pub pipeline: ViewportPipeline,
     pub state: ViewportState,
-    pub project_session: ProjectSession,
+    pub project_view: ProjectView,
 }
 
 impl shader::Primitive for ShaderPrimitive {
@@ -164,7 +164,7 @@ impl shader::Primitive for ShaderPrimitive {
             .pipeline
             .compute_primitive(
                 &mut self.state.state.lock().unwrap(),
-                self.project_session.clone(),
+                self.project_view.clone(),
             )
             .unwrap();
         a.prepare(device, queue, format, storage, bounds, viewport);
@@ -181,7 +181,7 @@ impl shader::Primitive for ShaderPrimitive {
             .pipeline
             .compute_primitive(
                 &mut self.state.state.lock().unwrap(),
-                self.project_session.clone(),
+                self.project_view.clone(),
             )
             .unwrap();
         a.render(encoder, storage, target, clip_bounds);

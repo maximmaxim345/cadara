@@ -3502,11 +3502,15 @@ dependencies = [
 name = "project"
 version = "0.1.0"
 dependencies = [
+ "dyn-clone",
  "erased-serde",
  "lazy_static",
+ "log",
  "module",
+ "paste",
  "serde",
  "serde_json",
+ "thiserror",
  "uuid",
 ]
 
