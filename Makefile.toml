@@ -54,7 +54,13 @@ args = ["clippy", "--workspace", "--tests", "--benches", "--all-features"]
 [tasks.docs]
 workspace = false
 command = "cargo"
-args = ["doc", "--workspace", "--no-deps", "--all-features"]
+args = [
+    "doc",
+    "--workspace",
+    "--no-deps",
+    "--all-features",
+    "--document-private-items",
+]
 
 [tasks.spell-check]
 workspace = false
@@ -91,7 +97,13 @@ description = "Generate documentation with warnings treated as errors"
 workspace = false
 command = "cargo"
 env = { "RUSTDOCFLAGS" = "--deny warnings" }
-args = ["doc", "--workspace", "--no-deps", "--all-features"]
+args = [
+    "doc",
+    "--workspace",
+    "--no-deps",
+    "--all-features",
+    "--document-private-items",
+]
 
 [tasks.get-wasm-cxxlib]
 script_runner = "@rust"
