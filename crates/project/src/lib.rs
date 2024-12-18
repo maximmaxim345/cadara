@@ -224,7 +224,7 @@ where
 }
 
 /// A single change to be applied to the [`Project`].
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Debug)]
 enum PendingChange {
     Change(Change),
     SessionTransaction {
