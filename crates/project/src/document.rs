@@ -109,7 +109,10 @@ impl DocumentView<'_> {
     /// # Panics
     /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     #[must_use]
-    pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> PlannedData<'_, M> {
+    pub fn create_data<'a, 'b, M: Module>(
+        &'a self,
+        cb: &'b mut ChangeBuilder,
+    ) -> PlannedData<'a, 'b, M> {
         assert!(
             cb.is_same_source_as(self),
             "ChangeBuilder must stem from the same project"
@@ -124,6 +127,7 @@ impl DocumentView<'_> {
             id,
             project: self.project,
             phantomdata: PhantomData::<M>,
+            cb,
         }
     }
 
@@ -144,21 +148,21 @@ impl DocumentView<'_> {
 }
 
 /// Pending version of [`DocumentView`] that does not yet exist in the [`ProjectView`].
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 #[expect(clippy::module_name_repetitions)]
-pub struct PlannedDocument<'a> {
+pub struct PlannedDocument<'a, 'b> {
     pub id: DocumentId,
     pub project: &'a ProjectView,
-    pub(crate) phantomdata: PhantomData<()>,
+    pub(crate) cb: &'b mut ChangeBuilder,
 }
 
-impl From<PlannedDocument<'_>> for DocumentId {
-    fn from(dv: PlannedDocument<'_>) -> Self {
+impl From<PlannedDocument<'_, '_>> for DocumentId {
+    fn from(dv: PlannedDocument<'_, '_>) -> Self {
         dv.id
     }
 }
 
-impl Deref for PlannedDocument<'_> {
+impl Deref for PlannedDocument<'_, '_> {
     type Target = DocumentId;
 
     fn deref(&self) -> &Self::Target {
@@ -166,27 +170,31 @@ impl Deref for PlannedDocument<'_> {
     }
 }
 
-impl PlannedDocument<'_> {
+impl PlannedDocument<'_, '_> {
     /// Plans the creation of a new empty data section with type `M`
     ///
     /// The new data section will be contained in this document
     ///
-    /// This will not modify the [`crate::Project`], just record this change to `cb`.
+    /// This will not modify the [`crate::Project`], just record this change to the [`ChangeBuilder`]
+    /// used to create this [`PlannedDocument`].
     ///
     /// # Returns
-    /// The unique identifier of the data recorded to `cb`.
+    /// The unique identifier of the data recorded to the [`ChangeBuilder`].
     #[must_use]
-    pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> PlannedData<'_, M> {
+    pub fn create_data<M: Module>(&mut self) -> PlannedData<'_, '_, M> {
         let id = DataId::new_v4();
-        cb.changes.push(PendingChange::Change(Change::CreateData {
-            module: crate::ModuleId::from_module::<M>(),
-            id,
-            owner: Some(self.id),
-        }));
+        self.cb
+            .changes
+            .push(PendingChange::Change(Change::CreateData {
+                module: crate::ModuleId::from_module::<M>(),
+                id,
+                owner: Some(self.id),
+            }));
         PlannedData {
             id,
             project: self.project,
             phantomdata: PhantomData::<M>,
+            cb: self.cb,
         }
     }
 }

@@ -27,9 +27,9 @@ impl App {
         let project_view = project.create_view(&reg).unwrap();
         let mut cb = project::ChangeBuilder::from(&project_view);
 
-        let doc = project_view.create_document(&mut cb, "/doc".try_into().unwrap());
-        let data_uuid = doc.create_data::<ModelingModule>(&mut cb);
-        let data = doc.create_data::<ModelingModule>(&mut cb);
+        let mut doc = project_view.create_document(&mut cb, "/doc".try_into().unwrap());
+        let data_uuid = *doc.create_data::<ModelingModule>();
+        let mut data = doc.create_data::<ModelingModule>();
 
         data.apply_persistent(
             modeling_module::persistent_data::ModelingTransaction::Create(
@@ -40,16 +40,13 @@ impl App {
                     ),
                 },
             ),
-            &mut cb,
         );
         project.apply_changes(cb, &reg).unwrap();
 
         let project_view = project.create_view(&reg).unwrap();
 
         let mut viewport = viewport::Viewport::new(project_view);
-        let workspace = modeling_workspace::ModelingWorkspace {
-            data_uuid: *data_uuid,
-        };
+        let workspace = modeling_workspace::ModelingWorkspace { data_uuid };
         // TODO: this should dynamically select the first fitting plugin
         let plugin = workspace.viewport_plugins()[0].clone();
         viewport.pipeline.add_dynamic_plugin(plugin).unwrap();

@@ -187,18 +187,21 @@ fn test_pending_document_data() {
     let v = p.view();
     let mut cb = ChangeBuilder::from(&v);
 
-    let doc = v.create_document(&mut cb, "/new document".try_into().unwrap());
-    let data = doc.create_data::<MinimalTestModule>(&mut cb);
-    data.apply_persistent(11, &mut cb);
-    data.apply_persistent_user(12, &mut cb);
-    data.apply_session(13, &mut cb);
-    data.apply_shared(14, &mut cb);
+    let mut doc = v.create_document(&mut cb, "/new document".try_into().unwrap());
+    let mut data = doc.create_data::<MinimalTestModule>();
+    data.apply_persistent(11);
+    data.apply_persistent_user(12);
+    data.apply_session(13);
+    data.apply_shared(14);
+
+    let data_id = *data;
+    let doc_id = *doc;
 
     p.project.apply_changes(cb, &p.reg).unwrap();
     let v = p.view();
 
-    let doc = v.open_document(*doc).unwrap();
-    let data = doc.open_data_by_id::<MinimalTestModule>(*data).unwrap();
+    let doc = v.open_document(doc_id).unwrap();
+    let data = doc.open_data_by_id::<MinimalTestModule>(data_id).unwrap();
 
     assert_eq!(data.persistent.num, 11);
     assert_eq!(data.persistent_user.num, 12);

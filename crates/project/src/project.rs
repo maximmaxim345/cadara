@@ -7,8 +7,8 @@ use crate::{
 };
 use module::Module;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt::Debug;
-use std::{collections::HashMap, marker::PhantomData};
 
 /// A read-only snapshot of a [`crate::Project`] at a specific point in time.
 ///
@@ -63,7 +63,11 @@ impl ProjectView {
     /// # Panics
     /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     #[must_use]
-    pub fn create_document(&self, cb: &mut ChangeBuilder, path: Path) -> PlannedDocument {
+    pub fn create_document<'a, 'b>(
+        &'a self,
+        cb: &'b mut ChangeBuilder,
+        path: Path,
+    ) -> PlannedDocument<'a, 'b> {
         assert!(
             cb.is_same_source_as(self),
             "ChangeBuilder must stem from the same project"
@@ -75,7 +79,7 @@ impl ProjectView {
         PlannedDocument {
             id,
             project: self,
-            phantomdata: PhantomData,
+            cb,
         }
     }
 

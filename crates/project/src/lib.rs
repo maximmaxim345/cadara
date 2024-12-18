@@ -106,12 +106,12 @@
 //!    let mut change_builder = ChangeBuilder::from(&project_view);
 //!
 //!    // Add a new document
-//!    let document: PlannedDocument = project_view.create_document(&mut change_builder, Path::try_from("/new_document".to_string()).unwrap());
-//!    let data: PlannedData<MyModule> = document.create_data::<MyModule>(&mut change_builder);
+//!    let mut document: PlannedDocument = project_view.create_document(&mut change_builder, Path::try_from("/new_document".to_string()).unwrap());
+//!    let data: PlannedData<MyModule> = document.create_data::<MyModule>();
 //!
 //!    // Get the ids of new documents and data to retrieve them later
-//!    let document_id: DocumentId = *document;
 //!    let data_id: DataId = *data;
+//!    let document_id: DocumentId = *document;
 //!
 //!    // Apply the changes to the project
 //!    project.apply_changes(change_builder, &registry).unwrap();
