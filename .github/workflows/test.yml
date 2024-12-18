@@ -34,8 +34,15 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
+            target/*
+            !target/opencascade-sys
           key: cargo-${{ runner.os }}-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache OpenCASCADE
+        uses: actions/cache@v4
+        with:
+          path: |
+            target/opencascade-sys/
+          key: occt-${{ runner.os }}-${{ matrix.toolchain }}-${{ hashFiles('crates/opencascade-sys/**') }}
       - name: Build
         run: cargo build --verbose --workspace --all-features
       - name: Run tests
