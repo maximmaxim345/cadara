@@ -3,7 +3,7 @@ use crate::{
     document::{Document, DocumentId, DocumentView, PlannedDocument},
     module_data::{ErasedData, ModuleId},
     user::UserId,
-    Change, ChangeBuilder, Path, PendingChange,
+    Change, ChangeBuilder, Path, PendingChange, ProjectSource,
 };
 use module::Module;
 use serde::{Deserialize, Serialize};
@@ -24,6 +24,15 @@ pub struct ProjectView {
     pub(crate) data: HashMap<DataId, ErasedData>,
     /// A map of all documents found in this project
     pub(crate) documents: HashMap<DocumentId, Document>,
+    /// Unique identifier to associalte a project with its views and [`ChangeBuilder`]s
+    #[serde(skip)]
+    pub(crate) uuid: uuid::Uuid,
+}
+
+impl ProjectSource for ProjectView {
+    fn uuid(&self) -> uuid::Uuid {
+        self.uuid
+    }
 }
 
 impl ProjectView {
@@ -40,6 +49,7 @@ impl ProjectView {
             id: document_id,
             project: self,
             document: self.documents.get(&document_id)?,
+            uuid: self.uuid,
         })
     }
 
@@ -49,8 +59,15 @@ impl ProjectView {
     ///
     /// # Returns
     /// The unique identifier of the document recorded to `cb`.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     #[must_use]
     pub fn create_document(&self, cb: &mut ChangeBuilder, path: Path) -> PlannedDocument {
+        assert!(
+            cb.is_same_source_as(self),
+            "ChangeBuilder must stem from the same project"
+        );
         let id = DocumentId::new_v4();
 
         cb.changes
@@ -69,7 +86,14 @@ impl ProjectView {
     /// # Returns
     ///
     /// The unique identifier of the data recorded to `cb`.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> DataId {
+        assert!(
+            cb.is_same_source_as(self),
+            "ChangeBuilder must stem from the same project"
+        );
         let id = DataId::new_v4();
         cb.changes.push(PendingChange::Change(Change::CreateData {
             module: ModuleId::from_module::<M>(),
@@ -101,6 +125,7 @@ impl ProjectView {
             persistent_user: &data.persistent_user,
             session_data: &data.session,
             shared_data: &data.shared,
+            uuid: self.uuid,
         })
     }
 

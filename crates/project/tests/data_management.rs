@@ -11,7 +11,7 @@ fn test_open_data_by_id() {
     let mut project = Project::new();
     let data_id;
     {
-        let mut cb = ChangeBuilder::new();
+        let mut cb = ChangeBuilder::from(&project);
         let view = project.create_view(&reg).unwrap();
 
         data_id = view.create_data::<MinimalTestModule>(&mut cb);
@@ -29,7 +29,7 @@ fn test_open_data_by_type() {
 
     let mut project = Project::new();
     {
-        let mut cb = ChangeBuilder::new();
+        let mut cb = ChangeBuilder::from(&project);
         let view = project.create_view(&reg).unwrap();
 
         view.create_data::<MinimalTestModule>(&mut cb);
@@ -50,7 +50,7 @@ fn test_open_data_wrong_module() {
     let mut project = Project::new();
     let data_id;
     {
-        let mut cb = ChangeBuilder::new();
+        let mut cb = ChangeBuilder::from(&project);
         let view = project.create_view(&reg).unwrap();
 
         data_id = view.create_data::<MinimalTestModule>(&mut cb);
@@ -89,7 +89,7 @@ fn test_delete_document() {
     let mut p = setup_project();
     let v = p.view();
 
-    let mut cb = ChangeBuilder::new();
+    let mut cb = ChangeBuilder::from(&v);
     v.open_document(p.doc1).unwrap().delete(&mut cb);
 
     p.project.apply_changes(cb, &p.reg).unwrap();
@@ -115,7 +115,7 @@ fn test_delete_data() {
     let minimal_data_count = v.open_data_by_type::<MinimalTestModule>().count();
     let test_data_count = v.open_data_by_type::<TestModule>().count();
 
-    let mut cb = ChangeBuilder::new();
+    let mut cb = ChangeBuilder::from(&v);
     v.open_data_by_id::<MinimalTestModule>(p.doc1_minimal_data)
         .unwrap()
         .delete(&mut cb);
@@ -137,7 +137,7 @@ fn test_delete_data() {
 fn test_move_data_between_documents() {
     let mut p = setup_project();
     let v = p.view();
-    let mut cb = ChangeBuilder::new();
+    let mut cb = ChangeBuilder::from(&v);
 
     let doc1 = v.open_document(p.doc1).unwrap();
     let doc2_test_data = v.open_data_by_id::<TestModule>(p.doc2_test_data).unwrap();
@@ -161,11 +161,11 @@ fn test_move_data_between_documents() {
 fn test_make_orphan() {
     let mut p = setup_project();
     let v = p.view();
-    let mut cb = ChangeBuilder::new();
 
     let doc1_minimal_data = v
         .open_data_by_id::<MinimalTestModule>(p.doc1_minimal_data)
         .unwrap();
+    let mut cb = ChangeBuilder::from(&doc1_minimal_data);
     doc1_minimal_data.make_orphan(&mut cb);
 
     p.project.apply_changes(cb, &p.reg).unwrap();
@@ -185,7 +185,7 @@ fn test_make_orphan() {
 fn test_pending_document_data() {
     let mut p = setup_project();
     let v = p.view();
-    let mut cb = ChangeBuilder::new();
+    let mut cb = ChangeBuilder::from(&v);
 
     let doc = v.create_document(&mut cb, "/new document".try_into().unwrap());
     let data = doc.create_data::<MinimalTestModule>(&mut cb);

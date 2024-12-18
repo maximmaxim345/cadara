@@ -9,7 +9,7 @@ use crate::{
         UserDataTransactionArgs,
     },
     project::ProjectView,
-    Change, ChangeBuilder, PendingChange,
+    Change, ChangeBuilder, PendingChange, ProjectSource,
 };
 
 /// Unique identifier of a data section in a [`crate::Project`].
@@ -50,6 +50,14 @@ pub struct DataView<'a, M: Module> {
     pub session_data: &'a M::SessionData,
     /// Non-persistent data also shared among other users.
     pub shared_data: &'a M::SharedData,
+    /// Unique identifier to associalte a project with its views and [`ChangeBuilder`]s
+    pub(crate) uuid: uuid::Uuid,
+}
+
+impl<M: Module> ProjectSource for DataView<'_, M> {
+    fn uuid(&self) -> uuid::Uuid {
+        self.uuid
+    }
 }
 
 impl<M: Module> From<DataView<'_, M>> for DataId {
@@ -66,11 +74,18 @@ impl<M: Module> DataView<'_, M> {
     /// # Arguments
     ///
     /// * `args` - Arguments of the transaction.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn apply_persistent(
         &self,
         args: <M::PersistentData as DataSection>::Args,
         cb: &mut ChangeBuilder,
     ) {
+        assert!(
+            cb.is_same_source_as(self),
+            "ChangeBuilder must stem from the same project"
+        );
         cb.changes.push(PendingChange::Change(Change::Transaction {
             id: self.id,
             args: DataTransactionArgs::<M>(args).into(),
@@ -84,11 +99,18 @@ impl<M: Module> DataView<'_, M> {
     /// # Arguments
     ///
     /// * `args` - Arguments of the transaction.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn apply_persistent_user(
         &self,
         args: <M::PersistentUserData as DataSection>::Args,
         cb: &mut ChangeBuilder,
     ) {
+        assert!(
+            cb.is_same_source_as(self),
+            "ChangeBuilder must stem from the same project"
+        );
         cb.changes
             .push(PendingChange::Change(Change::UserTransaction {
                 id: self.id,
@@ -103,11 +125,18 @@ impl<M: Module> DataView<'_, M> {
     /// # Arguments
     ///
     /// * `args` - Arguments of the transaction.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn apply_session(
         &self,
         args: <M::SessionData as DataSection>::Args,
         cb: &mut ChangeBuilder,
     ) {
+        assert!(
+            cb.is_same_source_as(self),
+            "ChangeBuilder must stem from the same project"
+        );
         cb.changes.push(PendingChange::SessionTransaction {
             id: self.id,
             args: SessionDataTransactionArgs::<M>(args).into(),
@@ -121,7 +150,14 @@ impl<M: Module> DataView<'_, M> {
     /// # Arguments
     ///
     /// * `args` - Arguments of the transaction.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn apply_shared(&self, args: <M::SharedData as DataSection>::Args, cb: &mut ChangeBuilder) {
+        assert!(
+            cb.is_same_source_as(self),
+            "ChangeBuilder must stem from the same project"
+        );
         cb.changes.push(PendingChange::SharedTransaction {
             id: self.id,
             args: SharedDataTransactionArgs::<M>(args).into(),
@@ -131,7 +167,14 @@ impl<M: Module> DataView<'_, M> {
     /// Plans the deletion of this data
     ///
     /// This will not modify the [`crate::Project`], just record this change to `cb`.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn delete(&self, cb: &mut ChangeBuilder) {
+        assert!(
+            cb.is_same_source_as(self),
+            "ChangeBuilder must stem from the same project"
+        );
         cb.changes
             .push(PendingChange::Change(Change::DeleteData(self.id)));
     }
@@ -143,7 +186,14 @@ impl<M: Module> DataView<'_, M> {
     /// # Arguments
     ///
     /// * `new_owner` - The document to move the data to.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn move_to_document(&self, new_owner: &crate::DocumentView, cb: &mut ChangeBuilder) {
+        assert!(
+            cb.is_same_source_as(self),
+            "ChangeBuilder must stem from the same project"
+        );
         cb.changes.push(PendingChange::Change(Change::MoveData {
             id: self.id,
             new_owner: Some(new_owner.id),
@@ -153,7 +203,14 @@ impl<M: Module> DataView<'_, M> {
     /// Plans to make this data section an orphan (not owned by any document).
     ///
     /// This will not modify the [`crate::Project`], just record this change to `cb`.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn make_orphan(&self, cb: &mut ChangeBuilder) {
+        assert!(
+            cb.is_same_source_as(self),
+            "ChangeBuilder must stem from the same project"
+        );
         // TODO: what if we call this multiple times?
         cb.changes.push(PendingChange::Change(Change::MoveData {
             id: self.id,

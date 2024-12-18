@@ -42,7 +42,7 @@ pub fn setup_project() -> ProjectSetup {
     reg.register::<MinimalTestModule>();
     let mut project = Project::new();
 
-    let mut cb = ChangeBuilder::new();
+    let mut cb = ChangeBuilder::from(&project);
     let view = project.create_view(&reg).unwrap();
 
     // Create Documents
@@ -51,7 +51,7 @@ pub fn setup_project() -> ProjectSetup {
 
     // Apply
     project.apply_changes(cb, &reg).unwrap();
-    let mut cb = ChangeBuilder::new();
+    let mut cb = ChangeBuilder::from(&project);
     let view = project.create_view(&reg).unwrap();
 
     // Create Data
@@ -67,7 +67,7 @@ pub fn setup_project() -> ProjectSetup {
 
     // Apply
     project.apply_changes(cb, &reg).unwrap();
-    let mut cb = ChangeBuilder::new();
+    let mut cb = ChangeBuilder::from(&project);
     let view = project.create_view(&reg).unwrap();
 
     let minimal_view = view

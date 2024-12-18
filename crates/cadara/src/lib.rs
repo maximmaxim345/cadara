@@ -25,7 +25,7 @@ impl App {
         reg.register::<ModelingModule>();
         let mut project = project::Project::new();
         let project_view = project.create_view(&reg).unwrap();
-        let mut cb = project::ChangeBuilder::new();
+        let mut cb = project::ChangeBuilder::from(&project_view);
 
         let doc = project_view.create_document(&mut cb, "/doc".try_into().unwrap());
         let data_uuid = doc.create_data::<ModelingModule>(&mut cb);

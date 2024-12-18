@@ -100,7 +100,10 @@
 //!    # registry.register::<MyModule>();
 //!    # let mut project = Project::new();
 //!    let project_view = project.create_view(&registry).expect("All used modules are registered");
-//!    let mut change_builder = ChangeBuilder::new();
+//!
+//!    // ChangeBuilders record all changes to be later applied to the Project.
+//!    // It can be crated from a Project or any View created from it.
+//!    let mut change_builder = ChangeBuilder::from(&project_view);
 //!
 //!    // Add a new document
 //!    let document: PlannedDocument = project_view.create_document(&mut change_builder, Path::try_from("/new_document".to_string()).unwrap());
@@ -117,8 +120,8 @@
 //!    let project_view = project.create_view(&registry).unwrap();
 //!
 //!    // Apply transactions to 'data'
-//!    let mut change_builder = ChangeBuilder::new();
 //!    let data = project_view.open_data_by_id::<MyModule>(data_id).unwrap();
+//!    let mut change_builder = ChangeBuilder::from(&data);
 //!    data.apply_persistent(20, &mut change_builder);
 //!    data.apply_session(31, &mut change_builder);
 //!
@@ -364,24 +367,91 @@ enum ProjectLogEntry {
 /// - Undo/Redo across multiple different parts of a [`Project`]
 /// - Atomic grouping of multiple changes, even in multi-user scenarios and branching/merging
 /// - Complete history tracking of all changes ever applied to a [`Project`]'s persistent data
-#[derive(Clone, Debug, Default)]
+///
+/// # Project Association
+/// A [`ChangeBuilder`] is directly tied to a [`Project`].
+/// To ensure that changes will be applied to the correct [`Project`], functions writing to a [`ChangeBuilder`] may therefore panic (if noted in the docs).
+/// See [`ProjectSource`] on how to manually perform checking.
+#[derive(Clone, Debug)]
 pub struct ChangeBuilder {
     changes: Vec<PendingChange>,
+    /// Unique identifier to associalte a project with its views and [`ChangeBuilder`]s
+    pub(crate) uuid: uuid::Uuid,
+}
+
+impl ProjectSource for ChangeBuilder {
+    fn uuid(&self) -> uuid::Uuid {
+        self.uuid
+    }
+}
+
+/// Trait to identify the source project of an object.
+///
+/// Types that implement this trait, such as [`Project`], [`ProjectView`], [`ChangeBuilder`], [`DocumentView`], and [`DataView`],
+/// are associated with a specific project instance. This allows for verification that operations
+/// are being performed on objects that belong to the same project.
+///
+/// # Example
+///
+/// ```rust
+/// # use project::{Project, ProjectSource, ModuleRegistry, ProjectView, ChangeBuilder};
+///
+/// let mut project = Project::new();
+/// let registry = ModuleRegistry::new(); // Assuming you have some modules registered
+/// let view1: ProjectView = project.create_view(&registry).unwrap();
+/// let view2: ProjectView = project.create_view(&registry).unwrap();
+/// let cb: ChangeBuilder = ChangeBuilder::from(&view1);
+///
+/// assert!(view1.is_same_source_as(&view2));
+/// assert!(view1.is_same_source_as(&project));
+/// assert!(view2.is_same_source_as(&cb));
+///
+/// let other_project = Project::new();
+/// assert!(!view1.is_same_source_as(&other_project));
+/// assert!(!cb.is_same_source_as(&other_project));
+/// ```
+pub trait ProjectSource {
+    /// Returns the unique identifier of the project that this object belongs to.
+    fn uuid(&self) -> uuid::Uuid;
+
+    /// Checks if this object belongs to the same project as another object.
+    fn is_same_source_as(&self, other: &impl ProjectSource) -> bool {
+        self.uuid() == other.uuid()
+    }
+}
+
+/// Error type for [`ChangeBuilder::append`]
+#[derive(thiserror::Error, Debug)]
+#[error("Cannot append ChangeBuilders from different projects.")]
+pub struct AppendError {
+    other: ChangeBuilder,
 }
 
 impl ChangeBuilder {
     /// Creates a new empty [`ChangeBuilder`].
     #[must_use]
-    pub fn new() -> Self {
-        Self::default()
+    pub fn from(view: &impl ProjectSource) -> Self {
+        Self {
+            changes: Vec::new(),
+            uuid: view.uuid(),
+        }
     }
 
     /// Appends all changes of `other` to be included in this [`ChangeBuilder`].
     ///
     /// Compared to applying multiple [`ChangeBuilder`]s separately, this will make
     /// all changes atomic. Meaning undo will revert all changes from `self` and `other` together.
-    pub fn append(&mut self, mut other: Self) {
-        self.changes.append(&mut other.changes);
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`AppendError`] if `self` and `other` stem from different projects.
+    pub fn append(&mut self, mut other: Self) -> Result<(), AppendError> {
+        if self.is_same_source_as(&other) {
+            Err(AppendError { other })
+        } else {
+            self.changes.append(&mut other.changes);
+            Ok(())
+        }
     }
 }
 
@@ -417,7 +487,7 @@ impl ChangeBuilder {
 ///
 /// To deserialize, you must use [`ProjectDeserializer`] with a [`ModuleRegistry`] with all containing [`module::Module`]s registered.
 /// While [`Project`] implements [`serde::Serialize`], it will error on any non trivial project
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Project {
     /// The user owning this [`Project`] struct.
     ///
@@ -441,6 +511,30 @@ pub struct Project {
     /// [`HashMap`] with all [`module::Module::SessionData`] in this project.
     #[serde(skip)]
     session_data: HashMap<DataId, ErasedSessionData>,
+    /// Unique identifier to associalte a project with its views and [`ChangeBuilder`]s
+    #[serde(skip)]
+    #[serde(default = "uuid::Uuid::new_v4")]
+    uuid: uuid::Uuid,
+}
+
+impl Default for Project {
+    fn default() -> Self {
+        Self {
+            user: UserId::default(),
+            session: Option::default(),
+            branch: BranchId::default(),
+            log: Vec::default(),
+            shared_data: HashMap::default(),
+            session_data: HashMap::default(),
+            uuid: uuid::Uuid::new_v4(),
+        }
+    }
+}
+
+impl ProjectSource for Project {
+    fn uuid(&self) -> uuid::Uuid {
+        self.uuid
+    }
 }
 
 /// Errors that can occur when creating a project view
@@ -458,6 +552,8 @@ pub enum ApplyError {
     UnknownModule(ModuleId),
     #[error("ModuleMismatch")]
     ModuleMismatch,
+    #[error("ChangeBuilder used on the wrong project")]
+    InvalidChangeBuilder,
 }
 
 impl Project {
@@ -644,6 +740,7 @@ impl Project {
             user: UserId::local(),
             data,
             documents,
+            uuid: self.uuid,
         })
     }
 
@@ -663,12 +760,20 @@ impl Project {
     /// - A required module is not found in the registry
     /// - Transaction assumes an incorrect Module
     ///   (should normally never happen)
+    /// - The [`ChangeBuilder`] was created for a different [`Project`]
     #[expect(clippy::missing_panics_doc, reason = "expects are prechecked")]
     pub fn apply_changes(
         &mut self,
         cb: ChangeBuilder,
         reg: &ModuleRegistry,
     ) -> Result<(), ApplyError> {
+        if cb.uuid != self.uuid {
+            return Err(ApplyError::InvalidChangeBuilder);
+        }
+        // cb was made with this project, so we can assume its correct.
+        // Technically the project could change in the meantime by other ChangeBuilders,
+        // but due to multi user support, we nevertheless need to support that.
+
         let session = *self.session.get_or_insert_with(|| {
             let new_session = SessionId::new();
             self.log.push(ProjectLogEntry::NewSession {
@@ -682,33 +787,51 @@ impl Project {
         // Verify all changes first
         for change in &cb.changes {
             match change {
-                PendingChange::Change(_) => {
-                    // This targets persistent data, so if this crates usage of ChangeBuilder
-                    // are correct and we assume Uuids are unique, this is already correct.
-                    // If in case for some reason this is not correct, this crate can still handle malformed Projects.
-                }
-                PendingChange::SessionTransaction { id, args } => {
-                    if let Some(data) = self.session_data.get(id) {
-                        if data.module != args.module {
-                            return Err(ApplyError::ModuleMismatch);
+                PendingChange::Change(c) => match c {
+                    Change::CreateDocument { id: _, path: _ }
+                    | Change::DeleteDocument(_)
+                    | Change::RenameDocument { id: _, new_name: _ }
+                    | Change::MoveDocument {
+                        id: _,
+                        new_folder: _,
+                    }
+                    | Change::MoveFolder {
+                        old_path: _,
+                        new_path: _,
+                    }
+                    | Change::DeleteData(_)
+                    | Change::MoveData {
+                        id: _,
+                        new_owner: _,
+                    } => {}
+                    Change::CreateData {
+                        id: _,
+                        module,
+                        owner: _,
+                    } => {
+                        if !reg.0.contains_key(module) {
+                            return Err(ApplyError::UnknownModule(*module));
                         }
+                    }
+                    Change::Transaction { id: _, args } => {
                         if !reg.0.contains_key(&args.module) {
                             return Err(ApplyError::UnknownModule(args.module));
                         }
-                    } else {
-                        // We will create the data in the next step
+                    }
+                    Change::UserTransaction { id: _, args } => {
+                        if !reg.0.contains_key(&args.module) {
+                            return Err(ApplyError::UnknownModule(args.module));
+                        }
+                    }
+                },
+                PendingChange::SessionTransaction { id: _, args } => {
+                    if !reg.0.contains_key(&args.module) {
+                        return Err(ApplyError::UnknownModule(args.module));
                     }
                 }
-                PendingChange::SharedTransaction { id, args } => {
-                    if let Some(data) = self.shared_data.get(id) {
-                        if data.module != args.module {
-                            return Err(ApplyError::ModuleMismatch);
-                        }
-                        if !reg.0.contains_key(&args.module) {
-                            return Err(ApplyError::UnknownModule(args.module));
-                        }
-                    } else {
-                        // We will create the data in the next step
+                PendingChange::SharedTransaction { id: _, args } => {
+                    if !reg.0.contains_key(&args.module) {
+                        return Err(ApplyError::UnknownModule(args.module));
                     }
                 }
             }

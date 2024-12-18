@@ -2,7 +2,7 @@ use std::{borrow::Cow, fmt, marker::PhantomData, ops::Deref};
 
 use crate::{
     data::{DataId, DataView, PlannedData},
-    Change, ChangeBuilder, PendingChange, ProjectView,
+    Change, ChangeBuilder, PendingChange, ProjectSource, ProjectView,
 };
 use module::Module;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -47,6 +47,14 @@ pub struct DocumentView<'a> {
     pub id: DocumentId,
     pub project: &'a ProjectView,
     pub(crate) document: &'a Document,
+    /// Unique identifier to associalte a project with its views and [`ChangeBuilder`]s
+    pub(crate) uuid: uuid::Uuid,
+}
+
+impl ProjectSource for DocumentView<'_> {
+    fn uuid(&self) -> uuid::Uuid {
+        self.uuid
+    }
 }
 
 impl From<DocumentView<'_>> for DocumentId {
@@ -97,8 +105,15 @@ impl DocumentView<'_> {
     ///
     /// # Returns
     /// The unique identifier of the data recorded to `cb`.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     #[must_use]
     pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> PlannedData<'_, M> {
+        assert!(
+            cb.is_same_source_as(self),
+            "ChangeBuilder must stem from the same project"
+        );
         let id = DataId::new_v4();
         cb.changes.push(PendingChange::Change(Change::CreateData {
             module: crate::ModuleId::from_module::<M>(),
@@ -115,7 +130,14 @@ impl DocumentView<'_> {
     /// Plans the deletion of this document and all its contained data
     ///
     /// This will not modify the [`crate::Project`], just record this change to `cb`.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn delete(&self, cb: &mut ChangeBuilder) {
+        assert!(
+            cb.is_same_source_as(self),
+            "ChangeBuilder must stem from the same project"
+        );
         cb.changes
             .push(PendingChange::Change(Change::DeleteDocument(self.id)));
     }
