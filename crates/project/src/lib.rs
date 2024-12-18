@@ -106,12 +106,12 @@
 //!    let mut change_builder = ChangeBuilder::from(&project_view);
 //!
 //!    // Add a new document
-//!    let mut document: PlannedDocument = project_view.create_document(&mut change_builder, Path::try_from("/new_document".to_string()).unwrap());
-//!    let data: PlannedData<MyModule> = document.create_data::<MyModule>();
+//!    let mut planned_document: PlannedDocument = project_view.create_document(&mut change_builder, Path::try_from("/new_document".to_string()).unwrap());
+//!    let planned_data: PlannedData<MyModule> = planned_document.create_data::<MyModule>();
 //!
 //!    // Get the ids of new documents and data to retrieve them later
-//!    let data_id: DataId = *data;
-//!    let document_id: DocumentId = *document;
+//!    let data_id: DataId = *planned_data;
+//!    let document_id: DocumentId = *planned_document;
 //!
 //!    // Apply the changes to the project
 //!    project.apply_changes(change_builder, &registry).unwrap();
@@ -120,10 +120,10 @@
 //!    let project_view = project.create_view(&registry).unwrap();
 //!
 //!    // Apply transactions to 'data'
-//!    let data = project_view.open_data_by_id::<MyModule>(data_id).unwrap();
-//!    let mut change_builder = ChangeBuilder::from(&data);
-//!    data.apply_persistent(20, &mut change_builder);
-//!    data.apply_session(31, &mut change_builder);
+//!    let data_view = project_view.open_data_by_id::<MyModule>(data_id).unwrap();
+//!    let mut change_builder = ChangeBuilder::from(&data_view);
+//!    data_view.apply_persistent(20, &mut change_builder);
+//!    data_view.apply_session(31, &mut change_builder);
 //!
 //!    // Apply the changes to the project
 //!    project.apply_changes(change_builder, &registry).unwrap();
