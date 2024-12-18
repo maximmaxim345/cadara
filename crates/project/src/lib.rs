@@ -152,10 +152,6 @@
 #![warn(clippy::nursery)]
 #![warn(clippy::pedantic)]
 
-// TODO: complete refactoring of project
-// - reduce registry function count by splitting data
-// - implement+test: multi user, undo/redo
-
 mod branch;
 mod checkpoint;
 mod data;
@@ -607,7 +603,7 @@ impl Project {
                                 old_path: _,
                                 new_path: _,
                             } => {
-                                // TODO: implement this
+                                // TODO: implement and test folder support, including views to traverse them
                             }
                             Change::CreateData { id, module, owner } => {
                                 data.insert(
@@ -685,6 +681,7 @@ impl Project {
                         }
                     }
                 }
+                // TODO: implement and Test undo/redo
                 ProjectLogEntry::Undo { session: _ } => todo!("undo/redo is not supported yet"),
                 ProjectLogEntry::Redo { session: _ } => todo!("undo/redo is not supported yet"),
                 ProjectLogEntry::NewSession {

@@ -466,6 +466,8 @@ impl ModuleRegistry {
         M: Module,
         M::PersistentData: for<'de> Deserialize<'de>,
     {
+        // TODO: these are alot of functions, replace_session_data and replace_shared_data should
+        // probably be replaced with a better system
         self.0.insert(
             ModuleId::from_module::<M>(),
             ModuleRegistryEntry {
