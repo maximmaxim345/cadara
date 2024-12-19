@@ -438,6 +438,19 @@ impl ComputationContext {
     }
 }
 
+/// Options to customize [`ComputeGraph::compute_with`].
+///
+/// This struct allows you to configure [`ComputeGraph::compute_with`] and [`ComputeGraph::compute_untyped_with`]
+/// by providing a context.
+#[derive(Debug, Default)]
+pub struct ComputationOptions<'a> {
+    /// An optional reference to a `ComputationContext`.
+    ///
+    /// The [`ComputationContext`] provides a way to override or supply default values
+    /// for input ports during computation. If [`None`], no overrides or defaults are used.
+    pub context: Option<&'a ComputationContext>,
+}
+
 /// A container for storing and managing metadata associated with nodes in a computation graph.
 ///
 /// The `Metadata` struct allows for the storage of arbitrary data types, identified by their type IDs.
@@ -804,7 +817,39 @@ impl ComputeGraph {
         output: OutputPortUntyped,
     ) -> Result<Box<dyn Any + Send>, ComputeError> {
         let mut visited = HashSet::new();
-        self.compute_recursive(output, &mut visited, None)
+        self.compute_recursive(output, &mut visited, &ComputationOptions::default())
+    }
+
+    /// Computes the result for a given output port using the provided options, returning a boxed value.
+    ///
+    /// This function is the untyped version of [`ComputeGraph::compute_with`].
+    ///
+    /// Use the basic [`ComputeGraph::compute_untyped`] method when neither caching nor a context are needed.
+    ///
+    /// # Arguments
+    ///
+    /// * `output` - The output port to compute.
+    /// * `options` - [`ComputationOptions`] to customize the computation, for example, by passing
+    ///               in a [`ComputationContext`].
+    ///
+    /// # Returns
+    ///
+    /// A result containing the computed boxed value or an error.
+    ///
+    /// # Errors
+    ///
+    /// An error is returned if:
+    /// - The node is not found.
+    /// - An input port of the node ar a dependency of the node are not connected.
+    /// - A cycle is detected in the graph.
+    /// - A error occurs during computation (e.g. type returned by the node does not match the expected type).
+    pub fn compute_untyped_with(
+        &self,
+        output: OutputPortUntyped,
+        options: &ComputationOptions,
+    ) -> Result<Box<dyn Any + Send>, ComputeError> {
+        let mut visited = HashSet::new();
+        self.compute_recursive(output, &mut visited, options)
     }
 
     /// Computes the result for a given output port using the provided context, returning a boxed value.
@@ -837,7 +882,13 @@ impl ComputeGraph {
         context: &ComputationContext,
     ) -> Result<Box<dyn Any + Send>, ComputeError> {
         let mut visited = HashSet::new();
-        self.compute_recursive(output, &mut visited, Some(context))
+        self.compute_recursive(
+            output,
+            &mut visited,
+            &ComputationOptions {
+                context: Some(context),
+            },
+        )
     }
 
     /// Computes the result for a given output port.
@@ -903,11 +954,50 @@ impl ComputeGraph {
         Ok(*res)
     }
 
+    /// Computes the result for a given output port using the provided options.
+    ///
+    /// This function is the primary way to execute computations in the [`ComputeGraph`].
+    /// It takes [`ComputationOptions`] to enable caching and/or provide a [`ComputationContext`].
+    ///
+    /// Use the basic [`ComputeGraph::compute`] method when neither caching nor a context are needed.
+    ///
+    /// # Arguments
+    ///
+    /// * `output` - The output port to compute.
+    /// * `options` - [`ComputationOptions`] to customize the computation, for example, by passing
+    ///               in a [`ComputationContext`].
+    ///
+    /// # Returns
+    ///
+    /// A result containing the computed value or an error.
+    ///
+    /// # Errors
+    ///
+    /// An error is returned if:
+    /// - The node is not found.
+    /// - The node has the incorrect output type.
+    /// - An input port of the node or a dependency of the node is not connected, and
+    ///   no value is provided via the context.
+    /// - A cycle is detected in the graph.
+    pub fn compute_with<T: 'static>(
+        &self,
+        output: OutputPort<T>,
+        options: &ComputationOptions,
+    ) -> Result<T, ComputeError> {
+        let res = self.compute_untyped_with(output.port.clone(), options)?;
+        let res = res
+            .downcast::<T>()
+            .map_err(|_| ComputeError::OutputTypeMismatch {
+                node: output.port.node,
+            })?;
+        Ok(*res)
+    }
+
     fn compute_recursive(
         &self,
         output: OutputPortUntyped,
         visited: &mut HashSet<NodeHandle>,
-        context: Option<&ComputationContext>,
+        options: &ComputationOptions,
     ) -> Result<Box<dyn Any + Send>, ComputeError> {
         enum OwnedOrBorrowed<'a, T: 'a + Send> {
             Owned(T),
@@ -921,6 +1011,7 @@ impl ComputeGraph {
                 }
             }
         }
+
         // For now we use a simple, but more inefficient approach for computing the result:
         // Here we simply recursively compute the dependencies of the requested node in breadth first order.
         //
@@ -967,7 +1058,7 @@ impl ComputeGraph {
         let mut dependencies = vec![];
 
         for input in &output_node.inputs {
-            if let Some(context) = context {
+            if let Some(context) = options.context {
                 // Check if we should use a override instead
                 if let Some(port_value) = context
                     .overrides
@@ -988,7 +1079,7 @@ impl ComputeGraph {
                 Ok(connection)
             } else {
                 // Check if the context has a fallback value for this type
-                if let Some(context) = context {
+                if let Some(context) = options.context {
                     if let Some(v) = context.default_values.iter().find(|v| v.0 == input.1) {
                         // Found a fallback, we use that instead
                         dependencies.push(OwnedOrBorrowed::Borrowed(&v.1));
@@ -1002,7 +1093,7 @@ impl ComputeGraph {
             }?;
 
             // Compute the result of the input
-            let result = self.compute_recursive(connection.from.clone(), visited, context)?;
+            let result = self.compute_recursive(connection.from.clone(), visited, options)?;
             dependencies.push(OwnedOrBorrowed::Owned(result));
         }
 
