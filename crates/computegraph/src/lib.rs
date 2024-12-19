@@ -1028,9 +1028,7 @@ impl ComputeGraph {
         // 1. Caching:
         // If we encounter a node that was already computed with the same input (by hashing the input parameters),
         // we reuse the result using a hash map.
-        // 2. Cycle detection:
-        // Currently, cycles are not supported and result in a stack overflow.
-        // 3. Parallel computation
+        // 2. Parallel computation
         // The system should detect independent nodes and be able to compute their results simultaneously
         // If the need arises, we could also support optimized computation of multiple OutputPort in one call to
         // compute(). This shhould then also be paralelized if possible.
