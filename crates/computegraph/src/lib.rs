@@ -816,8 +816,7 @@ impl ComputeGraph {
         &self,
         output: OutputPortUntyped,
     ) -> Result<Box<dyn Any + Send>, ComputeError> {
-        let mut visited = HashSet::new();
-        self.compute_recursive(output, &mut visited, &ComputationOptions::default())
+        self.compute_untyped_with(output, &ComputationOptions::default())
     }
 
     /// Computes the result for a given output port using the provided options, returning a boxed value.
@@ -881,10 +880,8 @@ impl ComputeGraph {
         output: OutputPortUntyped,
         context: &ComputationContext,
     ) -> Result<Box<dyn Any + Send>, ComputeError> {
-        let mut visited = HashSet::new();
-        self.compute_recursive(
+        self.compute_untyped_with(
             output,
-            &mut visited,
             &ComputationOptions {
                 context: Some(context),
             },
