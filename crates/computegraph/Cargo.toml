@@ -15,6 +15,7 @@ publish = false
 thiserror.workspace = true
 computegraph_macros.workspace = true
 dyn-clone.workspace = true
+dagga.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
