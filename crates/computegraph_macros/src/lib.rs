@@ -440,7 +440,7 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
         }
 
         impl ::computegraph::ExecutableNode for #node_name {
-            fn run(&self, input: &[&::std::boxed::Box<dyn ::std::any::Any + ::std::marker::Send>]) -> Vec<::std::boxed::Box<dyn ::std::any::Any + ::std::marker::Send>> {
+            fn run(&self, input: &[&dyn ::std::any::Any]) -> Vec<::std::boxed::Box<dyn ::computegraph::SendSyncAny>> {
                 let res = self.run(
                     #( input[#run_call_parameters].downcast_ref().unwrap() ),*
                 );

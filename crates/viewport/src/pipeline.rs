@@ -4,7 +4,7 @@ use computegraph::{
     NodeHandle, OutputPort, OutputPortUntyped,
 };
 use project::ProjectView;
-use std::any::{Any, TypeId};
+use std::any::TypeId;
 
 /// Errors that can occur when creating a new [`ViewportPlugin`] or [`DynamicViewportPlugin`]
 #[derive(thiserror::Error, Debug)]
@@ -123,7 +123,7 @@ pub struct ViewportPipeline {
 
 #[derive(Default, Debug)]
 pub struct ViewportPipelineState {
-    state: Option<Box<dyn Any + Send>>,
+    state: Option<Box<dyn computegraph::SendSyncAny>>,
 }
 
 /// Represents the position of a plugin in the viewport pipeline.
