@@ -263,10 +263,48 @@ impl fmt::Debug for Box<dyn CloneableAny> {
     }
 }
 
+/// A version of [`Any`] that allows usage across threads.
+pub trait SendSyncAny: Any + Send + Sync {
+    /// Returns a reference to the object as a `dyn Any`.
+    fn as_any(&self) -> &dyn Any;
+
+    /// Returns a mutable reference to the object as a `dyn Any`.
+    ///
+    /// This method allows for runtime type checking and downcasting
+    /// with mutable access.
+    fn as_mut_any(&mut self) -> &mut dyn Any;
+
+    /// Converts a `Box<dyn SendSyncAny>` to a `Box<dyn Any>`
+    fn into_any(self: Box<Self>) -> Box<dyn Any>;
+}
+
+impl<T> SendSyncAny for T
+where
+    T: Any + Send + Sync,
+{
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+}
+
+impl fmt::Debug for Box<dyn SendSyncAny> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Box<dyn SendSyncAny>").finish()
+    }
+}
+
 #[derive(Debug)]
 struct InputPortValue {
     port: InputPortUntyped,
-    value: Box<dyn Any + Send>,
+    value: Box<dyn SendSyncAny>,
 }
 
 /// Set predefined values for [`ComputeGraph::compute_with_context`].
@@ -279,7 +317,7 @@ struct InputPortValue {
 #[derive(Debug, Default)]
 pub struct ComputationContext {
     overrides: Vec<InputPortValue>,
-    default_values: Vec<(TypeId, Box<dyn Any + Send>)>,
+    default_values: Vec<(TypeId, Box<dyn SendSyncAny>)>,
 }
 
 impl ComputationContext {
@@ -300,7 +338,7 @@ impl ComputationContext {
     ///
     /// * `port` - The port to override.
     /// * `value` - The value which should be used instead
-    pub fn set_override<T: Any + Send>(&mut self, port: InputPort<T>, value: T) {
+    pub fn set_override<T: SendSyncAny>(&mut self, port: InputPort<T>, value: T) {
         let port = port.into();
 
         self.overrides.retain(|o| o.port != port);
@@ -318,7 +356,7 @@ impl ComputationContext {
     ///
     /// * `port` - The port to override.
     /// * `value` - The boxed value which should be used instead
-    pub fn set_override_untyped(&mut self, port: InputPortUntyped, value: Box<dyn Any + Send>) {
+    pub fn set_override_untyped(&mut self, port: InputPortUntyped, value: Box<dyn SendSyncAny>) {
         self.overrides.retain(|o| o.port != port);
         self.overrides.push(InputPortValue { port, value });
     }
@@ -333,7 +371,7 @@ impl ComputationContext {
     /// # Arguments
     ///
     /// * `value`: The value to use for all unconnected [`InputPort`]s of the given type.
-    pub fn set_fallback<T: Any + Send>(&mut self, value: T) {
+    pub fn set_fallback<T: SendSyncAny>(&mut self, value: T) {
         let type_id = value.type_id();
         self.default_values.retain(|v| v.0 != type_id);
         self.default_values.push((type_id, Box::new(value)));
@@ -347,7 +385,7 @@ impl ComputationContext {
     /// # Arguments
     ///
     /// * `value`: The value to use for all unconnected [`InputPort`]s of the type.
-    pub fn set_fallback_untyped(&mut self, value: Box<dyn Any + Send>) {
+    pub fn set_fallback_untyped(&mut self, value: Box<dyn SendSyncAny>) {
         let type_id = (*value).type_id();
         self.default_values.retain(|v| v.0 != type_id);
         self.default_values.push((type_id, value));
@@ -367,7 +405,7 @@ impl ComputationContext {
     pub fn remove_override_untyped(
         &mut self,
         port: &InputPortUntyped,
-    ) -> Option<Box<dyn Any + Send>> {
+    ) -> Option<Box<dyn SendSyncAny>> {
         self.overrides
             .iter()
             .position(|o| &o.port == port)
@@ -385,19 +423,25 @@ impl ComputationContext {
     /// # Returns
     ///
     /// An [`Option`] containing the override value if found, or `None` otherwise.
+    #[expect(clippy::missing_panics_doc, reason = "should not happen")]
     pub fn remove_override<T: 'static>(&mut self, port: &InputPort<T>) -> Option<T> {
         let index = self.overrides.iter().position(|o| o.port == port.port)?;
-        let override_value = self.overrides.swap_remove(index);
-        match override_value.value.downcast::<T>() {
-            Ok(boxed) => Some(*boxed),
-            Err(value) => {
-                // Type mismatch, undo the removal
-                self.overrides.push(InputPortValue {
-                    value,
-                    ..override_value
-                });
-                None
+        match self.overrides[index]
+            .value
+            .as_ref()
+            .as_any()
+            .downcast_ref::<T>()
+        {
+            Some(_) => {
+                let override_value = self.overrides.swap_remove(index);
+                let b = override_value
+                    .value
+                    .into_any()
+                    .downcast::<T>()
+                    .expect("type was checked previously");
+                Some(*b)
             }
+            None => None,
         }
     }
 
@@ -412,17 +456,26 @@ impl ComputationContext {
     /// # Returns
     ///
     /// An [`Option`] containing the fallback value if found, or `None` otherwise.
+    #[expect(clippy::missing_panics_doc, reason = "should not happen")]
     pub fn remove_fallback<T: 'static>(&mut self) -> Option<T> {
         let type_id = TypeId::of::<T>();
         let index = self.default_values.iter().position(|o| o.0 == type_id)?;
-        let (id, value) = self.default_values.swap_remove(index);
-        match value.downcast::<T>() {
-            Ok(boxed) => Some(*boxed),
-            Err(value) => {
-                // Type mismatch, undo the removal
-                self.default_values.push((id, value));
-                None
+        match self.default_values[index]
+            .1
+            .as_ref()
+            .as_any()
+            .downcast_ref::<T>()
+        {
+            Some(_) => {
+                let override_value = self.default_values.swap_remove(index);
+                let b = override_value
+                    .1
+                    .into_any()
+                    .downcast::<T>()
+                    .expect("type was checked previously");
+                Some(*b)
             }
+            None => None,
         }
     }
 
@@ -437,7 +490,7 @@ impl ComputationContext {
     /// # Returns
     ///
     /// An [`Option`] containing the fallback value if found, or `None` otherwise.
-    pub fn remove_fallback_untyped(&mut self, type_id: TypeId) -> Option<Box<dyn Any + Send>> {
+    pub fn remove_fallback_untyped(&mut self, type_id: TypeId) -> Option<Box<dyn SendSyncAny>> {
         self.default_values
             .iter()
             .position(|o| o.0 == type_id)
@@ -822,7 +875,7 @@ impl ComputeGraph {
     pub fn compute_untyped(
         &self,
         output: OutputPortUntyped,
-    ) -> Result<Box<dyn Any + Send>, ComputeError> {
+    ) -> Result<Box<dyn SendSyncAny>, ComputeError> {
         self.compute_untyped_with(output, &ComputationOptions::default())
     }
 
@@ -853,7 +906,7 @@ impl ComputeGraph {
         &self,
         output: OutputPortUntyped,
         options: &ComputationOptions,
-    ) -> Result<Box<dyn Any + Send>, ComputeError> {
+    ) -> Result<Box<dyn SendSyncAny>, ComputeError> {
         let mut visited = HashSet::new();
         self.compute_recursive(output, &mut visited, options)
     }
@@ -886,7 +939,7 @@ impl ComputeGraph {
         &self,
         output: OutputPortUntyped,
         context: &ComputationContext,
-    ) -> Result<Box<dyn Any + Send>, ComputeError> {
+    ) -> Result<Box<dyn SendSyncAny>, ComputeError> {
         self.compute_untyped_with(
             output,
             &ComputationOptions {
@@ -915,6 +968,7 @@ impl ComputeGraph {
     pub fn compute<T: 'static>(&self, output: OutputPort<T>) -> Result<T, ComputeError> {
         let res = self.compute_untyped(output.port.clone())?;
         let res = res
+            .into_any()
             .downcast::<T>()
             .map_err(|_| ComputeError::OutputTypeMismatch {
                 node: output.port.node,
@@ -951,6 +1005,7 @@ impl ComputeGraph {
     ) -> Result<T, ComputeError> {
         let res = self.compute_untyped_with_context(output.port.clone(), context)?;
         let res = res
+            .into_any()
             .downcast::<T>()
             .map_err(|_| ComputeError::OutputTypeMismatch {
                 node: output.port.node,
@@ -990,6 +1045,7 @@ impl ComputeGraph {
     ) -> Result<T, ComputeError> {
         let res = self.compute_untyped_with(output.port.clone(), options)?;
         let res = res
+            .into_any()
             .downcast::<T>()
             .map_err(|_| ComputeError::OutputTypeMismatch {
                 node: output.port.node,
@@ -1002,17 +1058,21 @@ impl ComputeGraph {
         output: OutputPortUntyped,
         visited: &mut HashSet<NodeHandle>,
         options: &ComputationOptions,
-    ) -> Result<Box<dyn Any + Send>, ComputeError> {
-        enum OwnedOrBorrowed<'a, T: 'a + Send> {
-            Owned(T),
-            Borrowed(&'a T),
+    ) -> Result<Box<dyn SendSyncAny>, ComputeError> {
+        enum OwnedOrBorrowed<'a> {
+            Owned(Box<dyn SendSyncAny>),
+            Borrowed(&'a dyn SendSyncAny),
         }
-        impl<T: Send> OwnedOrBorrowed<'_, T> {
-            const fn as_ref(&self) -> &T {
-                match self {
-                    OwnedOrBorrowed::Owned(t) => t,
-                    OwnedOrBorrowed::Borrowed(t) => t,
-                }
+        impl OwnedOrBorrowed<'_> {
+            fn as_ref(&self) -> &dyn Any {
+                let a = match self {
+                    OwnedOrBorrowed::Owned(sendable_any) => {
+                        let a = sendable_any.as_ref();
+                        a
+                    }
+                    OwnedOrBorrowed::Borrowed(b) => *b,
+                };
+                SendSyncAny::as_any(a)
             }
         }
 
@@ -1070,7 +1130,7 @@ impl ComputeGraph {
                     .find(|v| v.port.input_name == input.0)
                 {
                     // Override was specified, use it instead
-                    dependencies.push(OwnedOrBorrowed::Borrowed(&port_value.value));
+                    dependencies.push(OwnedOrBorrowed::Borrowed(port_value.value.as_ref()));
                     continue;
                 }
             }
@@ -1086,7 +1146,7 @@ impl ComputeGraph {
                 if let Some(context) = options.context {
                     if let Some(v) = context.default_values.iter().find(|v| v.0 == input.1) {
                         // Found a fallback, we use that instead
-                        dependencies.push(OwnedOrBorrowed::Borrowed(&v.1));
+                        dependencies.push(OwnedOrBorrowed::Borrowed(v.1.as_ref()));
                         continue;
                     }
                 }
@@ -1103,7 +1163,7 @@ impl ComputeGraph {
 
         // The introduction of OwnedOrBorrowed is necessary, since otherwise the computed dependencies
         // would be destroyed after each loop iteration. This converts the list back into the required format
-        let dependencies: Vec<&Box<dyn Any + Send>> =
+        let dependencies: Vec<&dyn Any> =
             dependencies.iter().map(OwnedOrBorrowed::as_ref).collect();
         // Run the node with the computed inputs
         let output_result = output_node.node.run(&dependencies);
@@ -1423,13 +1483,13 @@ pub trait ExecutableNode: std::fmt::Debug + DynClone + Send + Sync {
     ///
     /// # Parameters
     ///
-    /// - `input`: A slice of boxed dynamic values representing the input data.
+    /// - `input`: A slice of dynamic values representing the input data.
     ///
     /// # Returns
     ///
     /// A vector of boxed dynamic values representing the output data.
     // TODO: add error handling
-    fn run(&self, input: &[&Box<dyn Any + Send>]) -> Vec<Box<dyn Any + Send>>;
+    fn run(&self, input: &[&dyn Any]) -> Vec<Box<dyn SendSyncAny>>;
 }
 
 dyn_clone::clone_trait_object!(ExecutableNode);
