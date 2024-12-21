@@ -232,8 +232,9 @@ pub enum AddError {
     DuplicateName(String),
 }
 
-trait CloneableAny: Any + DynClone + fmt::Debug + Send + Sync {
+trait CloneableAny: Any + DynClone + Send + Sync {
     fn as_any(&self) -> &dyn Any;
+
     fn as_mut_any(&mut self) -> &mut dyn Any;
 }
 
@@ -245,7 +246,7 @@ impl Clone for Box<dyn CloneableAny> {
 
 impl<T> CloneableAny for T
 where
-    T: Any + DynClone + fmt::Debug + Send + Sync,
+    T: Any + DynClone + Send + Sync,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -253,6 +254,12 @@ where
 
     fn as_mut_any(&mut self) -> &mut dyn Any {
         self
+    }
+}
+
+impl fmt::Debug for Box<dyn CloneableAny> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Box<dyn CloneableAny>").finish()
     }
 }
 
