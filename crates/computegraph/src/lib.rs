@@ -161,7 +161,7 @@ pub use computegraph_macros::node;
 use dyn_clone::DynClone;
 use std::{
     any::{Any, TypeId},
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashMap, VecDeque},
     fmt,
 };
 
@@ -191,6 +191,8 @@ pub enum ComputeError {
     CycleDetected,
     #[error("Output type mismatch when computing node {node:?}")]
     OutputTypeMismatch { node: NodeHandle },
+    #[error("Error while building schedule to run the graph: {0:?}")]
+    ErrorBuildingSchedule(dagga::DaggaError),
 }
 
 /// Errors that can occur when connecting nodes with [`ComputeGraph::connect`].
@@ -902,13 +904,227 @@ impl ComputeGraph {
     /// - An input port of the node ar a dependency of the node are not connected.
     /// - A cycle is detected in the graph.
     /// - A error occurs during computation (e.g. type returned by the node does not match the expected type).
+    #[expect(clippy::too_many_lines)]
+    #[expect(clippy::missing_panics_doc, reason = "should not happen")]
     pub fn compute_untyped_with(
         &self,
         output: OutputPortUntyped,
         options: &ComputationOptions,
     ) -> Result<Box<dyn SendSyncAny>, ComputeError> {
-        let mut visited = HashSet::new();
-        self.compute_recursive(output, &mut visited, options)
+        let mut visited: Vec<bool> = vec![false; self.nodes.len()];
+        let mut queue: VecDeque<usize> = VecDeque::new();
+
+        // Find the index of the node with the requested output port
+        let output_node_index = self
+            .nodes
+            .iter()
+            .enumerate()
+            .find(|(_, n)| n.handle == output.node)
+            .ok_or_else(|| ComputeError::NodeNotFound(output.node.clone()))?
+            .0;
+
+        queue.push_back(output_node_index);
+
+        // Perform a breadth-first search to find all dependencies of the output node
+        while let Some(node_index) = queue.pop_front() {
+            if visited[node_index] {
+                continue;
+            }
+            visited[node_index] = true;
+
+            // Find dependencies of the current node
+            let dependencies = self
+                .edges
+                .iter()
+                .filter(|connection| connection.to.node == self.nodes[node_index].handle)
+                // Skip dependencies that are overridden by the context
+                .filter_map(|connection| {
+                    if let Some(context) = options.context {
+                        if context.overrides.iter().any(|override_value| {
+                            override_value.port.node == connection.to.node
+                                && override_value.port.input_name == connection.to.input_name
+                        }) {
+                            return None;
+                        }
+                    }
+                    // Find the index of the node that provides the input
+                    let dependency_index = self
+                        .nodes
+                        .iter()
+                        .enumerate()
+                        .find(|(_, node)| node.handle == connection.from.node)
+                        .map(|(index, _)| index)?;
+                    Some(Ok(dependency_index))
+                });
+
+            // Add dependencies to the queue
+            for dependency in dependencies {
+                queue.push_back(dependency?);
+            }
+        }
+
+        // Create a DAG to represent the dependencies between nodes
+        let mut dependency_graph = dagga::Dag::<usize, usize>::default();
+
+        // Add nodes to the DAG, including their dependencies
+        dependency_graph.add_nodes(self.nodes.iter().enumerate().filter_map(
+            |(node_index, node)| {
+                if visited[node_index] {
+                    Some(
+                        dagga::Node::new(node_index)
+                            .with_name(node.handle.node_name.clone())
+                            .with_reads(
+                                // Add each input parameter as a read
+                                node.inputs.iter().filter_map(|(input_name, _input_type)| {
+                                    // This is the connection coming into this input
+                                    let connection = self.edges.iter().find(|c| {
+                                        c.to.node == node.handle && c.to.input_name == *input_name
+                                    })?;
+                                    // This is the index of the node, `node` depends on
+                                    let result_node_index = self
+                                        .nodes
+                                        .iter()
+                                        .enumerate()
+                                        .find(|(_, n)| n.handle == connection.from.node)?
+                                        .0;
+                                    Some(result_node_index)
+                                }),
+                            )
+                            .with_result(node_index),
+                    )
+                } else {
+                    None
+                }
+            },
+        ));
+
+        // Build the execution schedule from the DAG
+        let execution_schedule = dependency_graph
+            .build_schedule()
+            .map_err(|error| match error.source {
+                dagga::DaggaError::Cycle { start: _, path: _ } => ComputeError::CycleDetected,
+                err => ComputeError::ErrorBuildingSchedule(err),
+            })?;
+
+        // Create a map to store the computed results of each node
+        let mut computed_results: HashMap<_, Box<dyn SendSyncAny>> = HashMap::new();
+
+        // Execute the nodes in the order specified by the schedule
+        for batch in execution_schedule.batches {
+            for batch_node in batch {
+                let node_index = *batch_node.inner();
+                let current_node = &self.nodes[node_index];
+
+                let mut input_values = vec![];
+
+                // Gather input values for the current node
+                for input in &current_node.inputs {
+                    // Check if the input is overridden by the context
+                    if let Some(context) = options.context {
+                        if let Some(override_value) =
+                            context.overrides.iter().find(|override_value| {
+                                override_value.port.node == current_node.handle
+                                    && override_value.port.input_name == input.0
+                            })
+                        {
+                            // Use the override value
+                            input_values.push(override_value.value.as_ref().as_any());
+                            recompute_required = true;
+                            continue;
+                        }
+                    }
+
+                    // Find the connection that provides the input
+                    let connection = self.edges.iter().find(|connection| {
+                        connection.to.node == current_node.handle
+                            && connection.to.input_name == input.0
+                    });
+
+                    let connection = if let Some(connection) = connection {
+                        Ok(connection)
+                    } else {
+                        // Check if a fallback value is provided by the context
+                        if let Some(context) = options.context {
+                            if let Some(fallback_value) = context
+                                .default_values
+                                .iter()
+                                .find(|fallback_value| fallback_value.0 == input.1)
+                            {
+                                // Use the fallback value
+                                input_values.push(fallback_value.1.as_ref().as_any());
+                                recompute_required = true;
+                                continue;
+                            }
+                        }
+                        // No connection or fallback value found, return an error
+                        Err(ComputeError::InputPortNotConnected(InputPortUntyped {
+                            node: current_node.handle.clone(),
+                            input_name: input.0,
+                        }))
+                    }?;
+
+                    let providing_node_handle = &connection.from.node;
+                    let providing_node = self
+                        .nodes
+                        .iter()
+                        .find(|node| node.handle == *providing_node_handle)
+                        .ok_or_else(|| ComputeError::NodeNotFound(providing_node_handle.clone()))?;
+
+                    let providing_output_name = connection.from.output_name;
+                    let providing_output = providing_node
+                        .outputs
+                        .iter()
+                        .find(|(name, _)| *name == providing_output_name)
+                        .ok_or_else(|| ComputeError::PortNotFound {
+                            node: providing_node_handle.clone(),
+                            port: OutputPortUntyped {
+                                node: providing_node_handle.clone(),
+                                output_name: providing_output_name,
+                            },
+                        })?;
+
+                    // Get the computed result of the providing node
+                    let input_value = computed_results
+                        .get(&(providing_node.handle.clone(), providing_output.0))
+                        .expect("Result should be computed in a previous batch");
+                    input_values.push(input_value.as_ref().as_any());
+                }
+
+                // Execute the node and store the result
+                let output_values = current_node.node.run(&input_values);
+
+                // Validate output types
+                if output_values
+                    .iter()
+                    .zip(current_node.outputs.iter())
+                    .any(|(result, output)| (**result).type_id() != output.1)
+                    // Check if the length is the same, .zip() stops at the shortest iterator
+                    || output_values.len() != current_node.outputs.len()
+                {
+                    return Err(ComputeError::OutputTypeMismatch {
+                        node: current_node.handle.clone(),
+                    });
+                }
+
+                // Store the results of the node, indexed by (node handle, output name)
+                for (result, output) in output_values.into_iter().zip(current_node.outputs.iter()) {
+                    computed_results.insert((current_node.handle.clone(), output.0), result);
+                }
+            }
+        }
+
+        // Return the computed result for the requested output port
+        if self.nodes.iter().all(|n| n.handle != output.node) {
+            Err(ComputeError::NodeNotFound(output.node))
+        } else {
+            Ok(computed_results
+                .remove_entry(&(output.node.clone(), output.output_name))
+                .ok_or_else(|| ComputeError::PortNotFound {
+                    node: output.node.clone(),
+                    port: output.clone(),
+                })?
+                .1)
+        }
     }
 
     /// Computes the result for a given output port using the provided context, returning a boxed value.
@@ -1051,145 +1267,6 @@ impl ComputeGraph {
                 node: output.port.node,
             })?;
         Ok(*res)
-    }
-
-    fn compute_recursive(
-        &self,
-        output: OutputPortUntyped,
-        visited: &mut HashSet<NodeHandle>,
-        options: &ComputationOptions,
-    ) -> Result<Box<dyn SendSyncAny>, ComputeError> {
-        enum OwnedOrBorrowed<'a> {
-            Owned(Box<dyn SendSyncAny>),
-            Borrowed(&'a dyn SendSyncAny),
-        }
-        impl OwnedOrBorrowed<'_> {
-            fn as_ref(&self) -> &dyn Any {
-                let a = match self {
-                    OwnedOrBorrowed::Owned(sendable_any) => {
-                        let a = sendable_any.as_ref();
-                        a
-                    }
-                    OwnedOrBorrowed::Borrowed(b) => *b,
-                };
-                SendSyncAny::as_any(a)
-            }
-        }
-
-        // For now we use a simple, but more inefficient approach for computing the result:
-        // Here we simply recursively compute the dependencies of the requested node in breadth first order.
-        //
-        // This code can later be improved in multiple ways:
-        // 1. Caching:
-        // If we encounter a node that was already computed with the same input (by hashing the input parameters),
-        // we reuse the result using a hash map.
-        // 2. Cycle detection:
-        // Currently, cycles are not supported and result in a stack overflow.
-        // 3. Parallel computation
-        // The system should detect independent nodes and be able to compute their results simultaneously
-        // If the need arises, we could also support optimized computation of multiple OutputPort in one call to
-        // compute(). This shhould then also be paralelized if possible.
-
-        // Find the node with the requested output port
-        let output_node = self
-            .nodes
-            .iter()
-            .find(|n| n.handle == output.node)
-            .ok_or_else(|| {
-                ComputeError::NodeNotFound(NodeHandle {
-                    node_name: output.node.node_name.clone(),
-                })
-            })?;
-        let output_handle = output_node.handle.clone();
-
-        // Check for cycles, we use a simple set to detect if in the current path we already visited the node
-        if visited.contains(&output_handle) {
-            return Err(ComputeError::CycleDetected);
-        }
-        visited.insert(output_handle.clone());
-
-        // Find the index of the output port
-        let output_result_index = output_node
-            .outputs
-            .iter()
-            .position(|o| o.0 == output.output_name)
-            .ok_or_else(|| ComputeError::PortNotFound {
-                node: output_handle.clone(),
-                port: output,
-            })?;
-
-        // Compute all dependencies recursively
-        let mut dependencies = vec![];
-
-        for input in &output_node.inputs {
-            if let Some(context) = options.context {
-                // Check if we should use a override instead
-                if let Some(port_value) = context
-                    .overrides
-                    .iter()
-                    .find(|v| v.port.input_name == input.0)
-                {
-                    // Override was specified, use it instead
-                    dependencies.push(OwnedOrBorrowed::Borrowed(port_value.value.as_ref()));
-                    continue;
-                }
-            }
-            // Find the connection that provides the input
-            let connection = self
-                .edges
-                .iter()
-                .find(|c| c.to.node == output_handle && c.to.input_name == input.0);
-            let connection = if let Some(connection) = connection {
-                Ok(connection)
-            } else {
-                // Check if the context has a fallback value for this type
-                if let Some(context) = options.context {
-                    if let Some(v) = context.default_values.iter().find(|v| v.0 == input.1) {
-                        // Found a fallback, we use that instead
-                        dependencies.push(OwnedOrBorrowed::Borrowed(v.1.as_ref()));
-                        continue;
-                    }
-                }
-                Err(ComputeError::InputPortNotConnected(InputPortUntyped {
-                    node: output_handle.clone(),
-                    input_name: input.0,
-                }))
-            }?;
-
-            // Compute the result of the input
-            let result = self.compute_recursive(connection.from.clone(), visited, options)?;
-            dependencies.push(OwnedOrBorrowed::Owned(result));
-        }
-
-        // The introduction of OwnedOrBorrowed is necessary, since otherwise the computed dependencies
-        // would be destroyed after each loop iteration. This converts the list back into the required format
-        let dependencies: Vec<&dyn Any> =
-            dependencies.iter().map(OwnedOrBorrowed::as_ref).collect();
-        // Run the node with the computed inputs
-        let output_result = output_node.node.run(&dependencies);
-        // check if the result has the correct type
-        if output_result
-            .iter()
-            .zip(output_node.outputs.iter())
-            .any(|(result, output)| (**result).type_id() != output.1)
-            // .zip() will stop at the shortest iterator, so we need to check the length separately
-            || output_result.len() != output_node.outputs.len()
-        {
-            return Err(ComputeError::OutputTypeMismatch {
-                node: output_handle.clone(),
-            });
-        }
-        let output = output_result
-            .into_iter()
-            .nth(output_result_index)
-            .expect("this should not happen, since we checked the length before");
-
-        // Return the result, we can not use clone here, because the type is not known at compile time
-
-        // Remove the node from the visited set after computation
-        visited.remove(&output_handle);
-
-        Ok(output)
     }
 
     /// Returns an iterator over the nodes in the graph.
