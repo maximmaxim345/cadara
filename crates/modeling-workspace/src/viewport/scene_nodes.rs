@@ -7,7 +7,7 @@ use super::{
     state::ViewportState,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ModelNode {
     pub data_uuid: project::DataId,
 }
@@ -20,7 +20,7 @@ fn run(&self, project: &project::ProjectView) -> occara::shape::Shape {
     data_view.persistent.shape()
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MeshingNode {}
 
 #[node(MeshingNode)]
@@ -42,7 +42,7 @@ fn run(&self, shape: &occara::shape::Shape) -> MeshData {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RenderNode {}
 
 #[node(RenderNode)]
@@ -54,7 +54,7 @@ fn run(&self, state: &ViewportState, mesh: &MeshData) -> Box<dyn shader::Primiti
     })
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UpdateStateNode {
     pub data_uuid: project::DataId,
 }
@@ -103,7 +103,7 @@ fn run(
     state
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InitStateNode {}
 
 #[node(InitStateNode)]

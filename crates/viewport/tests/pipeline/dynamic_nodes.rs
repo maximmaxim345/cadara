@@ -17,7 +17,7 @@ fn test_add_plugin_dynamic() {
     assert_eq!(graph.len(), 2);
 
     // Test adding an invalid dynamic node
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, PartialEq)]
     struct InvalidNode;
     #[node(InvalidNode)]
     fn run(&self) {}

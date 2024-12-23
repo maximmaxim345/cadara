@@ -3,26 +3,26 @@ use std::any::{Any, TypeId};
 
 #[test]
 fn test_macro_node() {
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     struct Node1 {}
     #[node(Node1)]
     fn run(&self) {}
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     struct Node2 {}
     #[node(Node2)]
     fn run(&self) -> usize {
         21
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     struct Node3 {}
     #[node(Node3 -> hello)]
     fn run(&self) -> String {
         "hello".to_string()
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     struct Node4 {}
 
     #[node(Node4 -> (hello, world))]
@@ -30,14 +30,14 @@ fn test_macro_node() {
         ("hello".to_string(), "world".to_string())
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     struct Node5 {}
     #[node(Node5)]
     fn run(&self, input: &usize) -> usize {
         *input
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     struct Node6 {}
     #[node(Node6 -> output)]
     fn run(&self, text: &String, repeat_count: &usize) -> String {
