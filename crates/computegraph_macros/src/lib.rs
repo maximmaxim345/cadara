@@ -445,6 +445,17 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
             }
         }
     });
+    let assert_impls = output_args.iter().map(|o| {
+        let base_type = &o.base_type;
+        match o.cache_policy {
+            CachePolicy::Enabled => {
+                quote!(::computegraph::__private::check_cached_input_impl::<#base_type>())
+            }
+            CachePolicy::Disabled => {
+                quote!(::computegraph::__private::check_uncached_input_impl::<#base_type>())
+            }
+        }
+    });
 
     let run_result_to_boxed = match handle_output_ports.len() {
         0 => quote!(),
@@ -507,6 +518,7 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
 
         impl ::computegraph::ExecutableNode for #node_name {
             fn run(&self, input: &[&dyn ::std::any::Any]) -> Vec<::computegraph::NodeOutput> {
+                #(#assert_impls;)*
                 let res = self.run(
                     #( input[#run_call_parameters].downcast_ref().unwrap() ),*
                 );

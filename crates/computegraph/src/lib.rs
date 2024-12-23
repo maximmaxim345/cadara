@@ -266,6 +266,10 @@ impl fmt::Debug for Box<dyn CloneableAny> {
 }
 
 /// A version of [`Any`] that allows usage across threads.
+#[diagnostic::on_unimplemented(
+    message = "Trying to use non thread safe type for nodes",
+    label = "`{Self}` does not implement both `Send` and `Sync`"
+)]
 pub trait SendSyncAny: Any + Send + Sync {
     /// Returns a reference to the object as a `dyn Any`.
     fn as_any(&self) -> &dyn Any;
@@ -303,6 +307,12 @@ impl fmt::Debug for Box<dyn SendSyncAny> {
     }
 }
 
+#[diagnostic::on_unimplemented(
+    message = "Trying to use uncomparable type as a cached node output",
+    label = "Use of uncachable type `{Self}` as a cached output",
+    note = "Either implement `PartialEq` for `{Self}`",
+    note = "Or if this is not possible, opt out of caching with `#[node(NodeName -> !)]` or `#[node(NodeName -> !output_name)]"
+)]
 pub trait SendSyncPartialEqAny: SendSyncAny {
     fn into_send_sync(self: Box<Self>) -> Box<dyn SendSyncAny>;
     fn as_ref(&self) -> &dyn SendSyncPartialEqAny;
@@ -1685,4 +1695,11 @@ pub trait NodeFactory: ExecutableNode {
     ///
     /// A handle of type `Self::Handle` that can be used to interact with the node.
     fn create_handle(gnode: &GraphNode) -> Self::Handle;
+}
+
+// Used by the proc-macro
+#[doc(hidden)]
+pub mod __private {
+    pub const fn check_cached_input_impl<T: PartialEq + Send + Sync>() {}
+    pub const fn check_uncached_input_impl<T: Send + Sync>() {}
 }
