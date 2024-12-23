@@ -303,6 +303,38 @@ impl fmt::Debug for Box<dyn SendSyncAny> {
     }
 }
 
+pub trait SendSyncPartialEqAny: SendSyncAny {
+    fn into_send_sync(self: Box<Self>) -> Box<dyn SendSyncAny>;
+    fn as_ref(&self) -> &dyn SendSyncPartialEqAny;
+    fn partial_eq(&self, other: &dyn SendSyncPartialEqAny) -> bool;
+}
+
+impl<T> SendSyncPartialEqAny for T
+where
+    T: SendSyncAny + PartialEq,
+{
+    fn into_send_sync(self: Box<Self>) -> Box<dyn SendSyncAny> {
+        self
+    }
+
+    fn partial_eq(&self, other: &dyn SendSyncPartialEqAny) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<T>()
+            .map_or(false, |other| self == other)
+    }
+
+    fn as_ref(&self) -> &dyn SendSyncPartialEqAny {
+        self
+    }
+}
+
+impl fmt::Debug for Box<dyn SendSyncPartialEqAny> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Box<dyn SendSyncPartialEqAny>").finish()
+    }
+}
+
 #[derive(Debug)]
 struct InputPortValue {
     port: InputPortUntyped,
@@ -1007,7 +1039,7 @@ impl ComputeGraph {
             })?;
 
         // Create a map to store the computed results of each node
-        let mut computed_results: HashMap<_, Box<dyn SendSyncAny>> = HashMap::new();
+        let mut computed_results: HashMap<_, NodeOutput> = HashMap::new();
 
         // Execute the nodes in the order specified by the schedule
         for batch in execution_schedule.batches {
@@ -1087,7 +1119,7 @@ impl ComputeGraph {
                     let input_value = computed_results
                         .get(&(providing_node.handle.clone(), providing_output.0))
                         .expect("Result should be computed in a previous batch");
-                    input_values.push(input_value.as_ref().as_any());
+                    input_values.push(input_value.as_any());
                 }
 
                 // Execute the node and store the result
@@ -1097,7 +1129,7 @@ impl ComputeGraph {
                 if output_values
                     .iter()
                     .zip(current_node.outputs.iter())
-                    .any(|(result, output)| (**result).type_id() != output.1)
+                    .any(|(result, output)| result.type_id() != output.1)
                     // Check if the length is the same, .zip() stops at the shortest iterator
                     || output_values.len() != current_node.outputs.len()
                 {
@@ -1123,7 +1155,8 @@ impl ComputeGraph {
                     node: output.node.clone(),
                     port: output.clone(),
                 })?
-                .1)
+                .1
+                .into_send_sync())
         }
     }
 
@@ -1544,6 +1577,40 @@ impl GraphNode {
     }
 }
 
+/// Type returned by an [`OutputPort`] of a [`ExecutableNode`].
+pub enum NodeOutput {
+    /// Should be returned if the type does not implement [`PartialEq`].
+    Opaque(Box<dyn SendSyncAny>),
+    /// Should be returned if the type implements [`PartialEq`].
+    ///
+    /// The comparison will be used to detect changes when running with a cache.
+    Comparable(Box<dyn SendSyncPartialEqAny>),
+}
+
+impl NodeOutput {
+    #[must_use]
+    pub fn type_id(&self) -> TypeId {
+        match self {
+            Self::Opaque(a) => a.as_ref().type_id(),
+            Self::Comparable(a) => a.as_ref().type_id(),
+        }
+    }
+    #[must_use]
+    pub fn as_any(&self) -> &dyn Any {
+        match self {
+            Self::Opaque(a) => a.as_ref().as_any(),
+            Self::Comparable(a) => a.as_ref().as_any(),
+        }
+    }
+    #[must_use]
+    pub fn into_send_sync(self) -> Box<dyn SendSyncAny> {
+        match self {
+            Self::Opaque(a) => a,
+            Self::Comparable(a) => a.into_send_sync(),
+        }
+    }
+}
+
 /// Trait for executing a node's computation logic.
 ///
 /// This trait defines the interface for nodes that can perform computation
@@ -1566,7 +1633,7 @@ pub trait ExecutableNode: std::fmt::Debug + DynClone + Send + Sync {
     ///
     /// A vector of boxed dynamic values representing the output data.
     // TODO: add error handling
-    fn run(&self, input: &[&dyn Any]) -> Vec<Box<dyn SendSyncAny>>;
+    fn run(&self, input: &[&dyn Any]) -> Vec<NodeOutput>;
 }
 
 dyn_clone::clone_trait_object!(ExecutableNode);

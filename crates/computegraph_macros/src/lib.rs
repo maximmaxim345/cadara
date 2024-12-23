@@ -391,11 +391,13 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
     });
     let run_result_to_boxed = match handle_output_ports.len() {
         0 => quote!(),
-        1 => quote!(::std::boxed::Box::new(res)),
+        1 => quote!(::computegraph::NodeOutput::Opaque(::std::boxed::Box::new(
+            res
+        ))),
         n => {
             let i = (0..n).map(syn::Index::from);
             quote! {
-                #(::std::boxed::Box::new(res.#i)),*
+                #(::computegraph::NodeOutput::Opaque(::std::boxed::Box::new(res.#i))),*
             }
         }
     };
@@ -440,7 +442,7 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
         }
 
         impl ::computegraph::ExecutableNode for #node_name {
-            fn run(&self, input: &[&dyn ::std::any::Any]) -> Vec<::std::boxed::Box<dyn ::computegraph::SendSyncAny>> {
+            fn run(&self, input: &[&dyn ::std::any::Any]) -> Vec<::computegraph::NodeOutput> {
                 let res = self.run(
                     #( input[#run_call_parameters].downcast_ref().unwrap() ),*
                 );
