@@ -9,7 +9,7 @@ mod state;
 #[derive(Clone, Debug)]
 pub struct ModelingViewportPluginOutput {}
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ModelingViewportPlugin {
     pub data_uuid: project::DataId,
 }

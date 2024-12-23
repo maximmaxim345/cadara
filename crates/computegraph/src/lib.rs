@@ -45,7 +45,7 @@
 ///
 /// ```rust
 /// # use computegraph::{node, NodeFactory, ComputeGraph};
-/// #[derive(Debug, Clone)]
+/// #[derive(Debug, Clone, PartialEq)]
 /// struct Node {}
 ///
 /// #[node(Node)]
@@ -66,7 +66,7 @@
 ///
 /// ```rust
 /// # use computegraph::{node, NodeFactory, ComputeGraph};
-/// #[derive(Debug, Clone)]
+/// #[derive(Debug, Clone, PartialEq)]
 /// struct Node {}
 ///
 /// #[node(Node -> result)]
@@ -88,7 +88,7 @@
 ///
 /// ```rust
 /// # use computegraph::{node, NodeFactory, ComputeGraph};
-/// #[derive(Debug, Clone)]
+/// #[derive(Debug, Clone, PartialEq)]
 /// struct Node {}
 ///
 /// #[node(Node -> (greeting, target))]
@@ -120,7 +120,7 @@
 /// # fn typeid<T: std::any::Any>(_: &T) -> TypeId {
 /// #     std::any::TypeId::of::<T>()
 /// # }
-/// #[derive(Debug, Clone)]
+/// #[derive(Debug, Clone, PartialEq)]
 /// struct Node {}
 ///
 /// #[node(Node)]
@@ -129,7 +129,7 @@
 /// }
 ///
 /// // Or equally:
-/// #[derive(Debug, Clone)]
+/// #[derive(Debug, Clone, PartialEq)]
 /// struct Node2 {}
 ///
 /// #[node(Node2)]
