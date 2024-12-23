@@ -36,15 +36,44 @@ impl Parse for NodeArgs {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+enum CachePolicy {
+    #[expect(dead_code)]
+    Enabled,
+    #[default]
+    Disabled,
+}
+
+impl CachePolicy {
+    fn into_ts(self) -> proc_macro2::TokenStream {
+        match self {
+            Self::Enabled => quote!(::computegraph::NodeOutput::Comparable),
+            Self::Disabled => quote!(::computegraph::NodeOutput::Opaque),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct IdentWithCachePolicy(Ident, CachePolicy);
+
+impl Parse for IdentWithCachePolicy {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let cache = input
+            .parse::<Token![!]>()
+            .map_or(CachePolicy::Disabled, |_not| CachePolicy::default());
+        Ok(Self(input.parse()?, cache))
+    }
+}
+
 /// Parsed list of output names
 #[derive(Debug)]
 enum OutputNames {
     /// Output names should be chosen automatically
-    NotSpecified,
+    NotSpecified(CachePolicy),
     /// The whole return type is bound to this name
-    Single(Ident, Token![->]),
+    Single(Ident, CachePolicy, Token![->]),
     /// Each element of the returned tuple are bound each of the names
-    Tuple(Vec<Ident>, Token![->]),
+    Tuple(Vec<(Ident, CachePolicy)>, Token![->]),
 }
 
 impl Parse for OutputNames {
@@ -54,20 +83,37 @@ impl Parse for OutputNames {
 
             let lookahead = input.lookahead1();
             if lookahead.peek(Ident) {
-                Ok(Self::Single(input.parse()?, arrow_token))
+                Ok(Self::Single(
+                    input.parse()?,
+                    CachePolicy::default(),
+                    arrow_token,
+                ))
+            } else if lookahead.peek(Token![!]) {
+                let _: Token![!] = input.parse()?;
+                let lookahead = input.lookahead1();
+                if lookahead.peek(Ident) {
+                    Ok(Self::Single(
+                        input.parse()?,
+                        CachePolicy::Disabled,
+                        arrow_token,
+                    ))
+                } else {
+                    Ok(Self::NotSpecified(CachePolicy::Disabled))
+                }
             } else if lookahead.peek(token::Paren) {
                 let content;
                 parenthesized!(content in input);
                 let names = content
-                    .parse_terminated(Ident::parse, Token![,])?
+                    .parse_terminated(IdentWithCachePolicy::parse, Token![,])?
                     .into_iter()
+                    .map(|i| (i.0, i.1))
                     .collect();
                 Ok(Self::Tuple(names, arrow_token))
             } else {
                 Err(lookahead.error())
             }
         } else {
-            Ok(Self::NotSpecified)
+            Ok(Self::NotSpecified(CachePolicy::default()))
         }
     }
 }
@@ -81,6 +127,7 @@ struct InputArg {
 #[derive(Debug)]
 struct OutputArg {
     ident: Ident,
+    cache_policy: CachePolicy,
     base_type: Type,
 }
 
@@ -223,8 +270,8 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
     // Check if the output types and names are correct
     match signature.output {
         ReturnType::Default => match output_names {
-            OutputNames::NotSpecified => {}
-            OutputNames::Single(_, token) | OutputNames::Tuple(_, token) => {
+            OutputNames::NotSpecified(_) => {}
+            OutputNames::Single(_, _, token) | OutputNames::Tuple(_, token) => {
                 return Error::new_spanned(
                     token,
                     "function does not return, but output names are specified",
@@ -240,7 +287,7 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
                     elems,
                 } = tuple;
                 match output_names {
-                    OutputNames::NotSpecified => {
+                    OutputNames::NotSpecified(_) => {
                         match elems.len() {
                             0 => {
                                 // return type of '-> ()'
@@ -257,25 +304,27 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
                             }
                         }
                     }
-                    OutputNames::Single(name, _) => {
+                    OutputNames::Single(name, cache_policy, _) => {
                         output_args.push(OutputArg {
                             ident: name,
+                            cache_policy,
                             base_type: *output_type,
                         });
                     }
                     OutputNames::Tuple(names, token) => {
                         if names.len() == elems.len() {
                             for (name, ty) in names.iter().zip(elems.iter()) {
-                                if output_args.iter().any(|arg| arg.ident == *name) {
+                                if output_args.iter().any(|arg| arg.ident == name.0) {
                                     return Error::new_spanned(
-                                        name,
+                                        name.0.clone(),
                                         "All output arguments must have a unique identifier",
                                     )
                                     .to_compile_error()
                                     .into();
                                 }
                                 output_args.push(OutputArg {
-                                    ident: name.clone(),
+                                    ident: name.0.clone(),
+                                    cache_policy: name.1,
                                     base_type: ty.clone(),
                                 });
                             }
@@ -296,16 +345,18 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
             } else {
                 // The return type is any other type
                 match output_names {
-                    OutputNames::NotSpecified => {
+                    OutputNames::NotSpecified(cache_policy) => {
                         // Use default name 'output'
                         output_args.push(OutputArg {
                             base_type: *output_type,
+                            cache_policy,
                             ident: format_ident!("output"),
                         });
                     }
-                    OutputNames::Single(name, _) => {
+                    OutputNames::Single(name, cache_policy, _) => {
                         output_args.push(OutputArg {
                             base_type: *output_type,
+                            cache_policy,
                             ident: name,
                         });
                     }
@@ -337,6 +388,7 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
         .map(|a| {
             let OutputArg {
                 ident,
+                cache_policy: _,
                 base_type: ty,
             } = a;
             let ident = ident.to_string();
@@ -370,7 +422,11 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
         }
     });
     let handle_output_ports = output_args.iter().map(|o| {
-        let OutputArg { ident, base_type } = o;
+        let OutputArg {
+            ident,
+            cache_policy: _,
+            base_type,
+        } = o;
         let fn_ident = if *ident == "output" {
             ident.clone()
         } else {
@@ -389,15 +445,23 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
             }
         }
     });
+
     let run_result_to_boxed = match handle_output_ports.len() {
         0 => quote!(),
-        1 => quote!(::computegraph::NodeOutput::Opaque(::std::boxed::Box::new(
-            res
-        ))),
+        1 => {
+            let output_type = output_args[0].cache_policy.into_ts();
+            quote!(#output_type(::std::boxed::Box::new(
+                res
+            )))
+        }
         n => {
             let i = (0..n).map(syn::Index::from);
+            let output_types = output_args
+                .iter()
+                .map(|a| a.cache_policy)
+                .map(CachePolicy::into_ts);
             quote! {
-                #(::computegraph::NodeOutput::Opaque(::std::boxed::Box::new(res.#i))),*
+                #(#output_types(::std::boxed::Box::new(res.#i))),*
             }
         }
     };
