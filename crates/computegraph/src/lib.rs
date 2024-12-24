@@ -1628,7 +1628,7 @@ impl NodeOutput {
 /// defining the logic that processes input data and produces output data.
 ///
 /// Implementors of this trait should always also implement the [`NodeFactory`] trait.
-pub trait ExecutableNode: std::fmt::Debug + DynClone + Send + Sync {
+pub trait ExecutableNode: std::fmt::Debug + DynClone + SendSyncPartialEqAny {
     /// Executes the node's computation logic.
     ///
     /// This method takes boxed input data, processes it, and returns boxed output data.
