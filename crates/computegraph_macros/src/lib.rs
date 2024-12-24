@@ -38,9 +38,8 @@ impl Parse for NodeArgs {
 
 #[derive(Debug, Clone, Copy, Default)]
 enum CachePolicy {
-    #[expect(dead_code)]
-    Enabled,
     #[default]
+    Enabled,
     Disabled,
 }
 
