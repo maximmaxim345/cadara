@@ -7,7 +7,7 @@ use viewport::{
 #[test]
 fn test_invalid_node_errors() {
     // Test a node without output port
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     struct InvalidNode1;
     #[node(InvalidNode1)]
     fn run(&self) {}
@@ -19,7 +19,7 @@ fn test_invalid_node_errors() {
     ));
 
     // Test adding a node with invalid graph output type
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     struct InvalidNode2;
     #[node(InvalidNode2 -> graph)]
     fn run(&self) -> String {
@@ -35,7 +35,7 @@ fn test_invalid_node_errors() {
 
 #[test]
 fn test_incompatible_input_ports() {
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     struct IncompatibleNode;
     #[node(IncompatibleNode -> (scene, output))]
     fn run(&self, _input: &usize) -> (SceneGraph, usize) {
@@ -57,7 +57,7 @@ fn test_type_mismatch_error() {
         .unwrap();
 
     // Try to add a node with mismatched input type
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     struct MismatchedNode;
     #[node(MismatchedNode -> (scene, output))]
     fn run(

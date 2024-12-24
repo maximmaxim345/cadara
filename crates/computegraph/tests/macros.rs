@@ -3,26 +3,26 @@ use std::any::{Any, TypeId};
 
 #[test]
 fn test_macro_node() {
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     struct Node1 {}
     #[node(Node1)]
     fn run(&self) {}
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     struct Node2 {}
     #[node(Node2)]
     fn run(&self) -> usize {
         21
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     struct Node3 {}
     #[node(Node3 -> hello)]
     fn run(&self) -> String {
         "hello".to_string()
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     struct Node4 {}
 
     #[node(Node4 -> (hello, world))]
@@ -30,14 +30,14 @@ fn test_macro_node() {
         ("hello".to_string(), "world".to_string())
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     struct Node5 {}
     #[node(Node5)]
     fn run(&self, input: &usize) -> usize {
         *input
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     struct Node6 {}
     #[node(Node6 -> output)]
     fn run(&self, text: &String, repeat_count: &usize) -> String {
@@ -73,8 +73,8 @@ fn test_macro_node() {
     );
     let res = ExecutableNode::run(&Node4 {}, &[]);
     assert_eq!(res.len(), 2);
-    assert_eq!(res[0].downcast_ref::<String>().unwrap(), "hello");
-    assert_eq!(res[1].downcast_ref::<String>().unwrap(), "world");
+    assert_eq!(res[0].as_any().downcast_ref::<String>().unwrap(), "hello");
+    assert_eq!(res[1].as_any().downcast_ref::<String>().unwrap(), "world");
 
     assert_eq!(
         <Node5 as NodeFactory>::inputs(),
@@ -86,13 +86,10 @@ fn test_macro_node() {
     );
     let res = ExecutableNode::run(
         &Node6 {},
-        &[
-            &(Box::new("hi".to_string()) as Box<dyn Any + Send>),
-            &(Box::new(3_usize) as Box<dyn Any + Send>),
-        ],
+        &[&("hi".to_string()) as &dyn Any, &(3_usize) as &dyn Any],
     );
     assert_eq!(res.len(), 1);
-    assert_eq!(res[0].downcast_ref::<String>().unwrap(), "hihihi");
+    assert_eq!(res[0].as_any().downcast_ref::<String>().unwrap(), "hihihi");
 
     assert_eq!(
         <Node6 as NodeFactory>::inputs(),
@@ -107,11 +104,8 @@ fn test_macro_node() {
     );
     let res = ExecutableNode::run(
         &Node6 {},
-        &[
-            &(Box::new("hi".to_string()) as Box<dyn Any + Send>),
-            &(Box::new(3_usize) as Box<dyn Any + Send>),
-        ],
+        &[&("hi".to_string()) as &dyn Any, &3_usize as &dyn Any],
     );
     assert_eq!(res.len(), 1);
-    assert_eq!(res[0].downcast_ref::<String>().unwrap(), "hihihi");
+    assert_eq!(res[0].as_any().downcast_ref::<String>().unwrap(), "hihihi");
 }
