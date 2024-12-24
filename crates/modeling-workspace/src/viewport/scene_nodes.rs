@@ -12,7 +12,7 @@ pub struct ModelNode {
     pub data_uuid: project::DataId,
 }
 
-#[node(ModelNode)]
+#[node(ModelNode -> !)]
 fn run(&self, project: &project::ProjectView) -> occara::shape::Shape {
     let data_view: project::DataView<modeling_module::ModelingModule> =
         project.open_data_by_id(self.data_uuid).unwrap();
@@ -45,7 +45,7 @@ fn run(&self, shape: &occara::shape::Shape) -> MeshData {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RenderNode {}
 
-#[node(RenderNode)]
+#[node(RenderNode -> !)]
 fn run(&self, state: &ViewportState, mesh: &MeshData) -> Box<dyn shader::Primitive> {
     // TODO: remove cloning to reduce overhead once computegraph allows that
     Box::new(RenderPrimitive {

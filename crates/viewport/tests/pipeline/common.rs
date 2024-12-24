@@ -5,7 +5,7 @@ use viewport::{
     ViewportPipeline,
 };
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct State {}
 
 #[derive(Debug)]
@@ -41,7 +41,7 @@ fn run(&self) -> State {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RenderNode();
-#[node(RenderNode)]
+#[node(RenderNode -> !)]
 fn run(&self, _state: &State) -> Box<dyn Primitive> {
     Box::new(SomePrimitive())
 }

@@ -1,6 +1,6 @@
 use glam::{Mat4, Vec3};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Camera {
     pub pos: Vec3,
     pub yaw: f32,
