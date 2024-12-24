@@ -537,6 +537,11 @@ impl ComputationContext {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct ComputationCache {
+    pub i: usize,
+}
+
 /// Options to customize [`ComputeGraph::compute_with`].
 ///
 /// This struct allows you to configure [`ComputeGraph::compute_with`] and [`ComputeGraph::compute_untyped_with`]
@@ -915,7 +920,7 @@ impl ComputeGraph {
         &self,
         output: OutputPortUntyped,
     ) -> Result<Box<dyn SendSyncAny>, ComputeError> {
-        self.compute_untyped_with(output, &ComputationOptions::default())
+        self.compute_untyped_with(output, &ComputationOptions::default(), None)
     }
 
     /// Computes the result for a given output port using the provided options, returning a boxed value.
@@ -929,6 +934,7 @@ impl ComputeGraph {
     /// * `output` - The output port to compute.
     /// * `options` - [`ComputationOptions`] to customize the computation, for example, by passing
     ///               in a [`ComputationContext`].
+    /// * `cache` - A [`ComputationCache`] to reuse the output of previous runs when possible.
     ///
     /// # Returns
     ///
@@ -947,6 +953,7 @@ impl ComputeGraph {
         &self,
         output: OutputPortUntyped,
         options: &ComputationOptions,
+        cache: Option<&mut ComputationCache>,
     ) -> Result<Box<dyn SendSyncAny>, ComputeError> {
         let mut visited: Vec<bool> = vec![false; self.nodes.len()];
         let mut queue: VecDeque<usize> = VecDeque::new();
@@ -961,6 +968,10 @@ impl ComputeGraph {
             .0;
 
         queue.push_back(output_node_index);
+
+        if let Some(c) = cache {
+            c.i = 100;
+        }
 
         // Perform a breadth-first search to find all dependencies of the output node
         while let Some(node_index) = queue.pop_front() {
@@ -1196,6 +1207,7 @@ impl ComputeGraph {
             &ComputationOptions {
                 context: Some(context),
             },
+            None,
         )
     }
 
@@ -1276,6 +1288,7 @@ impl ComputeGraph {
     /// * `output` - The output port to compute.
     /// * `options` - [`ComputationOptions`] to customize the computation, for example, by passing
     ///               in a [`ComputationContext`].
+    /// * `cache` - A [`ComputationCache`] to reuse the output of previous runs when possible.
     ///
     /// # Returns
     ///
@@ -1293,8 +1306,9 @@ impl ComputeGraph {
         &self,
         output: OutputPort<T>,
         options: &ComputationOptions,
+        cache: Option<&mut ComputationCache>,
     ) -> Result<T, ComputeError> {
-        let res = self.compute_untyped_with(output.port.clone(), options)?;
+        let res = self.compute_untyped_with(output.port.clone(), options, cache)?;
         let res = res
             .into_any()
             .downcast::<T>()
