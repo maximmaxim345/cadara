@@ -17,7 +17,97 @@
 //! where the computation structure changes dynamically at runtime. It was developed for use in `CADara`'s viewport system,
 //! where the scene graph is dynamically built every frame, necessitating efficient caching of past results.
 //!
-//! For examples and usage, refer to the tests included in this crate.
+//! ## Example: Basic Usage
+//!
+//! ```rust
+//! use computegraph::{node, ComputeGraph, NodeFactory, ComputationCache, ComputationOptions};
+//!
+//! // Define a simple node that adds two numbers
+//! #[derive(Debug, Clone, PartialEq)]
+//! struct AddNode {}
+//!
+//! #[node(AddNode)]
+//! fn run(&self, a: &i32, b: &i32) -> i32 {
+//!     *a + *b
+//! }
+//!
+//! // Define another node that multiplies two numbers
+//! #[derive(Debug, Clone, PartialEq)]
+//! struct MultiplyNode {}
+//!
+//! #[node(MultiplyNode)]
+//! fn run(&self, a: &i32, b: &i32) -> i32 {
+//!     *a * *b
+//! }
+//!
+//! // Create a new compute graph
+//! let mut graph = ComputeGraph::new();
+//!
+//! // Add nodes to the graph
+//! let add_node = graph.add_node(AddNode {}, "add".to_string()).unwrap();
+//! let multiply_node = graph.add_node(MultiplyNode {}, "multiply".to_string()).unwrap();
+//!
+//! // Connect nodes
+//! graph.connect(add_node.output(), multiply_node.input_a()).unwrap();
+//!
+//! // Set input values for the add node
+//! let mut context = computegraph::ComputationContext::new();
+//! context.set_override(add_node.input_a(), 3);
+//! context.set_override(add_node.input_b(), 4);
+//! context.set_override(multiply_node.input_b(), 2);
+//!
+//! // Compute the result
+//! let result = graph.compute_with_context(multiply_node.output(), &context).unwrap();
+//! assert_eq!(result, (3 + 4) * 2);
+//! ```
+//!
+//! ## Example: Using the Cache
+//!
+//! ```rust
+//! use computegraph::{node, ComputeGraph, NodeFactory, ComputationCache, ComputationOptions, ComputationContext};
+//!
+//! // Define a simple node that increments a number
+//! #[derive(Debug, Clone, PartialEq)]
+//! struct IncrementNode {}
+//!
+//! #[node(IncrementNode)]
+//! fn run(&self, input: &i32) -> i32 {
+//!     *input + 1
+//! }
+//!
+//! // Create a new compute graph
+//! let mut graph = ComputeGraph::new();
+//!
+//! // Add an increment node to the graph
+//! let increment_node = graph.add_node(IncrementNode {}, "increment".to_string()).unwrap();
+//!
+//! // Set an initial input value
+//! let mut context = ComputationContext::new();
+//! context.set_override(increment_node.input(), 5);
+//!
+//! // Create a cache
+//! let mut cache = ComputationCache::new();
+//!
+//! // Compute the result for the first time, populating the cache
+//! let options = ComputationOptions { context: Some(&context) };
+//! let result = graph.compute_with(increment_node.output(), &options, Some(&mut cache)).unwrap();
+//! assert_eq!(result, 6);
+//!
+//! // Compute the result again with the same inputs; the cached value will be used
+//! let result = graph.compute_with(increment_node.output(), &options, Some(&mut cache)).unwrap();
+//! assert_eq!(result, 6); // Result is retrieved from cache
+//!
+//! // Change the input value
+//! context.set_override(increment_node.input(), 10);
+//! let options = ComputationOptions { context: Some(&context) };
+//!
+//! // Compute the result with the new input; the cache will be updated
+//! let result = graph.compute_with(increment_node.output(), &options, Some(&mut cache)).unwrap();
+//! assert_eq!(result, 11);
+//! ```
+//!
+//! For more examples and usage, refer to the tests included in this crate.
+//!
 
 #![warn(clippy::nursery)]
 #![warn(clippy::pedantic)]
