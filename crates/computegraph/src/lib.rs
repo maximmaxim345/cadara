@@ -542,6 +542,55 @@ impl ComputationContext {
     }
 }
 
+#[derive(Debug)]
+struct ComputedValue {
+    /// The computed output value.
+    value: NodeOutput,
+    /// A flag indicating whether the value changed during this `compute()` call
+    changed: bool,
+}
+
+#[derive(Debug)]
+struct NodeCacheEntry {
+    /// A boxed cloneable and executable representation of the node.
+    ///
+    /// This allows for comparing the current node with a previously cached version
+    /// to determine if recomputation is necessary.
+    node: Box<dyn ExecutableNode>,
+    /// A vector of `ComputedValue` instances, each representing an output of the node.
+    ///
+    /// The order of `ComputedValue` instances in this vector corresponds to the order
+    /// of outputs defined by the node.
+    outputs: Vec<ComputedValue>,
+}
+
+/// A cache for storing the results of node computations in a `ComputeGraph`.
+///
+/// `ComputationCache` is designed to improve performance by avoiding redundant computations.
+/// It stores the results of previous node executions, and copies of the nodes itself to detect changes.
+/// A cache will be only reused if:
+/// - The node is the same (checked with [`PartialEq`])
+/// - All inputs are comparable and the same (also checked with [`PartialEq`])
+///
+/// ## Note
+///
+/// The last output will never be cached, since it's returned by `compute()`.
+#[derive(Debug, Default)]
+pub struct ComputationCache {
+    /// A hash map that stores `NodeCacheEntry` instances, keyed by `NodeHandle`.
+    ///
+    /// This map serves as the primary storage for cached node results.
+    hm: HashMap<NodeHandle, NodeCacheEntry>,
+}
+
+impl ComputationCache {
+    /// Creates a new empty cache for use with [`ComputeGraph::compute_with`].
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
 /// Options to customize [`ComputeGraph::compute_with`].
 ///
 /// This struct allows you to configure [`ComputeGraph::compute_with`] and [`ComputeGraph::compute_untyped_with`]
@@ -920,7 +969,7 @@ impl ComputeGraph {
         &self,
         output: OutputPortUntyped,
     ) -> Result<Box<dyn SendSyncAny>, ComputeError> {
-        self.compute_untyped_with(output, &ComputationOptions::default())
+        self.compute_untyped_with(output, &ComputationOptions::default(), None)
     }
 
     /// Computes the result for a given output port using the provided options, returning a boxed value.
@@ -934,6 +983,7 @@ impl ComputeGraph {
     /// * `output` - The output port to compute.
     /// * `options` - [`ComputationOptions`] to customize the computation, for example, by passing
     ///               in a [`ComputationContext`].
+    /// * `cache` - A [`ComputationCache`] to reuse the output of previous runs when possible.
     ///
     /// # Returns
     ///
@@ -952,6 +1002,7 @@ impl ComputeGraph {
         &self,
         output: OutputPortUntyped,
         options: &ComputationOptions,
+        cache: Option<&mut ComputationCache>,
     ) -> Result<Box<dyn SendSyncAny>, ComputeError> {
         let mut visited: Vec<bool> = vec![false; self.nodes.len()];
         let mut queue: VecDeque<usize> = VecDeque::new();
@@ -1049,13 +1100,36 @@ impl ComputeGraph {
             })?;
 
         // Create a map to store the computed results of each node
-        let mut computed_results: HashMap<_, NodeOutput> = HashMap::new();
+        let (computed_results, running_with_cache) = if let Some(c) = cache {
+            (&mut c.hm, true)
+        } else {
+            (&mut HashMap::new(), false)
+        };
 
         // Execute the nodes in the order specified by the schedule
         for batch in execution_schedule.batches {
             for batch_node in batch {
                 let node_index = *batch_node.inner();
                 let current_node = &self.nodes[node_index];
+
+                // If recompute_required is false, we can reuse the result in the cache.
+                // Checking if input arguments where changed is done at the input gathering
+                // stage below.
+                let mut recompute_required = if running_with_cache {
+                    computed_results
+                        .get(&current_node.handle)
+                        .map_or(true, |node_cache| {
+                            // We already computed a node with the same name, check if it changed
+                            let is_equal = node_cache
+                                .node
+                                .as_ref()
+                                .partial_eq(current_node.node.as_ref().as_ref());
+
+                            !is_equal
+                        })
+                } else {
+                    true
+                };
 
                 let mut input_values = vec![];
 
@@ -1116,7 +1190,8 @@ impl ComputeGraph {
                     let providing_output = providing_node
                         .outputs
                         .iter()
-                        .find(|(name, _)| *name == providing_output_name)
+                        .enumerate()
+                        .find(|(_, (name, _))| *name == providing_output_name)
                         .ok_or_else(|| ComputeError::PortNotFound {
                             node: providing_node_handle.clone(),
                             port: OutputPortUntyped {
@@ -1124,33 +1199,77 @@ impl ComputeGraph {
                                 output_name: providing_output_name,
                             },
                         })?;
+                    let providing_output_index = providing_output.0;
 
                     // Get the computed result of the providing node
-                    let input_value = computed_results
-                        .get(&(providing_node.handle.clone(), providing_output.0))
+                    let cached_output = &computed_results
+                        .get(&providing_node.handle)
+                        .and_then(|e| e.outputs.get(providing_output_index))
                         .expect("Result should be computed in a previous batch");
-                    input_values.push(input_value.as_any());
+                    if cached_output.changed {
+                        recompute_required = true;
+                    }
+                    input_values.push(cached_output.value.as_any());
                 }
 
-                // Execute the node and store the result
-                let output_values = current_node.node.run(&input_values);
+                if recompute_required {
+                    // Execute the node and store the result
+                    let output_values = current_node.node.run(&input_values);
 
-                // Validate output types
-                if output_values
-                    .iter()
-                    .zip(current_node.outputs.iter())
-                    .any(|(result, output)| result.type_id() != output.1)
-                    // Check if the length is the same, .zip() stops at the shortest iterator
-                    || output_values.len() != current_node.outputs.len()
-                {
-                    return Err(ComputeError::OutputTypeMismatch {
-                        node: current_node.handle.clone(),
-                    });
+                    // Validate output types
+                    if output_values
+                        .iter()
+                        .zip(current_node.outputs.iter())
+                        .any(|(result, output)| result.type_id() != output.1)
+                        // Check if the length is the same, .zip() stops at the shortest iterator
+                        || output_values.len() != current_node.outputs.len()
+                    {
+                        return Err(ComputeError::OutputTypeMismatch {
+                            node: current_node.handle.clone(),
+                        });
+                    }
+
+                    // Store the results of the node, indexed by (node handle, output name)
+                    if let Some(a) = computed_results.get_mut(&current_node.handle) {
+                        for (cache, output) in a.outputs.iter_mut().zip(output_values.into_iter()) {
+                            cache.changed = match (&cache.value, &output) {
+                                (NodeOutput::Opaque(_any1), NodeOutput::Opaque(_any2)) => true,
+                                (NodeOutput::Comparable(any1), NodeOutput::Comparable(any2)) => {
+                                    !(any1.as_ref().partial_eq(any2.as_ref()))
+                                }
+                                (_, _) => panic!(
+                                    "This should not happen. Node changed its output type???"
+                                ),
+                            };
+                            cache.value = output;
+                        }
+                    } else {
+                        computed_results
+                            .entry(current_node.handle.clone())
+                            .insert_entry(NodeCacheEntry {
+                                node: current_node.node.clone(),
+                                outputs: output_values
+                                    .into_iter()
+                                    .map(|output| {
+                                        let was_changed = true;
+                                        ComputedValue {
+                                            value: output,
+                                            changed: was_changed,
+                                        }
+                                    })
+                                    .collect(),
+                            });
+                    }
                 }
+            }
+        }
 
-                // Store the results of the node, indexed by (node handle, output name)
-                for (result, output) in output_values.into_iter().zip(current_node.outputs.iter()) {
-                    computed_results.insert((current_node.handle.clone(), output.0), result);
+        if running_with_cache {
+            // Discard all cached values of nodes that are no longer in the graph.
+            computed_results.retain(|node, _cache| self.nodes.iter().any(|n| n.handle == *node));
+            for (_, c) in computed_results.iter_mut() {
+                for a in &mut c.outputs {
+                    a.changed = false;
                 }
             }
         }
@@ -1159,13 +1278,23 @@ impl ComputeGraph {
         if self.nodes.iter().all(|n| n.handle != output.node) {
             Err(ComputeError::NodeNotFound(output.node))
         } else {
-            Ok(computed_results
-                .remove_entry(&(output.node.clone(), output.output_name))
+            let result_index = self.nodes[output_node_index]
+                .outputs
+                .iter()
+                .enumerate()
+                .find(|(_, (name, _))| *name == output.output_name)
                 .ok_or_else(|| ComputeError::PortNotFound {
                     node: output.node.clone(),
                     port: output.clone(),
                 })?
+                .0;
+            Ok(computed_results
+                .remove_entry(&output.node)
+                .expect("Should be computed by now")
                 .1
+                .outputs
+                .swap_remove(result_index)
+                .value
                 .into_send_sync())
         }
     }
@@ -1204,6 +1333,7 @@ impl ComputeGraph {
             &ComputationOptions {
                 context: Some(context),
             },
+            None,
         )
     }
 
@@ -1284,6 +1414,7 @@ impl ComputeGraph {
     /// * `output` - The output port to compute.
     /// * `options` - [`ComputationOptions`] to customize the computation, for example, by passing
     ///               in a [`ComputationContext`].
+    /// * `cache` - A [`ComputationCache`] to reuse the output of previous runs when possible.
     ///
     /// # Returns
     ///
@@ -1301,8 +1432,9 @@ impl ComputeGraph {
         &self,
         output: OutputPort<T>,
         options: &ComputationOptions,
+        cache: Option<&mut ComputationCache>,
     ) -> Result<T, ComputeError> {
-        let res = self.compute_untyped_with(output.port.clone(), options)?;
+        let res = self.compute_untyped_with(output.port.clone(), options, cache)?;
         let res = res
             .into_any()
             .downcast::<T>()
@@ -1588,6 +1720,7 @@ impl GraphNode {
 }
 
 /// Type returned by an [`OutputPort`] of a [`ExecutableNode`].
+#[derive(Debug)]
 pub enum NodeOutput {
     /// Should be returned if the type does not implement [`PartialEq`].
     Opaque(Box<dyn SendSyncAny>),
