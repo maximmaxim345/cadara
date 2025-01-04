@@ -353,7 +353,7 @@ enum ProjectLogEntry {
 /// - **Session Data**: Changes are temporary and *not tracked* (lost on destruction of [`Project`])
 /// - **Shared Data**: Changes are temporary and *not tracked* (synchronized between users)
 ///
-/// The recorded changes are only atomic (meaining always applied together and at once) for changes to [`module::Module::PersistentData`] and [`module::Module::PersistentUserData`] on a [`DataView`],
+/// The recorded changes are only atomic (meaning always applied together and at once) for changes to [`module::Module::PersistentData`] and [`module::Module::PersistentUserData`] on a [`DataView`],
 /// changes on a [`ProjectView`] and changes on a [`DocumentView`].
 /// Meaning changes to [`module::Module::SharedData`] and [`module::Module::SessionData`] will once applied using [`Project::apply_changes`] not be
 /// reverted on undo.
