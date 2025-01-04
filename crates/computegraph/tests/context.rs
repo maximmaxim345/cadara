@@ -25,6 +25,8 @@ fn test_context_override() -> Result<()> {
     assert_eq!(
         *graph
             .compute_untyped_with_context(addition.output().into(), &ctx)?
+            .as_ref()
+            .as_any()
             .downcast_ref::<usize>()
             .unwrap(),
         8,
@@ -86,6 +88,8 @@ fn test_context_fallback() -> Result<()> {
     assert_eq!(
         *graph
             .compute_untyped_with_context(addition.output().into(), &ctx)?
+            .as_ref()
+            .as_any()
             .downcast_ref::<usize>()
             .unwrap(),
         20

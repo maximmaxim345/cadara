@@ -5,7 +5,7 @@ use viewport::{
     ViewportPipeline,
 };
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct State {}
 
 #[derive(Debug)]
@@ -32,28 +32,28 @@ impl Primitive for SomePrimitive {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct InitState();
 #[node(InitState)]
 fn run(&self) -> State {
     State {}
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RenderNode();
-#[node(RenderNode)]
+#[node(RenderNode -> !)]
 fn run(&self, _state: &State) -> Box<dyn Primitive> {
     Box::new(SomePrimitive())
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UpdateNode();
 #[node(UpdateNode)]
 fn run(&self, state: &State, _event: &ViewportEvent) -> State {
     (*state).clone()
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ConstantNode(usize);
 
 #[node(ConstantNode)]
@@ -67,7 +67,7 @@ pub struct CounterState {
     value: usize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct InitialCounterNode;
 
 #[node(InitialCounterNode -> (scene, output))]
@@ -101,7 +101,7 @@ fn run(&self) -> (SceneGraph, CounterState) {
     )
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct IncrementCounterNode;
 
 #[node(IncrementCounterNode -> (scene, output))]

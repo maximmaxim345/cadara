@@ -17,7 +17,97 @@
 //! where the computation structure changes dynamically at runtime. It was developed for use in `CADara`'s viewport system,
 //! where the scene graph is dynamically built every frame, necessitating efficient caching of past results.
 //!
-//! For examples and usage, refer to the tests included in this crate.
+//! ## Example: Basic Usage
+//!
+//! ```rust
+//! use computegraph::{node, ComputeGraph, NodeFactory, ComputationCache, ComputationOptions};
+//!
+//! // Define a simple node that adds two numbers
+//! #[derive(Debug, Clone, PartialEq)]
+//! struct AddNode {}
+//!
+//! #[node(AddNode)]
+//! fn run(&self, a: &i32, b: &i32) -> i32 {
+//!     *a + *b
+//! }
+//!
+//! // Define another node that multiplies two numbers
+//! #[derive(Debug, Clone, PartialEq)]
+//! struct MultiplyNode {}
+//!
+//! #[node(MultiplyNode)]
+//! fn run(&self, a: &i32, b: &i32) -> i32 {
+//!     *a * *b
+//! }
+//!
+//! // Create a new compute graph
+//! let mut graph = ComputeGraph::new();
+//!
+//! // Add nodes to the graph
+//! let add_node = graph.add_node(AddNode {}, "add".to_string()).unwrap();
+//! let multiply_node = graph.add_node(MultiplyNode {}, "multiply".to_string()).unwrap();
+//!
+//! // Connect nodes
+//! graph.connect(add_node.output(), multiply_node.input_a()).unwrap();
+//!
+//! // Set input values for the add node
+//! let mut context = computegraph::ComputationContext::new();
+//! context.set_override(add_node.input_a(), 3);
+//! context.set_override(add_node.input_b(), 4);
+//! context.set_override(multiply_node.input_b(), 2);
+//!
+//! // Compute the result
+//! let result = graph.compute_with_context(multiply_node.output(), &context).unwrap();
+//! assert_eq!(result, (3 + 4) * 2);
+//! ```
+//!
+//! ## Example: Using the Cache
+//!
+//! ```rust
+//! use computegraph::{node, ComputeGraph, NodeFactory, ComputationCache, ComputationOptions, ComputationContext};
+//!
+//! // Define a simple node that increments a number
+//! #[derive(Debug, Clone, PartialEq)]
+//! struct IncrementNode {}
+//!
+//! #[node(IncrementNode)]
+//! fn run(&self, input: &i32) -> i32 {
+//!     *input + 1
+//! }
+//!
+//! // Create a new compute graph
+//! let mut graph = ComputeGraph::new();
+//!
+//! // Add an increment node to the graph
+//! let increment_node = graph.add_node(IncrementNode {}, "increment".to_string()).unwrap();
+//!
+//! // Set an initial input value
+//! let mut context = ComputationContext::new();
+//! context.set_override(increment_node.input(), 5);
+//!
+//! // Create a cache
+//! let mut cache = ComputationCache::new();
+//!
+//! // Compute the result for the first time, populating the cache
+//! let options = ComputationOptions { context: Some(&context) };
+//! let result = graph.compute_with(increment_node.output(), &options, Some(&mut cache)).unwrap();
+//! assert_eq!(result, 6);
+//!
+//! // Compute the result again with the same inputs; the cached value will be used
+//! let result = graph.compute_with(increment_node.output(), &options, Some(&mut cache)).unwrap();
+//! assert_eq!(result, 6); // Result is retrieved from cache
+//!
+//! // Change the input value
+//! context.set_override(increment_node.input(), 10);
+//! let options = ComputationOptions { context: Some(&context) };
+//!
+//! // Compute the result with the new input; the cache will be updated
+//! let result = graph.compute_with(increment_node.output(), &options, Some(&mut cache)).unwrap();
+//! assert_eq!(result, 11);
+//! ```
+//!
+//! For more examples and usage, refer to the tests included in this crate.
+//!
 
 #![warn(clippy::nursery)]
 #![warn(clippy::pedantic)]
@@ -45,7 +135,7 @@
 ///
 /// ```rust
 /// # use computegraph::{node, NodeFactory, ComputeGraph};
-/// #[derive(Debug, Clone)]
+/// #[derive(Debug, Clone, PartialEq)]
 /// struct Node {}
 ///
 /// #[node(Node)]
@@ -66,7 +156,7 @@
 ///
 /// ```rust
 /// # use computegraph::{node, NodeFactory, ComputeGraph};
-/// #[derive(Debug, Clone)]
+/// #[derive(Debug, Clone, PartialEq)]
 /// struct Node {}
 ///
 /// #[node(Node -> result)]
@@ -88,7 +178,7 @@
 ///
 /// ```rust
 /// # use computegraph::{node, NodeFactory, ComputeGraph};
-/// #[derive(Debug, Clone)]
+/// #[derive(Debug, Clone, PartialEq)]
 /// struct Node {}
 ///
 /// #[node(Node -> (greeting, target))]
@@ -120,7 +210,7 @@
 /// # fn typeid<T: std::any::Any>(_: &T) -> TypeId {
 /// #     std::any::TypeId::of::<T>()
 /// # }
-/// #[derive(Debug, Clone)]
+/// #[derive(Debug, Clone, PartialEq)]
 /// struct Node {}
 ///
 /// #[node(Node)]
@@ -129,7 +219,7 @@
 /// }
 ///
 /// // Or equally:
-/// #[derive(Debug, Clone)]
+/// #[derive(Debug, Clone, PartialEq)]
 /// struct Node2 {}
 ///
 /// #[node(Node2)]
@@ -161,7 +251,7 @@ pub use computegraph_macros::node;
 use dyn_clone::DynClone;
 use std::{
     any::{Any, TypeId},
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashMap, VecDeque},
     fmt,
 };
 
@@ -191,6 +281,8 @@ pub enum ComputeError {
     CycleDetected,
     #[error("Output type mismatch when computing node {node:?}")]
     OutputTypeMismatch { node: NodeHandle },
+    #[error("Error while building schedule to run the graph: {0:?}")]
+    ErrorBuildingSchedule(dagga::DaggaError),
 }
 
 /// Errors that can occur when connecting nodes with [`ComputeGraph::connect`].
@@ -232,8 +324,9 @@ pub enum AddError {
     DuplicateName(String),
 }
 
-trait CloneableAny: Any + DynClone + fmt::Debug + Send + Sync {
+trait CloneableAny: Any + DynClone + Send + Sync {
     fn as_any(&self) -> &dyn Any;
+
     fn as_mut_any(&mut self) -> &mut dyn Any;
 }
 
@@ -245,7 +338,7 @@ impl Clone for Box<dyn CloneableAny> {
 
 impl<T> CloneableAny for T
 where
-    T: Any + DynClone + fmt::Debug + Send + Sync,
+    T: Any + DynClone + Send + Sync,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -256,10 +349,139 @@ where
     }
 }
 
+impl fmt::Debug for Box<dyn CloneableAny> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Box<dyn CloneableAny>").finish()
+    }
+}
+
+/// A version of [`Any`] that allows usage across threads.
+#[diagnostic::on_unimplemented(
+    message = "Trying to use non thread safe type for nodes",
+    label = "`{Self}` does not implement both `Send` and `Sync`"
+)]
+pub trait SendSyncAny: Any + Send + Sync {
+    /// Returns a reference to the object as a `dyn Any`.
+    fn as_any(&self) -> &dyn Any;
+
+    /// Returns a mutable reference to the object as a `dyn Any`.
+    ///
+    /// This method allows for runtime type checking and downcasting
+    /// with mutable access.
+    fn as_mut_any(&mut self) -> &mut dyn Any;
+
+    /// Converts a `Box<dyn SendSyncAny>` to a `Box<dyn Any>`
+    fn into_any(self: Box<Self>) -> Box<dyn Any>;
+}
+
+impl<T> SendSyncAny for T
+where
+    T: Any + Send + Sync,
+{
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+}
+
+impl fmt::Debug for Box<dyn SendSyncAny> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Box<dyn SendSyncAny>").finish()
+    }
+}
+
+#[diagnostic::on_unimplemented(
+    message = "Trying to use uncomparable type as a cached node output",
+    label = "Use of uncachable type `{Self}` as a cached output",
+    note = "Either implement `PartialEq` for `{Self}`",
+    note = "Or if this is not possible, opt out of caching with `#[node(NodeName -> !)]` or `#[node(NodeName -> !output_name)]"
+)]
+pub trait SendSyncPartialEqAny: SendSyncAny {
+    fn into_send_sync(self: Box<Self>) -> Box<dyn SendSyncAny>;
+    fn as_ref(&self) -> &dyn SendSyncPartialEqAny;
+    fn partial_eq(&self, other: &dyn SendSyncPartialEqAny) -> bool;
+}
+
+impl<T> SendSyncPartialEqAny for T
+where
+    T: SendSyncAny + PartialEq,
+{
+    fn into_send_sync(self: Box<Self>) -> Box<dyn SendSyncAny> {
+        self
+    }
+
+    fn partial_eq(&self, other: &dyn SendSyncPartialEqAny) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<T>()
+            .map_or(false, |other| self == other)
+    }
+
+    fn as_ref(&self) -> &dyn SendSyncPartialEqAny {
+        self
+    }
+}
+
+impl fmt::Debug for Box<dyn SendSyncPartialEqAny> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Box<dyn SendSyncPartialEqAny>").finish()
+    }
+}
+
+trait CacheableFallback: SendSyncPartialEqAny + DynClone {
+    fn as_partial_eq_any(&self) -> &dyn SendSyncPartialEqAny;
+}
+
+dyn_clone::clone_trait_object!(CacheableFallback);
+
+impl<T> CacheableFallback for T
+where
+    T: SendSyncPartialEqAny + DynClone,
+{
+    fn as_partial_eq_any(&self) -> &dyn SendSyncPartialEqAny {
+        self
+    }
+}
+
+impl fmt::Debug for Box<dyn CacheableFallback> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Box<dyn CacheableFallback>").finish()
+    }
+}
+
 #[derive(Debug)]
 struct InputPortValue {
     port: InputPortUntyped,
-    value: Box<dyn Any + Send>,
+    value: Box<dyn SendSyncAny>,
+}
+
+#[derive(Debug)]
+enum FallbackValue {
+    Opaque(Box<dyn SendSyncAny>),
+    Cacheable(Box<dyn CacheableFallback>),
+}
+
+impl FallbackValue {
+    fn as_any(&self) -> &dyn Any {
+        match self {
+            Self::Opaque(b) => b.as_ref().as_any(),
+            Self::Cacheable(b) => b.as_ref().as_any(),
+        }
+    }
+
+    fn into_any(self) -> Box<dyn Any> {
+        match self {
+            Self::Opaque(b) => b.into_any(),
+            Self::Cacheable(b) => b.into_any(),
+        }
+    }
 }
 
 /// Set predefined values for [`ComputeGraph::compute_with_context`].
@@ -272,7 +494,7 @@ struct InputPortValue {
 #[derive(Debug, Default)]
 pub struct ComputationContext {
     overrides: Vec<InputPortValue>,
-    default_values: Vec<(TypeId, Box<dyn Any + Send>)>,
+    fallback_values: Vec<(TypeId, FallbackValue)>,
 }
 
 impl ComputationContext {
@@ -293,7 +515,7 @@ impl ComputationContext {
     ///
     /// * `port` - The port to override.
     /// * `value` - The value which should be used instead
-    pub fn set_override<T: Any + Send>(&mut self, port: InputPort<T>, value: T) {
+    pub fn set_override<T: SendSyncAny>(&mut self, port: InputPort<T>, value: T) {
         let port = port.into();
 
         self.overrides.retain(|o| o.port != port);
@@ -311,7 +533,7 @@ impl ComputationContext {
     ///
     /// * `port` - The port to override.
     /// * `value` - The boxed value which should be used instead
-    pub fn set_override_untyped(&mut self, port: InputPortUntyped, value: Box<dyn Any + Send>) {
+    pub fn set_override_untyped(&mut self, port: InputPortUntyped, value: Box<dyn SendSyncAny>) {
         self.overrides.retain(|o| o.port != port);
         self.overrides.push(InputPortValue { port, value });
     }
@@ -321,15 +543,39 @@ impl ComputationContext {
     /// This fallback will only be used if a [`InputPort`] required for the computation
     /// was unconnected, but required.
     ///
+    /// If using a [`ComputationCache`], nodes using fallback values will still be rerun every time.
+    /// Use [`ComputationContext::set_fallback_cached`] to only rerun on changes.
+    ///
     /// If the type is not known at compile time, use [`ComputationContext::set_fallback_untyped`] instead.
     ///
     /// # Arguments
     ///
     /// * `value`: The value to use for all unconnected [`InputPort`]s of the given type.
-    pub fn set_fallback<T: Any + Send>(&mut self, value: T) {
+    pub fn set_fallback<T: SendSyncAny>(&mut self, value: T) {
         let type_id = value.type_id();
-        self.default_values.retain(|v| v.0 != type_id);
-        self.default_values.push((type_id, Box::new(value)));
+        self.fallback_values.retain(|v| v.0 != type_id);
+        self.fallback_values
+            .push((type_id, FallbackValue::Opaque(Box::new(value))));
+    }
+
+    /// Provide a comparable fallback value to all unconnected [`InputPort`]s with the type 'T'.
+    ///
+    /// This fallback will only be used if a [`InputPort`] required for the computation
+    /// was unconnected, but required. This differs from [`ComputationContext::set_fallback`]
+    /// in that the provided value must also implement [`PartialEq`] and [`Clone`].
+    /// To detect changes, a copy of `value` will be made and held in the [`ComputationCache`].
+    ///
+    /// # Arguments
+    ///
+    /// * `value`: The value to use for all unconnected [`InputPort`]s of the given type.
+    pub fn set_fallback_cached<T: SendSyncAny + std::clone::Clone + std::cmp::PartialEq>(
+        &mut self,
+        value: T,
+    ) {
+        let type_id = value.type_id();
+        self.fallback_values.retain(|v| v.0 != type_id);
+        self.fallback_values
+            .push((type_id, FallbackValue::Cacheable(Box::new(value))));
     }
 
     /// Provide a fallback value to all unconnected [`InputPortUntyped`]s with the contained type.
@@ -340,10 +586,11 @@ impl ComputationContext {
     /// # Arguments
     ///
     /// * `value`: The value to use for all unconnected [`InputPort`]s of the type.
-    pub fn set_fallback_untyped(&mut self, value: Box<dyn Any + Send>) {
+    pub fn set_fallback_untyped(&mut self, value: Box<dyn SendSyncAny>) {
         let type_id = (*value).type_id();
-        self.default_values.retain(|v| v.0 != type_id);
-        self.default_values.push((type_id, value));
+        self.fallback_values.retain(|v| v.0 != type_id);
+        self.fallback_values
+            .push((type_id, FallbackValue::Opaque(value)));
     }
 
     /// Remove a previously set override value, returning it in a box
@@ -360,7 +607,7 @@ impl ComputationContext {
     pub fn remove_override_untyped(
         &mut self,
         port: &InputPortUntyped,
-    ) -> Option<Box<dyn Any + Send>> {
+    ) -> Option<Box<dyn SendSyncAny>> {
         self.overrides
             .iter()
             .position(|o| &o.port == port)
@@ -378,19 +625,25 @@ impl ComputationContext {
     /// # Returns
     ///
     /// An [`Option`] containing the override value if found, or `None` otherwise.
+    #[expect(clippy::missing_panics_doc, reason = "should not happen")]
     pub fn remove_override<T: 'static>(&mut self, port: &InputPort<T>) -> Option<T> {
         let index = self.overrides.iter().position(|o| o.port == port.port)?;
-        let override_value = self.overrides.swap_remove(index);
-        match override_value.value.downcast::<T>() {
-            Ok(boxed) => Some(*boxed),
-            Err(value) => {
-                // Type mismatch, undo the removal
-                self.overrides.push(InputPortValue {
-                    value,
-                    ..override_value
-                });
-                None
+        match self.overrides[index]
+            .value
+            .as_ref()
+            .as_any()
+            .downcast_ref::<T>()
+        {
+            Some(_) => {
+                let override_value = self.overrides.swap_remove(index);
+                let b = override_value
+                    .value
+                    .into_any()
+                    .downcast::<T>()
+                    .expect("type was checked previously");
+                Some(*b)
             }
+            None => None,
         }
     }
 
@@ -405,17 +658,21 @@ impl ComputationContext {
     /// # Returns
     ///
     /// An [`Option`] containing the fallback value if found, or `None` otherwise.
+    #[expect(clippy::missing_panics_doc, reason = "should not happen")]
     pub fn remove_fallback<T: 'static>(&mut self) -> Option<T> {
         let type_id = TypeId::of::<T>();
-        let index = self.default_values.iter().position(|o| o.0 == type_id)?;
-        let (id, value) = self.default_values.swap_remove(index);
-        match value.downcast::<T>() {
-            Ok(boxed) => Some(*boxed),
-            Err(value) => {
-                // Type mismatch, undo the removal
-                self.default_values.push((id, value));
-                None
+        let index = self.fallback_values.iter().position(|o| o.0 == type_id)?;
+        match self.fallback_values[index].1.as_any().downcast_ref::<T>() {
+            Some(_) => {
+                let override_value = self.fallback_values.swap_remove(index);
+                let b = override_value
+                    .1
+                    .into_any()
+                    .downcast::<T>()
+                    .expect("type was checked previously");
+                Some(*b)
             }
+            None => None,
         }
     }
 
@@ -430,12 +687,83 @@ impl ComputationContext {
     /// # Returns
     ///
     /// An [`Option`] containing the fallback value if found, or `None` otherwise.
-    pub fn remove_fallback_untyped(&mut self, type_id: TypeId) -> Option<Box<dyn Any + Send>> {
-        self.default_values
+    pub fn remove_fallback_untyped(&mut self, type_id: TypeId) -> Option<Box<dyn SendSyncAny>> {
+        self.fallback_values
             .iter()
             .position(|o| o.0 == type_id)
-            .map(|index| self.default_values.swap_remove(index).1)
+            .map(|index| self.fallback_values.swap_remove(index).1)
+            .map(|s| match s {
+                FallbackValue::Opaque(b) => b,
+                FallbackValue::Cacheable(b) => b.into_send_sync(),
+            })
     }
+}
+
+#[derive(Debug)]
+struct ComputedValue {
+    /// The computed output value.
+    value: NodeOutput,
+    /// A flag indicating whether the value changed during this `compute()` call
+    changed: bool,
+}
+
+#[derive(Debug)]
+struct NodeCacheEntry {
+    /// A boxed cloneable and executable representation of the node.
+    ///
+    /// This allows for comparing the current node with a previously cached version
+    /// to determine if recomputation is necessary.
+    node: Box<dyn ExecutableNode>,
+    /// A vector of `ComputedValue` instances, each representing an output of the node.
+    ///
+    /// The order of `ComputedValue` instances in this vector corresponds to the order
+    /// of outputs defined by the node.
+    outputs: Vec<ComputedValue>,
+}
+
+/// A cache for storing the results of node computations in a `ComputeGraph`.
+///
+/// `ComputationCache` is designed to improve performance by avoiding redundant computations.
+/// It stores the results of previous node executions, and copies of the nodes itself to detect changes.
+/// A cache will be only reused if:
+/// - The node is the same (checked with [`PartialEq`])
+/// - All inputs are comparable and the same (also checked with [`PartialEq`])
+///
+/// ## Note
+///
+/// The last output will never be cached, since it's returned by `compute()`.
+#[derive(Debug, Default)]
+pub struct ComputationCache {
+    /// A hash map that stores `NodeCacheEntry` instances, keyed by `NodeHandle`.
+    ///
+    /// This map serves as the primary storage for cached node results.
+    node_cache: HashMap<NodeHandle, NodeCacheEntry>,
+    /// A hash map that stores fallbacks used in the previous computation.
+    ///
+    /// The fallback in the [`ComputationContext`] will be compared to the one stored
+    /// here to check if a recomputation is required.
+    fallback_cache: HashMap<TypeId, Box<dyn CacheableFallback>>,
+}
+
+impl ComputationCache {
+    /// Creates a new empty cache for use with [`ComputeGraph::compute_with`].
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+/// Options to customize [`ComputeGraph::compute_with`].
+///
+/// This struct allows you to configure [`ComputeGraph::compute_with`] and [`ComputeGraph::compute_untyped_with`]
+/// by providing a context.
+#[derive(Debug, Default)]
+pub struct ComputationOptions<'a> {
+    /// An optional reference to a `ComputationContext`.
+    ///
+    /// The [`ComputationContext`] provides a way to override or supply default values
+    /// for input ports during computation. If [`None`], no overrides or defaults are used.
+    pub context: Option<&'a ComputationContext>,
 }
 
 /// A container for storing and managing metadata associated with nodes in a computation graph.
@@ -802,9 +1130,377 @@ impl ComputeGraph {
     pub fn compute_untyped(
         &self,
         output: OutputPortUntyped,
-    ) -> Result<Box<dyn Any + Send>, ComputeError> {
-        let mut visited = HashSet::new();
-        self.compute_recursive(output, &mut visited, None)
+    ) -> Result<Box<dyn SendSyncAny>, ComputeError> {
+        self.compute_untyped_with(output, &ComputationOptions::default(), None)
+    }
+
+    /// Computes the result for a given output port using the provided options, returning a boxed value.
+    ///
+    /// This function is the untyped version of [`ComputeGraph::compute_with`].
+    ///
+    /// Use the basic [`ComputeGraph::compute_untyped`] method when neither caching nor a context are needed.
+    ///
+    /// # Arguments
+    ///
+    /// * `output` - The output port to compute.
+    /// * `options` - [`ComputationOptions`] to customize the computation, for example, by passing
+    ///               in a [`ComputationContext`].
+    /// * `cache` - A [`ComputationCache`] to reuse the output of previous runs when possible.
+    ///
+    /// # Returns
+    ///
+    /// A result containing the computed boxed value or an error.
+    ///
+    /// # Errors
+    ///
+    /// An error is returned if:
+    /// - The node is not found.
+    /// - An input port of the node ar a dependency of the node are not connected.
+    /// - A cycle is detected in the graph.
+    /// - A error occurs during computation (e.g. type returned by the node does not match the expected type).
+    #[expect(clippy::too_many_lines)]
+    #[expect(clippy::missing_panics_doc, reason = "should not happen")]
+    pub fn compute_untyped_with(
+        &self,
+        output: OutputPortUntyped,
+        options: &ComputationOptions,
+        cache: Option<&mut ComputationCache>,
+    ) -> Result<Box<dyn SendSyncAny>, ComputeError> {
+        struct Cache<'a> {
+            fallback_cache: &'a mut HashMap<TypeId, Box<dyn CacheableFallback>>,
+        }
+
+        let mut visited: Vec<bool> = vec![false; self.nodes.len()];
+        let mut queue: VecDeque<usize> = VecDeque::new();
+
+        // Find the index of the node with the requested output port
+        let output_node_index = self
+            .nodes
+            .iter()
+            .enumerate()
+            .find(|(_, n)| n.handle == output.node)
+            .ok_or_else(|| ComputeError::NodeNotFound(output.node.clone()))?
+            .0;
+
+        queue.push_back(output_node_index);
+
+        // Perform a breadth-first search to find all dependencies of the output node
+        while let Some(node_index) = queue.pop_front() {
+            if visited[node_index] {
+                continue;
+            }
+            visited[node_index] = true;
+
+            // Find dependencies of the current node
+            let dependencies = self
+                .edges
+                .iter()
+                .filter(|connection| connection.to.node == self.nodes[node_index].handle)
+                // Skip dependencies that are overridden by the context
+                .filter_map(|connection| {
+                    if let Some(context) = options.context {
+                        if context.overrides.iter().any(|override_value| {
+                            override_value.port.node == connection.to.node
+                                && override_value.port.input_name == connection.to.input_name
+                        }) {
+                            return None;
+                        }
+                    }
+                    // Find the index of the node that provides the input
+                    let dependency_index = self
+                        .nodes
+                        .iter()
+                        .enumerate()
+                        .find(|(_, node)| node.handle == connection.from.node)
+                        .map(|(index, _)| index)?;
+                    Some(Ok(dependency_index))
+                });
+
+            // Add dependencies to the queue
+            for dependency in dependencies {
+                queue.push_back(dependency?);
+            }
+        }
+
+        // Create a DAG to represent the dependencies between nodes
+        let mut dependency_graph = dagga::Dag::<usize, usize>::default();
+
+        // Add nodes to the DAG, including their dependencies
+        dependency_graph.add_nodes(self.nodes.iter().enumerate().filter_map(
+            |(node_index, node)| {
+                if visited[node_index] {
+                    Some(
+                        dagga::Node::new(node_index)
+                            .with_name(node.handle.node_name.clone())
+                            .with_reads(
+                                // Add each input parameter as a read
+                                node.inputs.iter().filter_map(|(input_name, _input_type)| {
+                                    // This is the connection coming into this input
+                                    let connection = self.edges.iter().find(|c| {
+                                        c.to.node == node.handle && c.to.input_name == *input_name
+                                    })?;
+                                    // This is the index of the node, `node` depends on
+                                    let result_node_index = self
+                                        .nodes
+                                        .iter()
+                                        .enumerate()
+                                        .find(|(_, n)| n.handle == connection.from.node)?
+                                        .0;
+                                    Some(result_node_index)
+                                }),
+                            )
+                            .with_result(node_index),
+                    )
+                } else {
+                    None
+                }
+            },
+        ));
+
+        // Build the execution schedule from the DAG
+        let execution_schedule = dependency_graph
+            .build_schedule()
+            .map_err(|error| match error.source {
+                dagga::DaggaError::Cycle { start: _, path: _ } => ComputeError::CycleDetected,
+                err => ComputeError::ErrorBuildingSchedule(err),
+            })?;
+
+        // Create a map to store the computed results of each node
+        let (computed_results, mut cache) = if let Some(c) = cache {
+            (
+                &mut c.node_cache,
+                Some(Cache {
+                    fallback_cache: &mut c.fallback_cache,
+                }),
+            )
+        } else {
+            (&mut HashMap::new(), None)
+        };
+
+        // Execute the nodes in the order specified by the schedule
+        for batch in execution_schedule.batches {
+            for batch_node in batch {
+                let node_index = *batch_node.inner();
+                let current_node = &self.nodes[node_index];
+
+                // If recompute_required is false, we can reuse the result in the cache.
+                // Checking if input arguments where changed is done at the input gathering
+                // stage below.
+                let mut recompute_required = if cache.is_some() {
+                    computed_results
+                        .get(&current_node.handle)
+                        .map_or(true, |node_cache| {
+                            // We already computed a node with the same name, check if it changed
+                            let is_equal = node_cache
+                                .node
+                                .as_ref()
+                                .partial_eq(current_node.node.as_ref().as_ref());
+
+                            !is_equal
+                        })
+                } else {
+                    true
+                };
+
+                let mut input_values = vec![];
+
+                // Gather input values for the current node
+                for input in &current_node.inputs {
+                    // Check if the input is overridden by the context
+                    if let Some(context) = options.context {
+                        if let Some(override_value) =
+                            context.overrides.iter().find(|override_value| {
+                                override_value.port.node == current_node.handle
+                                    && override_value.port.input_name == input.0
+                            })
+                        {
+                            // Use the override value
+                            input_values.push(override_value.value.as_ref().as_any());
+                            recompute_required = true;
+                            continue;
+                        }
+                    }
+
+                    // Find the connection that provides the input
+                    let connection = self.edges.iter().find(|connection| {
+                        connection.to.node == current_node.handle
+                            && connection.to.input_name == input.0
+                    });
+
+                    let connection = if let Some(connection) = connection {
+                        Ok(connection)
+                    } else {
+                        // Check if a fallback value is provided by the context
+                        if let Some(context) = options.context {
+                            if let Some(fallback_value) = context
+                                .fallback_values
+                                .iter()
+                                .find(|fallback_value| fallback_value.0 == input.1)
+                            {
+                                // Use the fallback value
+                                input_values.push(fallback_value.1.as_any());
+                                // Check if the value changed
+                                if match &fallback_value.1 {
+                                    FallbackValue::Opaque(_) => true,
+                                    FallbackValue::Cacheable(value) => {
+                                        cache.as_mut().map_or(true, |cache| {
+                                            if let Some(fb) = cache.fallback_cache.get_mut(&input.1)
+                                            {
+                                                if fb.partial_eq(value.as_partial_eq_any()) {
+                                                    false
+                                                } else {
+                                                    // update
+                                                    *fb = value.clone();
+                                                    true
+                                                }
+                                            } else {
+                                                // insert
+                                                cache.fallback_cache.insert(input.1, value.clone());
+                                                true
+                                            }
+                                        })
+                                    }
+                                } {
+                                    recompute_required = true;
+                                }
+                                continue;
+                            }
+                        }
+                        // No connection or fallback value found, return an error
+                        Err(ComputeError::InputPortNotConnected(InputPortUntyped {
+                            node: current_node.handle.clone(),
+                            input_name: input.0,
+                        }))
+                    }?;
+
+                    let providing_node_handle = &connection.from.node;
+                    let providing_node = self
+                        .nodes
+                        .iter()
+                        .find(|node| node.handle == *providing_node_handle)
+                        .ok_or_else(|| ComputeError::NodeNotFound(providing_node_handle.clone()))?;
+
+                    let providing_output_name = connection.from.output_name;
+                    let providing_output = providing_node
+                        .outputs
+                        .iter()
+                        .enumerate()
+                        .find(|(_, (name, _))| *name == providing_output_name)
+                        .ok_or_else(|| ComputeError::PortNotFound {
+                            node: providing_node_handle.clone(),
+                            port: OutputPortUntyped {
+                                node: providing_node_handle.clone(),
+                                output_name: providing_output_name,
+                            },
+                        })?;
+                    let providing_output_index = providing_output.0;
+
+                    // Get the computed result of the providing node
+                    let cached_output = &computed_results
+                        .get(&providing_node.handle)
+                        .and_then(|e| e.outputs.get(providing_output_index))
+                        .expect("Result should be computed in a previous batch");
+                    if cached_output.changed {
+                        recompute_required = true;
+                    }
+                    input_values.push(cached_output.value.as_any());
+                }
+
+                if recompute_required {
+                    // Execute the node and store the result
+                    let output_values = current_node.node.run(&input_values);
+
+                    // Validate output types
+                    if output_values
+                        .iter()
+                        .zip(current_node.outputs.iter())
+                        .any(|(result, output)| result.type_id() != output.1)
+                        // Check if the length is the same, .zip() stops at the shortest iterator
+                        || output_values.len() != current_node.outputs.len()
+                    {
+                        return Err(ComputeError::OutputTypeMismatch {
+                            node: current_node.handle.clone(),
+                        });
+                    }
+
+                    // Store the results of the node, indexed by (node handle, output name)
+                    if let Some(a) = computed_results.get_mut(&current_node.handle) {
+                        for (cache, output) in a.outputs.iter_mut().zip(output_values.into_iter()) {
+                            cache.changed = match (&cache.value, &output) {
+                                (NodeOutput::Opaque(_any1), NodeOutput::Opaque(_any2)) => true,
+                                (NodeOutput::Comparable(any1), NodeOutput::Comparable(any2)) => {
+                                    !(any1.as_ref().partial_eq(any2.as_ref()))
+                                }
+                                (_, _) => panic!(
+                                    "This should not happen. Node changed its output type???"
+                                ),
+                            };
+                            cache.value = output;
+                        }
+                    } else {
+                        computed_results
+                            .entry(current_node.handle.clone())
+                            .insert_entry(NodeCacheEntry {
+                                node: current_node.node.clone(),
+                                outputs: output_values
+                                    .into_iter()
+                                    .map(|output| {
+                                        let was_changed = true;
+                                        ComputedValue {
+                                            value: output,
+                                            changed: was_changed,
+                                        }
+                                    })
+                                    .collect(),
+                            });
+                    }
+                }
+            }
+        }
+
+        if let Some(cache) = cache {
+            // Discard all cached values of nodes that are no longer in the graph.
+            computed_results.retain(|node, _cache| self.nodes.iter().any(|n| n.handle == *node));
+            for (_, c) in computed_results.iter_mut() {
+                for a in &mut c.outputs {
+                    a.changed = false;
+                }
+            }
+            if let Some(context) = options.context {
+                cache.fallback_cache.retain(|t, _cache| {
+                    context
+                        .fallback_values
+                        .iter()
+                        .any(|(fb_type, _fb_value)| fb_type == t)
+                });
+            } else {
+                cache.fallback_cache.clear();
+            }
+        }
+
+        // Return the computed result for the requested output port
+        if self.nodes.iter().all(|n| n.handle != output.node) {
+            Err(ComputeError::NodeNotFound(output.node))
+        } else {
+            let result_index = self.nodes[output_node_index]
+                .outputs
+                .iter()
+                .enumerate()
+                .find(|(_, (name, _))| *name == output.output_name)
+                .ok_or_else(|| ComputeError::PortNotFound {
+                    node: output.node.clone(),
+                    port: output.clone(),
+                })?
+                .0;
+            Ok(computed_results
+                .remove_entry(&output.node)
+                .expect("Should be computed by now")
+                .1
+                .outputs
+                .swap_remove(result_index)
+                .value
+                .into_send_sync())
+        }
     }
 
     /// Computes the result for a given output port using the provided context, returning a boxed value.
@@ -835,9 +1531,14 @@ impl ComputeGraph {
         &self,
         output: OutputPortUntyped,
         context: &ComputationContext,
-    ) -> Result<Box<dyn Any + Send>, ComputeError> {
-        let mut visited = HashSet::new();
-        self.compute_recursive(output, &mut visited, Some(context))
+    ) -> Result<Box<dyn SendSyncAny>, ComputeError> {
+        self.compute_untyped_with(
+            output,
+            &ComputationOptions {
+                context: Some(context),
+            },
+            None,
+        )
     }
 
     /// Computes the result for a given output port.
@@ -860,6 +1561,7 @@ impl ComputeGraph {
     pub fn compute<T: 'static>(&self, output: OutputPort<T>) -> Result<T, ComputeError> {
         let res = self.compute_untyped(output.port.clone())?;
         let res = res
+            .into_any()
             .downcast::<T>()
             .map_err(|_| ComputeError::OutputTypeMismatch {
                 node: output.port.node,
@@ -896,6 +1598,7 @@ impl ComputeGraph {
     ) -> Result<T, ComputeError> {
         let res = self.compute_untyped_with_context(output.port.clone(), context)?;
         let res = res
+            .into_any()
             .downcast::<T>()
             .map_err(|_| ComputeError::OutputTypeMismatch {
                 node: output.port.node,
@@ -903,138 +1606,46 @@ impl ComputeGraph {
         Ok(*res)
     }
 
-    fn compute_recursive(
+    /// Computes the result for a given output port using the provided options.
+    ///
+    /// This function is the primary way to execute computations in the [`ComputeGraph`].
+    /// It takes [`ComputationOptions`] to enable caching and/or provide a [`ComputationContext`].
+    ///
+    /// Use the basic [`ComputeGraph::compute`] method when neither caching nor a context are needed.
+    ///
+    /// # Arguments
+    ///
+    /// * `output` - The output port to compute.
+    /// * `options` - [`ComputationOptions`] to customize the computation, for example, by passing
+    ///               in a [`ComputationContext`].
+    /// * `cache` - A [`ComputationCache`] to reuse the output of previous runs when possible.
+    ///
+    /// # Returns
+    ///
+    /// A result containing the computed value or an error.
+    ///
+    /// # Errors
+    ///
+    /// An error is returned if:
+    /// - The node is not found.
+    /// - The node has the incorrect output type.
+    /// - An input port of the node or a dependency of the node is not connected, and
+    ///   no value is provided via the context.
+    /// - A cycle is detected in the graph.
+    pub fn compute_with<T: 'static>(
         &self,
-        output: OutputPortUntyped,
-        visited: &mut HashSet<NodeHandle>,
-        context: Option<&ComputationContext>,
-    ) -> Result<Box<dyn Any + Send>, ComputeError> {
-        enum OwnedOrBorrowed<'a, T: 'a + Send> {
-            Owned(T),
-            Borrowed(&'a T),
-        }
-        impl<T: Send> OwnedOrBorrowed<'_, T> {
-            const fn as_ref(&self) -> &T {
-                match self {
-                    OwnedOrBorrowed::Owned(t) => t,
-                    OwnedOrBorrowed::Borrowed(t) => t,
-                }
-            }
-        }
-        // For now we use a simple, but more inefficient approach for computing the result:
-        // Here we simply recursively compute the dependencies of the requested node in breadth first order.
-        //
-        // This code can later be improved in multiple ways:
-        // 1. Caching:
-        // If we encounter a node that was already computed with the same input (by hashing the input parameters),
-        // we reuse the result using a hash map.
-        // 2. Cycle detection:
-        // Currently, cycles are not supported and result in a stack overflow.
-        // 3. Parallel computation
-        // The system should detect independent nodes and be able to compute their results simultaneously
-        // If the need arises, we could also support optimized computation of multiple OutputPort in one call to
-        // compute(). This shhould then also be paralelized if possible.
-
-        // Find the node with the requested output port
-        let output_node = self
-            .nodes
-            .iter()
-            .find(|n| n.handle == output.node)
-            .ok_or_else(|| {
-                ComputeError::NodeNotFound(NodeHandle {
-                    node_name: output.node.node_name.clone(),
-                })
+        output: OutputPort<T>,
+        options: &ComputationOptions,
+        cache: Option<&mut ComputationCache>,
+    ) -> Result<T, ComputeError> {
+        let res = self.compute_untyped_with(output.port.clone(), options, cache)?;
+        let res = res
+            .into_any()
+            .downcast::<T>()
+            .map_err(|_| ComputeError::OutputTypeMismatch {
+                node: output.port.node,
             })?;
-        let output_handle = output_node.handle.clone();
-
-        // Check for cycles, we use a simple set to detect if in the current path we already visited the node
-        if visited.contains(&output_handle) {
-            return Err(ComputeError::CycleDetected);
-        }
-        visited.insert(output_handle.clone());
-
-        // Find the index of the output port
-        let output_result_index = output_node
-            .outputs
-            .iter()
-            .position(|o| o.0 == output.output_name)
-            .ok_or_else(|| ComputeError::PortNotFound {
-                node: output_handle.clone(),
-                port: output,
-            })?;
-
-        // Compute all dependencies recursively
-        let mut dependencies = vec![];
-
-        for input in &output_node.inputs {
-            if let Some(context) = context {
-                // Check if we should use a override instead
-                if let Some(port_value) = context
-                    .overrides
-                    .iter()
-                    .find(|v| v.port.input_name == input.0)
-                {
-                    // Override was specified, use it instead
-                    dependencies.push(OwnedOrBorrowed::Borrowed(&port_value.value));
-                    continue;
-                }
-            }
-            // Find the connection that provides the input
-            let connection = self
-                .edges
-                .iter()
-                .find(|c| c.to.node == output_handle && c.to.input_name == input.0);
-            let connection = if let Some(connection) = connection {
-                Ok(connection)
-            } else {
-                // Check if the context has a fallback value for this type
-                if let Some(context) = context {
-                    if let Some(v) = context.default_values.iter().find(|v| v.0 == input.1) {
-                        // Found a fallback, we use that instead
-                        dependencies.push(OwnedOrBorrowed::Borrowed(&v.1));
-                        continue;
-                    }
-                }
-                Err(ComputeError::InputPortNotConnected(InputPortUntyped {
-                    node: output_handle.clone(),
-                    input_name: input.0,
-                }))
-            }?;
-
-            // Compute the result of the input
-            let result = self.compute_recursive(connection.from.clone(), visited, context)?;
-            dependencies.push(OwnedOrBorrowed::Owned(result));
-        }
-
-        // The introduction of OwnedOrBorrowed is necessary, since otherwise the computed dependencies
-        // would be destroyed after each loop iteration. This converts the list back into the required format
-        let dependencies: Vec<&Box<dyn Any + Send>> =
-            dependencies.iter().map(OwnedOrBorrowed::as_ref).collect();
-        // Run the node with the computed inputs
-        let output_result = output_node.node.run(&dependencies);
-        // check if the result has the correct type
-        if output_result
-            .iter()
-            .zip(output_node.outputs.iter())
-            .any(|(result, output)| (**result).type_id() != output.1)
-            // .zip() will stop at the shortest iterator, so we need to check the length separately
-            || output_result.len() != output_node.outputs.len()
-        {
-            return Err(ComputeError::OutputTypeMismatch {
-                node: output_handle.clone(),
-            });
-        }
-        let output = output_result
-            .into_iter()
-            .nth(output_result_index)
-            .expect("this should not happen, since we checked the length before");
-
-        // Return the result, we can not use clone here, because the type is not known at compile time
-
-        // Remove the node from the visited set after computation
-        visited.remove(&output_handle);
-
-        Ok(output)
+        Ok(*res)
     }
 
     /// Returns an iterator over the nodes in the graph.
@@ -1312,6 +1923,41 @@ impl GraphNode {
     }
 }
 
+/// Type returned by an [`OutputPort`] of a [`ExecutableNode`].
+#[derive(Debug)]
+pub enum NodeOutput {
+    /// Should be returned if the type does not implement [`PartialEq`].
+    Opaque(Box<dyn SendSyncAny>),
+    /// Should be returned if the type implements [`PartialEq`].
+    ///
+    /// The comparison will be used to detect changes when running with a cache.
+    Comparable(Box<dyn SendSyncPartialEqAny>),
+}
+
+impl NodeOutput {
+    #[must_use]
+    pub fn type_id(&self) -> TypeId {
+        match self {
+            Self::Opaque(a) => a.as_ref().type_id(),
+            Self::Comparable(a) => a.as_ref().type_id(),
+        }
+    }
+    #[must_use]
+    pub fn as_any(&self) -> &dyn Any {
+        match self {
+            Self::Opaque(a) => a.as_ref().as_any(),
+            Self::Comparable(a) => a.as_ref().as_any(),
+        }
+    }
+    #[must_use]
+    pub fn into_send_sync(self) -> Box<dyn SendSyncAny> {
+        match self {
+            Self::Opaque(a) => a,
+            Self::Comparable(a) => a.into_send_sync(),
+        }
+    }
+}
+
 /// Trait for executing a node's computation logic.
 ///
 /// This trait defines the interface for nodes that can perform computation
@@ -1319,7 +1965,7 @@ impl GraphNode {
 /// defining the logic that processes input data and produces output data.
 ///
 /// Implementors of this trait should always also implement the [`NodeFactory`] trait.
-pub trait ExecutableNode: std::fmt::Debug + DynClone + Send + Sync {
+pub trait ExecutableNode: std::fmt::Debug + DynClone + SendSyncPartialEqAny {
     /// Executes the node's computation logic.
     ///
     /// This method takes boxed input data, processes it, and returns boxed output data.
@@ -1328,13 +1974,13 @@ pub trait ExecutableNode: std::fmt::Debug + DynClone + Send + Sync {
     ///
     /// # Parameters
     ///
-    /// - `input`: A slice of boxed dynamic values representing the input data.
+    /// - `input`: A slice of dynamic values representing the input data.
     ///
     /// # Returns
     ///
     /// A vector of boxed dynamic values representing the output data.
     // TODO: add error handling
-    fn run(&self, input: &[&Box<dyn Any + Send>]) -> Vec<Box<dyn Any + Send>>;
+    fn run(&self, input: &[&dyn Any]) -> Vec<NodeOutput>;
 }
 
 dyn_clone::clone_trait_object!(ExecutableNode);
@@ -1386,4 +2032,11 @@ pub trait NodeFactory: ExecutableNode {
     ///
     /// A handle of type `Self::Handle` that can be used to interact with the node.
     fn create_handle(gnode: &GraphNode) -> Self::Handle;
+}
+
+// Used by the proc-macro
+#[doc(hidden)]
+pub mod __private {
+    pub const fn check_cached_input_impl<T: PartialEq + Send + Sync>() {}
+    pub const fn check_uncached_input_impl<T: Send + Sync>() {}
 }
