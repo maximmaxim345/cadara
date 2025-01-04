@@ -1458,13 +1458,23 @@ impl ComputeGraph {
             }
         }
 
-        if cache.is_some() {
+        if let Some(cache) = cache {
             // Discard all cached values of nodes that are no longer in the graph.
             computed_results.retain(|node, _cache| self.nodes.iter().any(|n| n.handle == *node));
             for (_, c) in computed_results.iter_mut() {
                 for a in &mut c.outputs {
                     a.changed = false;
                 }
+            }
+            if let Some(context) = options.context {
+                cache.fallback_cache.retain(|t, _cache| {
+                    context
+                        .fallback_values
+                        .iter()
+                        .any(|(fb_type, _fb_value)| fb_type == t)
+                });
+            } else {
+                cache.fallback_cache.clear();
             }
         }
 
