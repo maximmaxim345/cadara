@@ -1,8 +1,5 @@
 mod common;
-use std::{
-    collections::HashSet,
-    sync::{Arc, Mutex, OnceLock},
-};
+use std::{cell::RefCell, collections::HashSet};
 
 use anyhow::Result;
 use common::*;
@@ -32,11 +29,12 @@ impl OpNode {
     }
 }
 
-static OP_LOG: OnceLock<Arc<Mutex<Vec<&'static str>>>> = OnceLock::new();
+thread_local! {
+    static OP_LOG: RefCell<Vec<&'static str>> = const { RefCell::new(Vec::new()) };
+}
 
 fn get_op_log() -> Vec<&'static str> {
-    let mut log = OP_LOG.get_or_init(Default::default).lock().unwrap();
-    std::mem::take(log.as_mut())
+    OP_LOG.with(|log| std::mem::take(&mut *log.borrow_mut()))
 }
 
 fn get_op_log_set() -> HashSet<&'static str> {
@@ -45,8 +43,9 @@ fn get_op_log_set() -> HashSet<&'static str> {
 
 #[node(OpNode)]
 fn run(&self, a: &usize, b: &usize) -> usize {
-    let mut log = OP_LOG.get_or_init(Default::default).lock().unwrap();
-    log.push(self.0);
+    OP_LOG.with(|log| {
+        log.borrow_mut().push(self.0);
+    });
     match self.1 {
         OpNodeType::Sum => *a + *b,
         OpNodeType::A => *a,
