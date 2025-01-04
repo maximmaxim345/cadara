@@ -476,3 +476,98 @@ fn test_caching_with_fallback() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_caching_with_cacheable_fallback() -> Result<()> {
+    // The graph will look like this ('►' are unconnected):
+    //
+    //           ►┌─────┐   ┌─────┐
+    //            │ op4 ├──►│ op5 │
+    // ►┌─────┐ ┌►└─────┘   └──┬──┘
+    //  │ op3 ├─┘              │
+    // ►└─────┘                │
+    //                         ▼
+    //                      result
+    let mut graph = ComputeGraph::new();
+
+    let op3 = graph.add_node(OpNode::sum("op3"), "op3".to_string())?;
+    let op4 = graph.add_node(OpNode::sum("op4"), "op4".to_string())?;
+    let op5 = graph.add_node(OpNode::keep_a("op5"), "op5".to_string())?;
+
+    graph.connect(op3.output(), op4.input_b())?;
+    graph.connect(op4.output(), op5.input_a())?;
+    graph.connect(op4.output(), op5.input_b())?;
+
+    let mut cache = ComputationCache::new();
+
+    let mut context = ComputationContext::new();
+    context.set_fallback_cached(10_usize);
+
+    assert_eq!(
+        graph.compute_with(
+            op5.output(),
+            &ComputationOptions {
+                context: Some(&context),
+            },
+            Some(&mut cache),
+        )?,
+        30
+    );
+    assert_eq!(
+        get_op_log_set(),
+        ["op3", "op4", "op5"].into_iter().collect(),
+    );
+
+    assert_eq!(
+        graph.compute_with(
+            op5.output(),
+            &ComputationOptions {
+                context: Some(&context),
+            },
+            Some(&mut cache),
+        )?,
+        30
+    );
+    assert_eq!(
+        get_op_log_set(),
+        ["op5"].into_iter().collect(),
+        "fallbacks should be cached"
+    );
+
+    // Change the fallback
+    context.set_fallback_cached(20_usize);
+    assert_eq!(
+        graph.compute_with(
+            op5.output(),
+            &ComputationOptions {
+                context: Some(&context),
+            },
+            Some(&mut cache),
+        )?,
+        60
+    );
+    assert_eq!(
+        get_op_log_set(),
+        ["op3", "op4", "op5"].into_iter().collect(),
+        "we changed the context, a recompute is required"
+    );
+
+    context.set_fallback_cached(20_usize);
+    assert_eq!(
+        graph.compute_with(
+            op5.output(),
+            &ComputationOptions {
+                context: Some(&context),
+            },
+            Some(&mut cache),
+        )?,
+        60
+    );
+    assert_eq!(
+        get_op_log_set(),
+        ["op5"].into_iter().collect(),
+        "fallbacks should be cached again"
+    );
+
+    Ok(())
+}
