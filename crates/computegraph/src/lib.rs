@@ -435,10 +435,53 @@ impl fmt::Debug for Box<dyn SendSyncPartialEqAny> {
     }
 }
 
+trait CacheableFallback: SendSyncPartialEqAny + DynClone {
+    fn as_partial_eq_any(&self) -> &dyn SendSyncPartialEqAny;
+}
+
+dyn_clone::clone_trait_object!(CacheableFallback);
+
+impl<T> CacheableFallback for T
+where
+    T: SendSyncPartialEqAny + DynClone,
+{
+    fn as_partial_eq_any(&self) -> &dyn SendSyncPartialEqAny {
+        self
+    }
+}
+
+impl fmt::Debug for Box<dyn CacheableFallback> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Box<dyn CacheableFallback>").finish()
+    }
+}
+
 #[derive(Debug)]
 struct InputPortValue {
     port: InputPortUntyped,
     value: Box<dyn SendSyncAny>,
+}
+
+#[derive(Debug)]
+enum FallbackValue {
+    Opaque(Box<dyn SendSyncAny>),
+    Cacheable(Box<dyn CacheableFallback>),
+}
+
+impl FallbackValue {
+    fn as_any(&self) -> &dyn Any {
+        match self {
+            Self::Opaque(b) => b.as_ref().as_any(),
+            Self::Cacheable(b) => b.as_ref().as_any(),
+        }
+    }
+
+    fn into_any(self) -> Box<dyn Any> {
+        match self {
+            Self::Opaque(b) => b.into_any(),
+            Self::Cacheable(b) => b.into_any(),
+        }
+    }
 }
 
 /// Set predefined values for [`ComputeGraph::compute_with_context`].
@@ -451,7 +494,7 @@ struct InputPortValue {
 #[derive(Debug, Default)]
 pub struct ComputationContext {
     overrides: Vec<InputPortValue>,
-    default_values: Vec<(TypeId, Box<dyn SendSyncAny>)>,
+    default_values: Vec<(TypeId, FallbackValue)>,
 }
 
 impl ComputationContext {
@@ -500,6 +543,9 @@ impl ComputationContext {
     /// This fallback will only be used if a [`InputPort`] required for the computation
     /// was unconnected, but required.
     ///
+    /// If using a [`ComputationCache`], nodes using fallback values will still be rerun every time.
+    /// Use [`ComputationContext::set_fallback_cached`] to only rerun on changes.
+    ///
     /// If the type is not known at compile time, use [`ComputationContext::set_fallback_untyped`] instead.
     ///
     /// # Arguments
@@ -508,7 +554,28 @@ impl ComputationContext {
     pub fn set_fallback<T: SendSyncAny>(&mut self, value: T) {
         let type_id = value.type_id();
         self.default_values.retain(|v| v.0 != type_id);
-        self.default_values.push((type_id, Box::new(value)));
+        self.default_values
+            .push((type_id, FallbackValue::Opaque(Box::new(value))));
+    }
+
+    /// Provide a comparable fallback value to all unconnected [`InputPort`]s with the type 'T'.
+    ///
+    /// This fallback will only be used if a [`InputPort`] required for the computation
+    /// was unconnected, but required. This differs from [`ComputationContext::set_fallback`]
+    /// in that the provided value must also implement [`PartialEq`] and [`Clone`].
+    /// To detect changes, a copy of `value` will be made and held in the [`ComputationCache`].
+    ///
+    /// # Arguments
+    ///
+    /// * `value`: The value to use for all unconnected [`InputPort`]s of the given type.
+    pub fn set_fallback_cached<T: SendSyncAny + std::clone::Clone + std::cmp::PartialEq>(
+        &mut self,
+        value: T,
+    ) {
+        let type_id = value.type_id();
+        self.default_values.retain(|v| v.0 != type_id);
+        self.default_values
+            .push((type_id, FallbackValue::Cacheable(Box::new(value))));
     }
 
     /// Provide a fallback value to all unconnected [`InputPortUntyped`]s with the contained type.
@@ -522,7 +589,8 @@ impl ComputationContext {
     pub fn set_fallback_untyped(&mut self, value: Box<dyn SendSyncAny>) {
         let type_id = (*value).type_id();
         self.default_values.retain(|v| v.0 != type_id);
-        self.default_values.push((type_id, value));
+        self.default_values
+            .push((type_id, FallbackValue::Opaque(value)));
     }
 
     /// Remove a previously set override value, returning it in a box
@@ -594,12 +662,7 @@ impl ComputationContext {
     pub fn remove_fallback<T: 'static>(&mut self) -> Option<T> {
         let type_id = TypeId::of::<T>();
         let index = self.default_values.iter().position(|o| o.0 == type_id)?;
-        match self.default_values[index]
-            .1
-            .as_ref()
-            .as_any()
-            .downcast_ref::<T>()
-        {
+        match self.default_values[index].1.as_any().downcast_ref::<T>() {
             Some(_) => {
                 let override_value = self.default_values.swap_remove(index);
                 let b = override_value
@@ -629,6 +692,10 @@ impl ComputationContext {
             .iter()
             .position(|o| o.0 == type_id)
             .map(|index| self.default_values.swap_remove(index).1)
+            .map(|s| match s {
+                FallbackValue::Opaque(b) => b,
+                FallbackValue::Cacheable(b) => b.into_send_sync(),
+            })
     }
 }
 
@@ -671,6 +738,11 @@ pub struct ComputationCache {
     ///
     /// This map serves as the primary storage for cached node results.
     hm: HashMap<NodeHandle, NodeCacheEntry>,
+    /// A hash map that stores fallbacks used in the previous computation.
+    ///
+    /// The fallback in the [`ComputationContext`] will be compared to the one stored
+    /// here to check if a recomputation is required.
+    fallback_cache: HashMap<TypeId, Box<dyn CacheableFallback>>,
 }
 
 impl ComputationCache {
@@ -1094,6 +1166,10 @@ impl ComputeGraph {
         options: &ComputationOptions,
         cache: Option<&mut ComputationCache>,
     ) -> Result<Box<dyn SendSyncAny>, ComputeError> {
+        struct Cache<'a> {
+            fallback_cache: &'a mut HashMap<TypeId, Box<dyn CacheableFallback>>,
+        }
+
         let mut visited: Vec<bool> = vec![false; self.nodes.len()];
         let mut queue: VecDeque<usize> = VecDeque::new();
 
@@ -1190,10 +1266,15 @@ impl ComputeGraph {
             })?;
 
         // Create a map to store the computed results of each node
-        let (computed_results, running_with_cache) = if let Some(c) = cache {
-            (&mut c.hm, true)
+        let (computed_results, mut cache) = if let Some(c) = cache {
+            (
+                &mut c.hm,
+                Some(Cache {
+                    fallback_cache: &mut c.fallback_cache,
+                }),
+            )
         } else {
-            (&mut HashMap::new(), false)
+            (&mut HashMap::new(), None)
         };
 
         // Execute the nodes in the order specified by the schedule
@@ -1205,7 +1286,7 @@ impl ComputeGraph {
                 // If recompute_required is false, we can reuse the result in the cache.
                 // Checking if input arguments where changed is done at the input gathering
                 // stage below.
-                let mut recompute_required = if running_with_cache {
+                let mut recompute_required = if cache.is_some() {
                     computed_results
                         .get(&current_node.handle)
                         .map_or(true, |node_cache| {
@@ -1257,8 +1338,31 @@ impl ComputeGraph {
                                 .find(|fallback_value| fallback_value.0 == input.1)
                             {
                                 // Use the fallback value
-                                input_values.push(fallback_value.1.as_ref().as_any());
-                                recompute_required = true;
+                                input_values.push(fallback_value.1.as_any());
+                                // Check if the value changed
+                                if match &fallback_value.1 {
+                                    FallbackValue::Opaque(_) => true,
+                                    FallbackValue::Cacheable(value) => {
+                                        cache.as_mut().map_or(true, |cache| {
+                                            if let Some(fb) = cache.fallback_cache.get_mut(&input.1)
+                                            {
+                                                if fb.partial_eq(value.as_partial_eq_any()) {
+                                                    false
+                                                } else {
+                                                    // update
+                                                    *fb = value.clone();
+                                                    true
+                                                }
+                                            } else {
+                                                // insert
+                                                cache.fallback_cache.insert(input.1, value.clone());
+                                                true
+                                            }
+                                        })
+                                    }
+                                } {
+                                    recompute_required = true;
+                                }
                                 continue;
                             }
                         }
@@ -1354,7 +1458,7 @@ impl ComputeGraph {
             }
         }
 
-        if running_with_cache {
+        if cache.is_some() {
             // Discard all cached values of nodes that are no longer in the graph.
             computed_results.retain(|node, _cache| self.nodes.iter().any(|n| n.handle == *node));
             for (_, c) in computed_results.iter_mut() {
