@@ -494,7 +494,7 @@ impl FallbackValue {
 #[derive(Debug, Default)]
 pub struct ComputationContext {
     overrides: Vec<InputPortValue>,
-    default_values: Vec<(TypeId, FallbackValue)>,
+    fallback_values: Vec<(TypeId, FallbackValue)>,
 }
 
 impl ComputationContext {
@@ -553,8 +553,8 @@ impl ComputationContext {
     /// * `value`: The value to use for all unconnected [`InputPort`]s of the given type.
     pub fn set_fallback<T: SendSyncAny>(&mut self, value: T) {
         let type_id = value.type_id();
-        self.default_values.retain(|v| v.0 != type_id);
-        self.default_values
+        self.fallback_values.retain(|v| v.0 != type_id);
+        self.fallback_values
             .push((type_id, FallbackValue::Opaque(Box::new(value))));
     }
 
@@ -573,8 +573,8 @@ impl ComputationContext {
         value: T,
     ) {
         let type_id = value.type_id();
-        self.default_values.retain(|v| v.0 != type_id);
-        self.default_values
+        self.fallback_values.retain(|v| v.0 != type_id);
+        self.fallback_values
             .push((type_id, FallbackValue::Cacheable(Box::new(value))));
     }
 
@@ -588,8 +588,8 @@ impl ComputationContext {
     /// * `value`: The value to use for all unconnected [`InputPort`]s of the type.
     pub fn set_fallback_untyped(&mut self, value: Box<dyn SendSyncAny>) {
         let type_id = (*value).type_id();
-        self.default_values.retain(|v| v.0 != type_id);
-        self.default_values
+        self.fallback_values.retain(|v| v.0 != type_id);
+        self.fallback_values
             .push((type_id, FallbackValue::Opaque(value)));
     }
 
@@ -661,10 +661,10 @@ impl ComputationContext {
     #[expect(clippy::missing_panics_doc, reason = "should not happen")]
     pub fn remove_fallback<T: 'static>(&mut self) -> Option<T> {
         let type_id = TypeId::of::<T>();
-        let index = self.default_values.iter().position(|o| o.0 == type_id)?;
-        match self.default_values[index].1.as_any().downcast_ref::<T>() {
+        let index = self.fallback_values.iter().position(|o| o.0 == type_id)?;
+        match self.fallback_values[index].1.as_any().downcast_ref::<T>() {
             Some(_) => {
-                let override_value = self.default_values.swap_remove(index);
+                let override_value = self.fallback_values.swap_remove(index);
                 let b = override_value
                     .1
                     .into_any()
@@ -688,10 +688,10 @@ impl ComputationContext {
     ///
     /// An [`Option`] containing the fallback value if found, or `None` otherwise.
     pub fn remove_fallback_untyped(&mut self, type_id: TypeId) -> Option<Box<dyn SendSyncAny>> {
-        self.default_values
+        self.fallback_values
             .iter()
             .position(|o| o.0 == type_id)
-            .map(|index| self.default_values.swap_remove(index).1)
+            .map(|index| self.fallback_values.swap_remove(index).1)
             .map(|s| match s {
                 FallbackValue::Opaque(b) => b,
                 FallbackValue::Cacheable(b) => b.into_send_sync(),
@@ -1333,7 +1333,7 @@ impl ComputeGraph {
                         // Check if a fallback value is provided by the context
                         if let Some(context) = options.context {
                             if let Some(fallback_value) = context
-                                .default_values
+                                .fallback_values
                                 .iter()
                                 .find(|fallback_value| fallback_value.0 == input.1)
                             {
