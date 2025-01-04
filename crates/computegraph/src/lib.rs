@@ -737,7 +737,7 @@ pub struct ComputationCache {
     /// A hash map that stores `NodeCacheEntry` instances, keyed by `NodeHandle`.
     ///
     /// This map serves as the primary storage for cached node results.
-    hm: HashMap<NodeHandle, NodeCacheEntry>,
+    node_cache: HashMap<NodeHandle, NodeCacheEntry>,
     /// A hash map that stores fallbacks used in the previous computation.
     ///
     /// The fallback in the [`ComputationContext`] will be compared to the one stored
@@ -1268,7 +1268,7 @@ impl ComputeGraph {
         // Create a map to store the computed results of each node
         let (computed_results, mut cache) = if let Some(c) = cache {
             (
-                &mut c.hm,
+                &mut c.node_cache,
                 Some(Cache {
                     fallback_cache: &mut c.fallback_cache,
                 }),
