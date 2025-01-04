@@ -569,5 +569,71 @@ fn test_caching_with_cacheable_fallback() -> Result<()> {
         "fallbacks should be cached again"
     );
 
+    // Check if the cache is discarded if the fallback is removed (and kept otherwise):
+    // Add a new node to not disturb the cache of the other nodes
+    let value = graph.add_node(TestNodeConstant::new(10), "value".to_string())?;
+
+    assert_eq!(
+        graph.compute_with(
+            value.output(),
+            &ComputationOptions {
+                context: Some(&context),
+            },
+            Some(&mut cache),
+        )?,
+        10
+    );
+    assert_eq!(get_op_log_set(), [].into_iter().collect(),);
+
+    assert_eq!(
+        graph.compute_with(
+            op5.output(),
+            &ComputationOptions {
+                context: Some(&context),
+            },
+            Some(&mut cache),
+        )?,
+        60
+    );
+    assert_eq!(
+        get_op_log_set(),
+        ["op5"].into_iter().collect(),
+        "fallbacks should still be in the cache, even though the fallback was not used"
+    );
+
+    // now remove the fallback
+
+    context.remove_fallback::<usize>();
+    assert_eq!(
+        graph.compute_with(
+            value.output(),
+            &ComputationOptions {
+                context: Some(&context),
+            },
+            Some(&mut cache),
+        )?,
+        10
+    );
+    assert_eq!(get_op_log_set(), [].into_iter().collect(),);
+
+    // And readd it (with the same value)
+    context.set_fallback_cached(20_usize);
+
+    assert_eq!(
+        graph.compute_with(
+            op5.output(),
+            &ComputationOptions {
+                context: Some(&context),
+            },
+            Some(&mut cache),
+        )?,
+        60
+    );
+    assert_eq!(
+        get_op_log_set(),
+        ["op3", "op5"].into_iter().collect(),
+        "fallbacks should be discarded from the cache, but `op4` should still be detected as unchanged"
+    );
+
     Ok(())
 }
