@@ -1429,7 +1429,7 @@ impl ComputeGraph {
                             cache.changed = match (&cache.value, &output) {
                                 (NodeOutput::Opaque(_any1), NodeOutput::Opaque(_any2)) => true,
                                 (NodeOutput::Comparable(any1), NodeOutput::Comparable(any2)) => {
-                                    !(any1.as_ref().partial_eq(any2.as_ref()))
+                                    !any1.as_ref().partial_eq(any2.as_ref())
                                 }
                                 (_, _) => panic!(
                                     "This should not happen. Node changed its output type???"
