@@ -10,8 +10,6 @@ use uuid::Uuid;
 /// A trait for data sections that can be modified by transactions defined by the [`Module`] trait.
 ///
 /// Implements the Command pattern.
-///
-/// [`Module`]: crate::Module
 pub trait DataSection:
     Clone + Default + Debug + PartialEq + Serialize + Send + Sync + for<'a> Deserialize<'a>
 {

@@ -27,7 +27,7 @@ impl Vertex {
 
     pub const fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            array_stride: size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &Self::ATTRIBS,
         }
@@ -52,7 +52,7 @@ impl shader::Primitive for RenderPrimitive {
         format: wgpu::TextureFormat,
         storage: &mut shader::Storage,
         bounds: &iced::Rectangle,
-        viewport: &iced::widget::shader::Viewport,
+        viewport: &shader::Viewport,
     ) {
         if !storage.has::<RenderPipeline>() {
             storage.store(RenderPipeline::new(
@@ -142,7 +142,7 @@ impl RenderPipeline {
             });
         let camera = device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: std::mem::size_of::<CameraUniform>() as u64,
+            size: size_of::<CameraUniform>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });

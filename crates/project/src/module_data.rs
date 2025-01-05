@@ -517,7 +517,7 @@ impl ModuleRegistry {
                     let args = args
                         .downcast_ref::<M>()
                         .ok_or(ModuleRegistryError::ArgsDowncastError)?;
-                    module::DataSection::apply(&mut data.persistent, args.0.clone());
+                    DataSection::apply(&mut data.persistent, args.0.clone());
                     Ok(())
                 },
                 replace_session_data: |data, session_data| {
@@ -547,7 +547,7 @@ impl ModuleRegistry {
                     let args = args
                         .downcast_ref::<M>()
                         .ok_or(ModuleRegistryError::ArgsDowncastError)?;
-                    module::DataSection::apply(&mut data.persistent_user, args.0.clone());
+                    DataSection::apply(&mut data.persistent_user, args.0.clone());
                     Ok(())
                 },
                 apply_session_data_transaction: |data, args| {
@@ -557,7 +557,7 @@ impl ModuleRegistry {
                     let args = args
                         .downcast_ref::<M>()
                         .ok_or(ModuleRegistryError::ArgsDowncastError)?;
-                    module::DataSection::apply(&mut data.0, args.0.clone());
+                    DataSection::apply(&mut data.0, args.0.clone());
                     Ok(())
                 },
                 apply_shared_data_transaction: |data, args| {
@@ -567,7 +567,7 @@ impl ModuleRegistry {
                     let args = args
                         .downcast_ref::<M>()
                         .ok_or(ModuleRegistryError::ArgsDowncastError)?;
-                    module::DataSection::apply(&mut data.0, args.0.clone());
+                    DataSection::apply(&mut data.0, args.0.clone());
                     Ok(())
                 },
             },

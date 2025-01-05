@@ -52,9 +52,9 @@ pub enum ExecuteError {
 
 #[derive(Debug, Clone)]
 struct ViewportPluginNode {
-    node: computegraph::NodeHandle,
-    output: computegraph::OutputPortUntyped,
-    scene_output: computegraph::OutputPort<SceneGraph>,
+    node: NodeHandle,
+    output: OutputPortUntyped,
+    scene_output: OutputPort<SceneGraph>,
 }
 
 #[derive(Clone)]
@@ -280,7 +280,7 @@ impl ViewportPipeline {
     ///
     /// This function will panic if a duplicate node name is generated internally.
     /// This should never happen under normal circumstances as node names are generated uniquely.
-    pub fn add_plugin<T: computegraph::NodeFactory + 'static>(
+    pub fn add_plugin<T: NodeFactory + 'static>(
         &mut self,
         plugin: ViewportPlugin<T>,
     ) -> Result<(), PipelineAddError> {

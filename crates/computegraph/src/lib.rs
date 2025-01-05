@@ -208,7 +208,7 @@
 /// # use computegraph::{node, NodeFactory, ComputeGraph, InputPort};
 /// # use std::any::TypeId;
 /// # fn typeid<T: std::any::Any>(_: &T) -> TypeId {
-/// #     std::any::TypeId::of::<T>()
+/// #     TypeId::of::<T>()
 /// # }
 /// #[derive(Debug, Clone, PartialEq)]
 /// struct Node {}
@@ -568,10 +568,7 @@ impl ComputationContext {
     /// # Arguments
     ///
     /// * `value`: The value to use for all unconnected [`InputPort`]s of the given type.
-    pub fn set_fallback_cached<T: SendSyncAny + std::clone::Clone + std::cmp::PartialEq>(
-        &mut self,
-        value: T,
-    ) {
+    pub fn set_fallback_cached<T: SendSyncAny + Clone + PartialEq>(&mut self, value: T) {
         let type_id = value.type_id();
         self.fallback_values.retain(|v| v.0 != type_id);
         self.fallback_values
@@ -829,7 +826,7 @@ impl Metadata {
     /// # Arguments
     ///
     /// * `value` - The metadata value to insert.
-    pub fn insert<T: 'static + std::clone::Clone + fmt::Debug + Send + Sync>(&mut self, value: T) {
+    pub fn insert<T: 'static + Clone + fmt::Debug + Send + Sync>(&mut self, value: T) {
         self.data.insert(TypeId::of::<T>(), Box::new(value));
     }
 
@@ -1965,7 +1962,7 @@ impl NodeOutput {
 /// defining the logic that processes input data and produces output data.
 ///
 /// Implementors of this trait should always also implement the [`NodeFactory`] trait.
-pub trait ExecutableNode: std::fmt::Debug + DynClone + SendSyncPartialEqAny {
+pub trait ExecutableNode: fmt::Debug + DynClone + SendSyncPartialEqAny {
     /// Executes the node's computation logic.
     ///
     /// This method takes boxed input data, processes it, and returns boxed output data.

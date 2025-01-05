@@ -48,11 +48,11 @@ pub struct DocumentView<'a> {
     pub project: &'a ProjectView,
     pub(crate) document: &'a Document,
     /// Unique identifier to associate a project with its views and [`ChangeBuilder`]s
-    pub(crate) uuid: uuid::Uuid,
+    pub(crate) uuid: Uuid,
 }
 
 impl ProjectSource for DocumentView<'_> {
-    fn uuid(&self) -> uuid::Uuid {
+    fn uuid(&self) -> Uuid {
         self.uuid
     }
 }

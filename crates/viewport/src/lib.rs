@@ -158,7 +158,7 @@ impl shader::Primitive for ShaderPrimitive {
         format: wgpu::TextureFormat,
         storage: &mut shader::Storage,
         bounds: &iced::Rectangle,
-        viewport: &iced::widget::shader::Viewport,
+        viewport: &shader::Viewport,
     ) {
         let a = self
             .pipeline

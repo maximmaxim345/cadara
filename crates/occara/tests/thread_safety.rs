@@ -30,7 +30,7 @@ fn test_thread_safety() {
 
     thread::spawn(|| {
         // This tests the Send trait
-        std::mem::drop(mesh);
+        drop(mesh);
     })
     .join()
     .unwrap();

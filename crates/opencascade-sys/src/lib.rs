@@ -60,12 +60,12 @@ impl OpenCascadeSource {
 
         let mut config = cmake::Config::new(source_path);
 
-        let build_dir = if std::env::var("TARGET").unwrap() == std::env::var("HOST").unwrap() {
+        let build_dir = if env::var("TARGET").unwrap() == env::var("HOST").unwrap() {
             // Native build
             occt_dir.join(format!("build-{}", config.get_profile()))
         } else {
             // Cross compilation
-            let target = std::env::var("TARGET").unwrap();
+            let target = env::var("TARGET").unwrap();
             occt_dir.join(format!("build-{}-{}", config.get_profile(), target))
         };
         let lib_dir = build_dir.join(LIB_DIR);
@@ -138,7 +138,7 @@ impl OpenCascadeSource {
                 config.define("CMAKE_CXX_COMPILER_LAUNCHER", "sccache");
             }
 
-            if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
+            if env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
                 // These are some workarounds for compiling wasm with just clang
                 // installed
                 config
@@ -205,7 +205,7 @@ impl OpenCascadeBuild {
             "TKernel",
         ];
 
-        let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
+        let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
 
         for lib in lib_linking_order {
             if target_os == "windows" {
@@ -228,7 +228,7 @@ impl OpenCascadeBuild {
     /// This director contains the build static libraries for the ``OpenCASCADE`` libraries.
     /// For simple linking, use the `link_opencascade` function, which will automatically link the
     /// ``OpenCASCADE`` libraries in the correct order.
-    pub fn lib_dir(&self) -> &std::path::PathBuf {
+    pub fn lib_dir(&self) -> &PathBuf {
         &self.lib_dir
     }
 
@@ -237,15 +237,15 @@ impl OpenCascadeBuild {
     /// This function returns the system include directory for the ``OpenCASCADE`` libraries. It should be
     /// used to include the ``OpenCASCADE`` headers in the build process, for example when generating
     /// bindings to the ``OpenCASCADE`` libraries.
-    pub fn include_dir(&self) -> &std::path::PathBuf {
+    pub fn include_dir(&self) -> &PathBuf {
         &self.include_dir
     }
 }
 
 // based on https://github.com/rust-lang/cargo/issues/9661#issuecomment-1722358176
-fn get_cargo_target_dir() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
-    let out_dir = std::path::PathBuf::from(std::env::var("OUT_DIR")?);
-    let profile = std::env::var("PROFILE")?;
+fn get_cargo_target_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let out_dir = std::path::PathBuf::from(env::var("OUT_DIR")?);
+    let profile = env::var("PROFILE")?;
     let mut target_dir = None;
     let mut sub_path = out_dir.as_path();
     while let Some(parent) = sub_path.parent() {
@@ -259,13 +259,13 @@ fn get_cargo_target_dir() -> Result<std::path::PathBuf, Box<dyn std::error::Erro
     Ok(target_dir.to_path_buf())
 }
 
-fn get_cargo_native_target_dir() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+fn get_cargo_native_target_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let dir = get_cargo_target_dir()?;
     let file_name = dir
         .file_name()
         .and_then(|f| f.to_str())
         .ok_or("Invalid file name")?;
-    let target = std::env::var("TARGET")?;
+    let target = env::var("TARGET")?;
     if file_name == target {
         Ok(dir
             .parent()
@@ -292,11 +292,7 @@ fn delete_build_dirs(path: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-fn download_source(
-    source_path: &Path,
-    build_subdirs: &Path,
-    occt_version_lock_path: &std::path::PathBuf,
-) {
+fn download_source(source_path: &Path, build_subdirs: &Path, occt_version_lock_path: &PathBuf) {
     let (mut file, exists) = File::open(occt_version_lock_path)
         .map(|f| (f, true))
         .or_else(|_| File::create(occt_version_lock_path).map(|f| (f, false)))
