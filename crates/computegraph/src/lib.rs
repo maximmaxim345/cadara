@@ -208,7 +208,7 @@
 /// # use computegraph::{node, NodeFactory, ComputeGraph, InputPort};
 /// # use std::any::TypeId;
 /// # fn typeid<T: std::any::Any>(_: &T) -> TypeId {
-/// #     std::any::TypeId::of::<T>()
+/// #     TypeId::of::<T>()
 /// # }
 /// #[derive(Debug, Clone, PartialEq)]
 /// struct Node {}
@@ -398,8 +398,8 @@ impl fmt::Debug for Box<dyn SendSyncAny> {
 }
 
 #[diagnostic::on_unimplemented(
-    message = "Trying to use uncomparable type as a cached node output",
-    label = "Use of uncachable type `{Self}` as a cached output",
+    message = "Trying to use an incomparable type as a cached node output",
+    label = "Use of uncacheable type `{Self}` as a cached output",
     note = "Either implement `PartialEq` for `{Self}`",
     note = "Or if this is not possible, opt out of caching with `#[node(NodeName -> !)]` or `#[node(NodeName -> !output_name)]"
 )]
@@ -417,15 +417,15 @@ where
         self
     }
 
+    fn as_ref(&self) -> &dyn SendSyncPartialEqAny {
+        self
+    }
+
     fn partial_eq(&self, other: &dyn SendSyncPartialEqAny) -> bool {
         other
             .as_any()
             .downcast_ref::<T>()
             .map_or(false, |other| self == other)
-    }
-
-    fn as_ref(&self) -> &dyn SendSyncPartialEqAny {
-        self
     }
 }
 
@@ -506,7 +506,7 @@ impl ComputationContext {
 
     /// Manually override the connection of a [`InputPort`] with the specified value.
     ///
-    /// Overriding the [`InputPort`] will pass `value` to the the node of `port`,
+    /// Overriding the [`InputPort`] will pass `value` to the node of `port`,
     /// no matter if it was connected or not.
     ///
     /// If the type is not known at compile time, use [`ComputationContext::set_override_untyped`] instead.
@@ -568,10 +568,7 @@ impl ComputationContext {
     /// # Arguments
     ///
     /// * `value`: The value to use for all unconnected [`InputPort`]s of the given type.
-    pub fn set_fallback_cached<T: SendSyncAny + std::clone::Clone + std::cmp::PartialEq>(
-        &mut self,
-        value: T,
-    ) {
+    pub fn set_fallback_cached<T: SendSyncAny + Clone + PartialEq>(&mut self, value: T) {
         let type_id = value.type_id();
         self.fallback_values.retain(|v| v.0 != type_id);
         self.fallback_values
@@ -595,7 +592,7 @@ impl ComputationContext {
 
     /// Remove a previously set override value, returning it in a box
     ///
-    /// This method removes and returns a override, previously added using [`ComputationContext::set_override_untyped`].
+    /// This method removes and returns an override, previously added using [`ComputationContext::set_override_untyped`].
     ///
     /// # Arguments
     ///
@@ -616,7 +613,7 @@ impl ComputationContext {
 
     /// Remove a previously set override value, returning it
     ///
-    /// This method removes and returns a override, previously added using [`ComputationContext::set_override`].
+    /// This method removes and returns an override, previously added using [`ComputationContext::set_override`].
     ///
     /// # Arguments
     ///
@@ -829,7 +826,7 @@ impl Metadata {
     /// # Arguments
     ///
     /// * `value` - The metadata value to insert.
-    pub fn insert<T: 'static + std::clone::Clone + fmt::Debug + Send + Sync>(&mut self, value: T) {
+    pub fn insert<T: 'static + Clone + fmt::Debug + Send + Sync>(&mut self, value: T) {
         self.data.insert(TypeId::of::<T>(), Box::new(value));
     }
 
@@ -1429,7 +1426,7 @@ impl ComputeGraph {
                             cache.changed = match (&cache.value, &output) {
                                 (NodeOutput::Opaque(_any1), NodeOutput::Opaque(_any2)) => true,
                                 (NodeOutput::Comparable(any1), NodeOutput::Comparable(any2)) => {
-                                    !(any1.as_ref().partial_eq(any2.as_ref()))
+                                    !any1.as_ref().partial_eq(any2.as_ref())
                                 }
                                 (_, _) => panic!(
                                     "This should not happen. Node changed its output type???"
@@ -1965,7 +1962,7 @@ impl NodeOutput {
 /// defining the logic that processes input data and produces output data.
 ///
 /// Implementors of this trait should always also implement the [`NodeFactory`] trait.
-pub trait ExecutableNode: std::fmt::Debug + DynClone + SendSyncPartialEqAny {
+pub trait ExecutableNode: fmt::Debug + DynClone + SendSyncPartialEqAny {
     /// Executes the node's computation logic.
     ///
     /// This method takes boxed input data, processes it, and returns boxed output data.

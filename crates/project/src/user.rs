@@ -41,7 +41,7 @@ impl Default for UserId {
 /// This has two main advantages:
 /// - undo/redo will be limited to a single session, meaning: A single user can have
 ///   multiple simultaneous sessions with separate undo/redo history.
-/// - merging multiple branches of the same user will not have spooky effecty due to
+/// - merging multiple branches of the same user will not have spooky effects due to
 ///   incorrectly associated undo/redo commands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]

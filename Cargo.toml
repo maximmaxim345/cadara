@@ -22,7 +22,6 @@ occara = { path = "crates/occara" }
 viewport = { path = "crates/viewport" }
 computegraph = { path = "crates/computegraph" }
 computegraph_macros = { path = "crates/computegraph_macros" }
-cadara = { path = "crates/cadara" }
 module = { path = "crates/module" }
 workspace = { path = "crates/workspace" }
 modeling-workspace = { path = "crates/modeling-workspace" }
@@ -51,8 +50,6 @@ criterion = { version = "0.5", features = ["html_reports"] }
 serde_json = "1.0"
 erased-serde = "0.4"
 lazy_static = "1.4"
-image = "0.25"
-rand = "0.8"
 anyhow = "1.0"
 getrandom = { version = "0.2", features = ["js"] }
 console_error_panic_hook = "0.1"
@@ -70,4 +67,4 @@ license = "AGPL-3.0-only"
 repository = "https://github.com/maximmaxim345/cadara"
 homepage = "https://github.com/maximmaxim345/cadara"
 categories = ["gui"]
-keywords = ["cad", "gui", "brep", "3d", "iced"]
+keywords = ["cad", "gui", "brep", "graphics", "iced"]

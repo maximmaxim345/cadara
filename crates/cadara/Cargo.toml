@@ -16,11 +16,9 @@ iced.workspace = true
 tracing-subscriber.workspace = true
 getrandom.workspace = true          # Required for building the "js" feature for wasm builds
 viewport.workspace = true
-computegraph.workspace = true
 workspace.workspace = true
 modeling-workspace.workspace = true
 modeling-module.workspace = true
-module.workspace = true
 project.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

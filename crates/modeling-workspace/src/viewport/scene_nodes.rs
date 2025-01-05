@@ -67,7 +67,7 @@ fn run(
     project: &project::ProjectView,
 ) -> ViewportState {
     let mut state = (*state).clone();
-    let mut _data_view: project::DataView<modeling_module::ModelingModule> =
+    let _data_view: project::DataView<modeling_module::ModelingModule> =
         project.open_data_by_id(self.data_uuid).unwrap();
     if let shader::Event::Mouse(m) = event.event {
         match m {

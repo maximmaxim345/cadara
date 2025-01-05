@@ -94,19 +94,6 @@ impl<Message> shader::Program<Message> for Viewport {
 
     type Primitive = ShaderPrimitive;
 
-    fn draw(
-        &self,
-        state: &Self::State,
-        _cursor: iced::advanced::mouse::Cursor,
-        _bounds: iced::Rectangle,
-    ) -> Self::Primitive {
-        ShaderPrimitive {
-            pipeline: self.pipeline.clone(),
-            state: state.clone(),
-            project_view: self.project_view.clone(),
-        }
-    }
-
     fn update(
         &self,
         state: &mut Self::State,
@@ -131,6 +118,19 @@ impl<Message> shader::Program<Message> for Viewport {
             )
             .unwrap();
         (iced::advanced::graphics::core::event::Status::Ignored, None)
+    }
+
+    fn draw(
+        &self,
+        state: &Self::State,
+        _cursor: iced::advanced::mouse::Cursor,
+        _bounds: iced::Rectangle,
+    ) -> Self::Primitive {
+        ShaderPrimitive {
+            pipeline: self.pipeline.clone(),
+            state: state.clone(),
+            project_view: self.project_view.clone(),
+        }
     }
 
     fn mouse_interaction(
@@ -158,7 +158,7 @@ impl shader::Primitive for ShaderPrimitive {
         format: wgpu::TextureFormat,
         storage: &mut shader::Storage,
         bounds: &iced::Rectangle,
-        viewport: &iced::widget::shader::Viewport,
+        viewport: &shader::Viewport,
     ) {
         let a = self
             .pipeline

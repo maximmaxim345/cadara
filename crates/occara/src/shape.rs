@@ -231,7 +231,7 @@ impl Mesh {
 
         // Write vertices
         for vertex in vertices {
-            writeln!(file, "v {} {} {}", vertex.x(), vertex.y(), vertex.z()).unwrap();
+            writeln!(file, "v {} {} {}", vertex.x(), vertex.y(), vertex.z())?;
         }
 
         // Write faces (indices)
@@ -242,8 +242,7 @@ impl Mesh {
                 indices[i] + 1,
                 indices[i + 1] + 1,
                 indices[i + 2] + 1
-            )
-            .unwrap();
+            )?;
         }
         Ok(())
     }

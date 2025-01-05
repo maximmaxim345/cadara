@@ -52,9 +52,9 @@ pub enum ExecuteError {
 
 #[derive(Debug, Clone)]
 struct ViewportPluginNode {
-    node: computegraph::NodeHandle,
-    output: computegraph::OutputPortUntyped,
-    scene_output: computegraph::OutputPort<SceneGraph>,
+    node: NodeHandle,
+    output: OutputPortUntyped,
+    scene_output: OutputPort<SceneGraph>,
 }
 
 #[derive(Clone)]
@@ -280,7 +280,7 @@ impl ViewportPipeline {
     ///
     /// This function will panic if a duplicate node name is generated internally.
     /// This should never happen under normal circumstances as node names are generated uniquely.
-    pub fn add_plugin<T: computegraph::NodeFactory + 'static>(
+    pub fn add_plugin<T: NodeFactory + 'static>(
         &mut self,
         plugin: ViewportPlugin<T>,
     ) -> Result<(), PipelineAddError> {
@@ -339,14 +339,14 @@ impl ViewportPipeline {
             node_name: format!("node-{}", this.nodes.len()),
         };
 
-        let handle: NodeHandle = match this.graph.add_node_dynamic(node.0, handle.node_name) {
-            Ok(node) => node,
-            Err(err) => match err {
+        let handle: NodeHandle = this
+            .graph
+            .add_node_dynamic(node.0, handle.node_name)
+            .unwrap_or_else(|err| match err {
                 computegraph::AddError::DuplicateName(_) => {
                     panic!("this should not happen")
                 }
-            },
-        };
+            });
 
         match this.connect_plugin(handle.clone(), node.1) {
             Ok(v) => Ok(v),
@@ -490,7 +490,7 @@ impl ViewportPipeline {
         let s = state.state.take();
         let s = match s {
             Some(s) => s,
-            None => scene.graph.compute_untyped(scene.init_state).unwrap(),
+            None => scene.graph.compute_untyped(scene.init_state)?,
         };
 
         let mut ctx = ComputationContext::default();
@@ -516,7 +516,7 @@ impl ViewportPipeline {
         let s = state.state.take();
         let s = match s {
             Some(s) => s,
-            None => scene.graph.compute_untyped(scene.init_state).unwrap(),
+            None => scene.graph.compute_untyped(scene.init_state)?,
         };
 
         let mut ctx = ComputationContext::default();

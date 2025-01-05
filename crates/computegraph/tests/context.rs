@@ -119,7 +119,7 @@ fn test_context_priority() -> Result<()> {
     assert_eq!(
         graph.compute_with_context(addition.output(), &ctx)?,
         1,
-        "priortiy should be override > connected > fallback"
+        "priority should be override > connected > fallback"
     );
 
     assert!(ctx

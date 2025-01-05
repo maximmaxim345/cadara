@@ -58,7 +58,7 @@ fn test_viewport_plugins() {
     pipeline.remove_last_plugin();
     assert_eq!(pipeline.len(), 0);
 
-    // Try to readd a node, checks if the node was really deleted from the internal graph
+    // Try to re-add a node, checks if the node was really deleted from the internal graph
     pipeline.add_plugin(initial_node.clone()).unwrap();
     assert_eq!(pipeline.len(), 1);
 }

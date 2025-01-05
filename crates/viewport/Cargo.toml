@@ -12,11 +12,7 @@ keywords.workspace = true
 publish = false
 
 [dependencies]
-bytemuck.workspace = true
-glam.workspace = true
 iced.workspace = true
-image.workspace = true
-rand.workspace = true
 computegraph.workspace = true
 thiserror.workspace = true
 project.workspace = true

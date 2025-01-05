@@ -10,8 +10,6 @@ use uuid::Uuid;
 /// A trait for data sections that can be modified by transactions defined by the [`Module`] trait.
 ///
 /// Implements the Command pattern.
-///
-/// [`Module`]: crate::Module
 pub trait DataSection:
     Clone + Default + Debug + PartialEq + Serialize + Send + Sync + for<'a> Deserialize<'a>
 {
@@ -33,7 +31,6 @@ pub trait DataSection:
     ///
     /// # Notes
     /// - This function is deterministic: when called with the same arguments, it will always modify the state of the data section in the same way.
-    /// - This function is expected to be without side-effects outside of the modification of the object it was called on.
     /// - This function is expected to not error for any valid `args` object.
     // TODO: maybe args should be a ref?
     fn apply(&mut self, args: Self::Args);

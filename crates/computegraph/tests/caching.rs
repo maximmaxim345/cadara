@@ -616,7 +616,7 @@ fn test_caching_with_cacheable_fallback() -> Result<()> {
     );
     assert_eq!(get_op_log_set(), [].into_iter().collect(),);
 
-    // And readd it (with the same value)
+    // And re-add it (with the same value)
     context.set_fallback_cached(20_usize);
 
     assert_eq!(

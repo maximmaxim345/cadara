@@ -13,4 +13,3 @@ publish = false
 
 [dependencies]
 viewport.workspace = true
-computegraph.workspace = true

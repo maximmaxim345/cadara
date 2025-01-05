@@ -116,7 +116,7 @@
 //!    // Apply the changes to the project
 //!    project.apply_changes(change_builder, &registry).unwrap();
 //!
-//!    // Get a updated view with the new changes applied
+//!    // Get an updated view with the new changes applied
 //!    let project_view = project.create_view(&registry).unwrap();
 //!
 //!    // Apply transactions to 'data'
@@ -355,7 +355,7 @@ enum ProjectLogEntry {
 ///
 /// The recorded changes are only atomic (meaning always applied together and at once) for changes to [`module::Module::PersistentData`] and [`module::Module::PersistentUserData`] on a [`DataView`],
 /// changes on a [`ProjectView`] and changes on a [`DocumentView`].
-/// Meaning changes to [`module::Module::SharedData`] and [`module::Module::SessionData`] will once applied using [`Project::apply_changes`] not be
+/// Meaning changes to [`module::Module::SharedData`] and [`module::Module::SessionData`] once applied using [`Project::apply_changes`] will not be
 /// reverted on undo.
 ///
 /// # Features
@@ -371,7 +371,7 @@ enum ProjectLogEntry {
 #[derive(Clone, Debug)]
 pub struct ChangeBuilder {
     changes: Vec<PendingChange>,
-    /// Unique identifier to associalte a project with its views and [`ChangeBuilder`]s
+    /// Unique identifier to associate a project with its views and [`ChangeBuilder`]s
     pub(crate) uuid: uuid::Uuid,
 }
 
@@ -460,7 +460,7 @@ impl ChangeBuilder {
 ///
 /// # Features
 ///
-/// [`Project`] will support advanced features for managin CAD projects, including:
+/// [`Project`] will support advanced features for managing CAD projects, including:
 /// - Persistent undo/redo, even after restarts
 /// - A git like version control system, allowing branching, merging and rebasing
 /// - Support of storing any user required data by implementing [`module::Module`]
@@ -482,7 +482,7 @@ impl ChangeBuilder {
 /// this will not save any shared and session data.
 ///
 /// To deserialize, you must use [`ProjectDeserializer`] with a [`ModuleRegistry`] with all containing [`module::Module`]s registered.
-/// While [`Project`] implements [`serde::Serialize`], it will error on any non trivial project
+/// While [`Project`] implements [`serde::Serialize`], it will error on any non-trivial project
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Project {
     /// The user owning this [`Project`] struct.
@@ -507,7 +507,7 @@ pub struct Project {
     /// [`HashMap`] with all [`module::Module::SessionData`] in this project.
     #[serde(skip)]
     session_data: HashMap<DataId, ErasedSessionData>,
-    /// Unique identifier to associalte a project with its views and [`ChangeBuilder`]s
+    /// Unique identifier to associate a project with its views and [`ChangeBuilder`]s
     #[serde(skip)]
     #[serde(default = "uuid::Uuid::new_v4")]
     uuid: uuid::Uuid,
@@ -767,9 +767,9 @@ impl Project {
         if cb.uuid != self.uuid {
             return Err(ApplyError::InvalidChangeBuilder);
         }
-        // cb was made with this project, so we can assume its correct.
+        // cb was made with this project, so we can assume it's correct.
         // Technically the project could change in the meantime by other ChangeBuilders,
-        // but due to multi user support, we nevertheless need to support that.
+        // but due to multi-user support, we nevertheless need to support that.
 
         let session = *self.session.get_or_insert_with(|| {
             let new_session = SessionId::new();
