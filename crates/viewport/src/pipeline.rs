@@ -339,14 +339,14 @@ impl ViewportPipeline {
             node_name: format!("node-{}", this.nodes.len()),
         };
 
-        let handle: NodeHandle = match this.graph.add_node_dynamic(node.0, handle.node_name) {
-            Ok(node) => node,
-            Err(err) => match err {
+        let handle: NodeHandle = this
+            .graph
+            .add_node_dynamic(node.0, handle.node_name)
+            .unwrap_or_else(|err| match err {
                 computegraph::AddError::DuplicateName(_) => {
                     panic!("this should not happen")
                 }
-            },
-        };
+            });
 
         match this.connect_plugin(handle.clone(), node.1) {
             Ok(v) => Ok(v),
