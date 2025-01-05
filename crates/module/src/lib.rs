@@ -33,7 +33,6 @@ pub trait DataSection:
     ///
     /// # Notes
     /// - This function is deterministic: when called with the same arguments, it will always modify the state of the data section in the same way.
-    /// - This function is expected to be without side-effects outside of the modification of the object it was called on.
     /// - This function is expected to not error for any valid `args` object.
     // TODO: maybe args should be a ref?
     fn apply(&mut self, args: Self::Args);
