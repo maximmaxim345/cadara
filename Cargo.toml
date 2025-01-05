@@ -70,4 +70,4 @@ license = "AGPL-3.0-only"
 repository = "https://github.com/maximmaxim345/cadara"
 homepage = "https://github.com/maximmaxim345/cadara"
 categories = ["gui"]
-keywords = ["cad", "gui", "brep", "3d", "iced"]
+keywords = ["cad", "gui", "brep", "graphics", "iced"]
