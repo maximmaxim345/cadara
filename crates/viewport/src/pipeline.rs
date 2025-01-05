@@ -490,7 +490,7 @@ impl ViewportPipeline {
         let s = state.state.take();
         let s = match s {
             Some(s) => s,
-            None => scene.graph.compute_untyped(scene.init_state).unwrap(),
+            None => scene.graph.compute_untyped(scene.init_state)?,
         };
 
         let mut ctx = ComputationContext::default();
@@ -516,7 +516,7 @@ impl ViewportPipeline {
         let s = state.state.take();
         let s = match s {
             Some(s) => s,
-            None => scene.graph.compute_untyped(scene.init_state).unwrap(),
+            None => scene.graph.compute_untyped(scene.init_state)?,
         };
 
         let mut ctx = ComputationContext::default();
