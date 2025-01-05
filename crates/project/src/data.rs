@@ -50,7 +50,7 @@ pub struct DataView<'a, M: Module> {
     pub session_data: &'a M::SessionData,
     /// Non-persistent data also shared among other users.
     pub shared_data: &'a M::SharedData,
-    /// Unique identifier to associalte a project with its views and [`ChangeBuilder`]s
+    /// Unique identifier to associate a project with its views and [`ChangeBuilder`]s
     pub(crate) uuid: uuid::Uuid,
 }
 

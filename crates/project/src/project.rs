@@ -24,7 +24,7 @@ pub struct ProjectView {
     pub(crate) data: HashMap<DataId, ErasedData>,
     /// A map of all documents found in this project
     pub(crate) documents: HashMap<DocumentId, Document>,
-    /// Unique identifier to associalte a project with its views and [`ChangeBuilder`]s
+    /// Unique identifier to associate a project with its views and [`ChangeBuilder`]s
     #[serde(skip)]
     pub(crate) uuid: uuid::Uuid,
 }

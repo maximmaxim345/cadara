@@ -398,8 +398,8 @@ impl fmt::Debug for Box<dyn SendSyncAny> {
 }
 
 #[diagnostic::on_unimplemented(
-    message = "Trying to use uncomparable type as a cached node output",
-    label = "Use of uncachable type `{Self}` as a cached output",
+    message = "Trying to use an incomparable type as a cached node output",
+    label = "Use of uncacheable type `{Self}` as a cached output",
     note = "Either implement `PartialEq` for `{Self}`",
     note = "Or if this is not possible, opt out of caching with `#[node(NodeName -> !)]` or `#[node(NodeName -> !output_name)]"
 )]
@@ -506,7 +506,7 @@ impl ComputationContext {
 
     /// Manually override the connection of a [`InputPort`] with the specified value.
     ///
-    /// Overriding the [`InputPort`] will pass `value` to the the node of `port`,
+    /// Overriding the [`InputPort`] will pass `value` to the node of `port`,
     /// no matter if it was connected or not.
     ///
     /// If the type is not known at compile time, use [`ComputationContext::set_override_untyped`] instead.
@@ -595,7 +595,7 @@ impl ComputationContext {
 
     /// Remove a previously set override value, returning it in a box
     ///
-    /// This method removes and returns a override, previously added using [`ComputationContext::set_override_untyped`].
+    /// This method removes and returns an override, previously added using [`ComputationContext::set_override_untyped`].
     ///
     /// # Arguments
     ///
@@ -616,7 +616,7 @@ impl ComputationContext {
 
     /// Remove a previously set override value, returning it
     ///
-    /// This method removes and returns a override, previously added using [`ComputationContext::set_override`].
+    /// This method removes and returns an override, previously added using [`ComputationContext::set_override`].
     ///
     /// # Arguments
     ///

@@ -34,7 +34,7 @@ impl ProjectSetup {
     }
 }
 
-/// Setup a simple [`ProjectSetup`] for testing.
+/// Set up a simple [`ProjectSetup`] for testing.
 #[allow(dead_code)]
 pub fn setup_project() -> ProjectSetup {
     let mut reg = ModuleRegistry::new();

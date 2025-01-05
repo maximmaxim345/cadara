@@ -58,14 +58,14 @@ impl Clone for Point {
 impl fmt::Display for Point {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (x, y, z) = self.get_coordinates();
-        write!(f, "Vertex({x:.6}, {y:.6}, {z:.6})")
+        write!(f, "Point({x:.6}, {y:.6}, {z:.6})")
     }
 }
 
 impl fmt::Debug for Point {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (x, y, z) = self.get_coordinates();
-        f.debug_struct("Vertex")
+        f.debug_struct("Point")
             .field("x", &x)
             .field("y", &y)
             .field("z", &z)

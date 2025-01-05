@@ -16,4 +16,4 @@ occara consists of:
 
 ## Development
 
-To get autocomplete to work on the C++ code, run `touch cpp` and `bear -- cargo build` in this crates directory. This will generate a compile_commands.json file. ('touch cpp' will ensure that the C++ code is recompiled)
+To get autocomplete to work on the C++ code, run `touch cpp` and `bear -- cargo build` in this crates' directory. This will generate a compile_commands.json file. ('touch cpp' will ensure that the C++ code is recompiled)

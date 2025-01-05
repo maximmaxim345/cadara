@@ -47,7 +47,7 @@ pub struct DocumentView<'a> {
     pub id: DocumentId,
     pub project: &'a ProjectView,
     pub(crate) document: &'a Document,
-    /// Unique identifier to associalte a project with its views and [`ChangeBuilder`]s
+    /// Unique identifier to associate a project with its views and [`ChangeBuilder`]s
     pub(crate) uuid: uuid::Uuid,
 }
 

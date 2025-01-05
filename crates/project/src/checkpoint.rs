@@ -1,6 +1,6 @@
 //! Project Checkpoints.
 //!
-//! Checkpoints are used to give an point in the log [`crate::Project::log`] a namable identifier.
+//! Checkpoints are used to give a point in the log [`crate::Project::log`] a nameable identifier.
 //!
 //! Uses for this include:
 //! - Associate a revision with a specific point in time.
@@ -8,7 +8,7 @@
 //!
 //! It must however be noted that generating a [`crate::ProjectView`] until a specific [`CheckpointId`]
 //! will NOT guarantee the same [`crate::ProjectView`] due to possible insertion of new [`crate::ProjectLogEntry`] before the
-//! checkpoint when a offline user reconnects and uploads its changes.
+//! checkpoint when an offline user reconnects and uploads its changes.
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

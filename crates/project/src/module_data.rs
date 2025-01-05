@@ -439,14 +439,14 @@ thread_local! {
     ///
     /// # Safety
     ///
-    /// Since Deserialization is single threaded and we reset the containing pointer after Deserialization,
+    /// Since Deserialization is single threaded, and we reset the containing pointer after Deserialization,
     /// it is impossible to cause UB.
     pub static MODULE_REGISTRY: RefCell<Option<*const ModuleRegistry>> = const { RefCell::new(None) };
 }
 
 /// A registry containing all supported modules necessary for working with a [`crate::Project`].
 ///
-/// By default the [`ModuleRegistry`] is empty. You must first register [`Module`]s with [`ModuleRegistry::register`].
+/// By default, the [`ModuleRegistry`] is empty. You must first register [`Module`]s with [`ModuleRegistry::register`].
 #[derive(Clone, Debug, Default)]
 pub struct ModuleRegistry(pub(crate) HashMap<ModuleId, ModuleRegistryEntry>);
 
@@ -466,7 +466,7 @@ impl ModuleRegistry {
         M: Module,
         M::PersistentData: for<'de> Deserialize<'de>,
     {
-        // TODO: these are alot of functions, replace_session_data and replace_shared_data should
+        // TODO: these are a lot of functions, replace_session_data and replace_shared_data should
         // probably be replaced with a better system
         self.0.insert(
             ModuleId::from_module::<M>(),

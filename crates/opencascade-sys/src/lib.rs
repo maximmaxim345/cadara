@@ -107,7 +107,7 @@ impl OpenCascadeSource {
                 .define("USE_TBB", "OFF")
                 .define("USE_VTK", "OFF");
 
-            // Set the install directories
+            // Set the installation directories
             config
                 .define("INSTALL_DIR_LIB", LIB_DIR)
                 .define("INSTALL_DIR_INCLUDE", INCLUDE_DIR);
@@ -115,7 +115,7 @@ impl OpenCascadeSource {
             // We build in the target/opencascade-sys directory for following reasons:
             // - Changes to the library can easily be made for development purposes
             // - The build directory stays consistent.
-            //   ("cargo build" would build the library, but running "cargo clippy" afterwards would rebuild the library in a different directory again)
+            //   ("cargo build" would build the library, but running "cargo clippy" afterward would rebuild the library in a different directory again)
             // - The build path stays consistent across clean rebuilds
             //   (sccache would register each compilation as a cache miss if the build directory changes)
             config.out_dir(&build_dir);
@@ -184,7 +184,7 @@ impl OpenCascadeBuild {
     /// libraries that depend on ``OpenCASCADE``.
     pub fn link(&self) {
         println!("cargo:rustc-link-search=native={}", self.lib_dir.display());
-        // I dont't know why this order works, but it does, so I'm not going to mess with it for now
+        // I don't know why this order works, but it does, so I'm not going to mess with it for now
         let lib_linking_order = vec![
             "TKBO",
             "TKBool",
