@@ -462,6 +462,15 @@ struct InputPortValue {
     value: Box<dyn SendSyncAny>,
 }
 
+struct FallbackGenerator(Box<dyn Fn(&str) -> FallbackValue>);
+
+impl fmt::Debug for FallbackGenerator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Box<dyn Fn(&'static str) -> NodeOutput>")
+            .finish()
+    }
+}
+
 #[derive(Debug)]
 enum FallbackValue {
     Opaque(Box<dyn SendSyncAny>),
@@ -484,6 +493,12 @@ impl FallbackValue {
     }
 }
 
+#[derive(Debug)]
+enum Fallback {
+    Value(FallbackValue),
+    Generator(FallbackGenerator),
+}
+
 /// Set predefined values for [`ComputeGraph::compute_with_context`].
 ///
 /// Use this container to:
@@ -494,7 +509,7 @@ impl FallbackValue {
 #[derive(Debug, Default)]
 pub struct ComputationContext {
     overrides: Vec<InputPortValue>,
-    fallback_values: Vec<(TypeId, FallbackValue)>,
+    fallback_values: Vec<(TypeId, Fallback)>,
 }
 
 impl ComputationContext {
@@ -554,8 +569,10 @@ impl ComputationContext {
     pub fn set_fallback<T: SendSyncAny>(&mut self, value: T) {
         let type_id = value.type_id();
         self.fallback_values.retain(|v| v.0 != type_id);
-        self.fallback_values
-            .push((type_id, FallbackValue::Opaque(Box::new(value))));
+        self.fallback_values.push((
+            type_id,
+            Fallback::Value(FallbackValue::Opaque(Box::new(value))),
+        ));
     }
 
     /// Provide a comparable fallback value to all unconnected [`InputPort`]s with the type 'T'.
@@ -571,8 +588,36 @@ impl ComputationContext {
     pub fn set_fallback_cached<T: SendSyncAny + Clone + PartialEq>(&mut self, value: T) {
         let type_id = value.type_id();
         self.fallback_values.retain(|v| v.0 != type_id);
-        self.fallback_values
-            .push((type_id, FallbackValue::Cacheable(Box::new(value))));
+        self.fallback_values.push((
+            type_id,
+            Fallback::Value(FallbackValue::Cacheable(Box::new(value))),
+        ));
+    }
+
+    /// Provide a dynamically generated comparable fallback value to all unconnected [`InputPort`]s with the type 'T'.
+    ///
+    /// This fallback will only be used if a [`InputPort`] required for the computation
+    /// was unconnected, but required.
+    /// The generator will be called with the name of the node, to allow for different
+    /// fallback values for different nodes.
+    /// To detect changes, a copy of the generated value will be made and held in the [`ComputationCache`].
+    /// That copy will only be used for comparisons.
+    ///
+    /// # Arguments
+    ///
+    /// * `generator`: A function that takes the node name and returns the fallback value to use for all unconnected [`InputPort`]s of the given type.
+    pub fn set_fallback_generator<T: SendSyncAny + PartialEq + Clone>(
+        &mut self,
+        generator: impl Fn(&str) -> T + 'static,
+    ) {
+        let type_id = TypeId::of::<T>();
+        self.fallback_values.retain(|v| v.0 != type_id);
+        self.fallback_values.push((
+            TypeId::of::<T>(),
+            Fallback::Generator(FallbackGenerator(Box::new(move |s| {
+                FallbackValue::Cacheable(Box::new(generator(s)))
+            }))),
+        ));
     }
 
     /// Provide a fallback value to all unconnected [`InputPortUntyped`]s with the contained type.
@@ -587,7 +632,7 @@ impl ComputationContext {
         let type_id = (*value).type_id();
         self.fallback_values.retain(|v| v.0 != type_id);
         self.fallback_values
-            .push((type_id, FallbackValue::Opaque(value)));
+            .push((type_id, Fallback::Value(FallbackValue::Opaque(value))));
     }
 
     /// Remove a previously set override value, returning it in a box
@@ -654,22 +699,34 @@ impl ComputationContext {
     ///
     /// # Returns
     ///
-    /// An [`Option`] containing the fallback value if found, or `None` otherwise.
+    /// An [`Option`] containing the fallback value if found, or `None` if:
+    /// - The fallback was added with [`ComputationContext::set_fallback_generator`], this function will still remove the generator.
+    /// - The fallback was not set for this type.
     #[expect(clippy::missing_panics_doc, reason = "should not happen")]
     pub fn remove_fallback<T: 'static>(&mut self) -> Option<T> {
         let type_id = TypeId::of::<T>();
         let index = self.fallback_values.iter().position(|o| o.0 == type_id)?;
-        match self.fallback_values[index].1.as_any().downcast_ref::<T>() {
-            Some(_) => {
-                let override_value = self.fallback_values.swap_remove(index);
-                let b = override_value
-                    .1
-                    .into_any()
-                    .downcast::<T>()
-                    .expect("type was checked previously");
-                Some(*b)
+        match &self.fallback_values[index].1 {
+            Fallback::Value(value) => match value.as_any().downcast_ref::<T>() {
+                Some(_) => {
+                    let override_value = self.fallback_values.swap_remove(index);
+                    let b = if let Fallback::Value(value) = override_value.1 {
+                        value
+                            .into_any()
+                            .downcast::<T>()
+                            .expect("type was checked previously")
+                    } else {
+                        panic!("We just checked that this is of type `Value`");
+                    };
+                    Some(*b)
+                }
+                None => None,
+            },
+            Fallback::Generator(_) => {
+                // Just drop the generator
+                let _ = self.fallback_values.swap_remove(index);
+                None
             }
-            None => None,
         }
     }
 
@@ -683,15 +740,18 @@ impl ComputationContext {
     ///
     /// # Returns
     ///
-    /// An [`Option`] containing the fallback value if found, or `None` otherwise.
+    /// An [`Option`] containing the fallback value if found, or `None` if:
+    /// - The fallback was added with [`ComputationContext::set_fallback_generator`], this function will still remove the generator.
+    /// - The fallback was not set for this type.
     pub fn remove_fallback_untyped(&mut self, type_id: TypeId) -> Option<Box<dyn SendSyncAny>> {
         self.fallback_values
             .iter()
             .position(|o| o.0 == type_id)
             .map(|index| self.fallback_values.swap_remove(index).1)
-            .map(|s| match s {
-                FallbackValue::Opaque(b) => b,
-                FallbackValue::Cacheable(b) => b.into_send_sync(),
+            .and_then(|s| match s {
+                Fallback::Value(FallbackValue::Opaque(b)) => Some(b),
+                Fallback::Value(FallbackValue::Cacheable(b)) => Some(b.into_send_sync()),
+                Fallback::Generator(_) => None,
             })
     }
 }
@@ -740,6 +800,10 @@ pub struct ComputationCache {
     /// The fallback in the [`ComputationContext`] will be compared to the one stored
     /// here to check if a recomputation is required.
     fallback_cache: HashMap<TypeId, Box<dyn CacheableFallback>>,
+    /// A hash map that stores values generated by a [`FallbackGenerator`].
+    ///
+    /// Compared to [`Self::fallback_cache`], there can be multiple fallbacks with the same [`TypeId`].
+    generated_fallback_cache: HashMap<(NodeHandle, TypeId), Box<dyn CacheableFallback>>,
 }
 
 impl ComputationCache {
@@ -1165,6 +1229,20 @@ impl ComputeGraph {
     ) -> Result<Box<dyn SendSyncAny>, ComputeError> {
         struct Cache<'a> {
             fallback_cache: &'a mut HashMap<TypeId, Box<dyn CacheableFallback>>,
+            generated_fallback_cache:
+                &'a mut HashMap<(NodeHandle, TypeId), Box<dyn CacheableFallback>>,
+        }
+        enum InputValue<'a> {
+            Borrowed(&'a dyn Any),
+            Generated(FallbackValue),
+        }
+        impl InputValue<'_> {
+            fn as_any(&self) -> &dyn Any {
+                match self {
+                    Self::Borrowed(v) => *v,
+                    Self::Generated(v) => v.as_any(),
+                }
+            }
         }
 
         let mut visited: Vec<bool> = vec![false; self.nodes.len()];
@@ -1268,6 +1346,7 @@ impl ComputeGraph {
                 &mut c.node_cache,
                 Some(Cache {
                     fallback_cache: &mut c.fallback_cache,
+                    generated_fallback_cache: &mut c.generated_fallback_cache,
                 }),
             )
         } else {
@@ -1312,7 +1391,8 @@ impl ComputeGraph {
                             })
                         {
                             // Use the override value
-                            input_values.push(override_value.value.as_ref().as_any());
+                            input_values
+                                .push(InputValue::Borrowed(override_value.value.as_ref().as_any()));
                             recompute_required = true;
                             continue;
                         }
@@ -1335,31 +1415,80 @@ impl ComputeGraph {
                                 .find(|fallback_value| fallback_value.0 == input.1)
                             {
                                 // Use the fallback value
-                                input_values.push(fallback_value.1.as_any());
-                                // Check if the value changed
-                                if match &fallback_value.1 {
-                                    FallbackValue::Opaque(_) => true,
-                                    FallbackValue::Cacheable(value) => {
-                                        cache.as_mut().map_or(true, |cache| {
-                                            if let Some(fb) = cache.fallback_cache.get_mut(&input.1)
+                                let value = match &fallback_value.1 {
+                                    Fallback::Value(value) => {
+                                        // Check if the value changed
+                                        if match &value {
+                                            FallbackValue::Opaque(_) => true,
+                                            FallbackValue::Cacheable(value) => {
+                                                cache.as_mut().map_or(true, |cache| {
+                                                    if let Some(fb) =
+                                                        cache.fallback_cache.get_mut(&input.1)
+                                                    {
+                                                        if fb.partial_eq(value.as_partial_eq_any())
+                                                        {
+                                                            false
+                                                        } else {
+                                                            // update
+                                                            *fb = value.clone();
+                                                            true
+                                                        }
+                                                    } else {
+                                                        // insert
+                                                        cache
+                                                            .fallback_cache
+                                                            .insert(input.1, value.clone());
+                                                        true
+                                                    }
+                                                })
+                                            }
+                                        } {
+                                            recompute_required = true;
+                                        }
+                                        InputValue::Borrowed(value.as_any())
+                                    }
+                                    Fallback::Generator(gen) => {
+                                        let handle = current_node.handle.clone();
+                                        let generated_value = (gen.0)(&handle.node_name);
+
+                                        let should_recompute = match &mut cache {
+                                            None => true,
+                                            Some(cache) => match cache
+                                                .generated_fallback_cache
+                                                .get_mut(&(handle.clone(), input.1))
                                             {
-                                                if fb.partial_eq(value.as_partial_eq_any()) {
-                                                    false
-                                                } else {
-                                                    // update
-                                                    *fb = value.clone();
+                                                None => {
+                                                    // No existing cache entry
+                                                    if let FallbackValue::Cacheable(b) =
+                                                        &generated_value
+                                                    {
+                                                        cache
+                                                            .generated_fallback_cache
+                                                            .insert((handle, input.1), b.clone());
+                                                    }
                                                     true
                                                 }
-                                            } else {
-                                                // insert
-                                                cache.fallback_cache.insert(input.1, value.clone());
-                                                true
-                                            }
-                                        })
+                                                Some(fb) => match &generated_value {
+                                                    FallbackValue::Opaque(_) => true,
+                                                    FallbackValue::Cacheable(b) => {
+                                                        if fb.partial_eq(b.as_partial_eq_any()) {
+                                                            false // Value didn't change
+                                                        } else {
+                                                            *fb = b.clone(); // Update cache
+                                                            true
+                                                        }
+                                                    }
+                                                },
+                                            },
+                                        };
+
+                                        if should_recompute {
+                                            recompute_required = true;
+                                        }
+                                        InputValue::Generated(generated_value)
                                     }
-                                } {
-                                    recompute_required = true;
-                                }
+                                };
+                                input_values.push(value);
                                 continue;
                             }
                         }
@@ -1400,12 +1529,13 @@ impl ComputeGraph {
                     if cached_output.changed {
                         recompute_required = true;
                     }
-                    input_values.push(cached_output.value.as_any());
+                    input_values.push(InputValue::Borrowed(cached_output.value.as_any()));
                 }
 
                 if recompute_required {
                     // Execute the node and store the result
-                    let output_values = current_node.node.run(&input_values);
+                    let input: Vec<_> = input_values.iter().map(InputValue::as_any).collect();
+                    let output_values = current_node.node.run(&input);
 
                     // Validate output types
                     if output_values
@@ -1468,10 +1598,17 @@ impl ComputeGraph {
                     context
                         .fallback_values
                         .iter()
-                        .any(|(fb_type, _fb_value)| fb_type == t)
+                        .any(|(fb_type, fb)| fb_type == t && matches!(fb, Fallback::Value(_)))
+                });
+                cache.generated_fallback_cache.retain(|(_node, t), _cache| {
+                    context
+                        .fallback_values
+                        .iter()
+                        .any(|(fb_type, fb)| fb_type == t && matches!(fb, Fallback::Generator(_)))
                 });
             } else {
                 cache.fallback_cache.clear();
+                cache.generated_fallback_cache.clear();
             }
         }
 
