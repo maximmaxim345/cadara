@@ -637,3 +637,166 @@ fn test_caching_with_cacheable_fallback() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_fallback_generator_caching() -> Result<()> {
+    // The graph will look like this ('►' are unconnected):
+    //
+    //           ►┌─────┐
+    //            │ op4 ├──►┌─────┐
+    // ►┌─────┐ ┌►└─────┘   │ op5 │
+    //  │ op3 ├─┘          ►└──┬──┘
+    // ►└─────┘                │
+    //                         ▼
+    //                      result
+    let mut graph = ComputeGraph::new();
+
+    let op3 = graph.add_node(OpNode::sum("op3"), "op3".to_string())?;
+    let op4 = graph.add_node(OpNode::sum("op4"), "op4".to_string())?;
+    let op5 = graph.add_node(OpNode::sum("op5"), "op5".to_string())?;
+
+    graph.connect(op3.output(), op4.input_b())?;
+    graph.connect(op4.output(), op5.input_a())?;
+
+    let mut cache = ComputationCache::new();
+
+    // op3 will get 3, op4 will get 4 and op5 will get 5.
+    let mut context = ComputationContext::new();
+    context.set_fallback_generator(|node_name| {
+        let num: usize = node_name.strip_prefix("op").unwrap().parse().unwrap();
+        num
+    });
+
+    assert_eq!(
+        graph.compute_with(
+            op5.output(),
+            &ComputationOptions {
+                context: Some(&context),
+            },
+            Some(&mut cache),
+        )?,
+        15, // (3 + 3) + 4 + 5
+    );
+    assert_eq!(
+        get_op_log_set(),
+        ["op3", "op4", "op5"].into_iter().collect(),
+    );
+
+    assert_eq!(
+        graph.compute_with(
+            op5.output(),
+            &ComputationOptions {
+                context: Some(&context),
+            },
+            Some(&mut cache),
+        )?,
+        15
+    );
+    assert_eq!(
+        get_op_log_set(),
+        ["op5"].into_iter().collect(),
+        "fallbacks should be cached"
+    );
+
+    // Change the generator
+    context.set_fallback_generator(|_node_name| 3_usize);
+    assert_eq!(
+        graph.compute_with(
+            op5.output(),
+            &ComputationOptions {
+                context: Some(&context),
+            },
+            Some(&mut cache),
+        )?,
+        12, // (3 + 3) + 3 + 3
+    );
+    assert_eq!(
+        get_op_log_set(),
+        ["op4", "op5"].into_iter().collect(),
+        "we changed the generator, every node except op3 has changed inputs"
+    );
+
+    assert_eq!(
+        graph.compute_with(
+            op5.output(),
+            &ComputationOptions {
+                context: Some(&context),
+            },
+            Some(&mut cache),
+        )?,
+        12
+    );
+    assert_eq!(
+        get_op_log_set(),
+        ["op5"].into_iter().collect(),
+        "all fallbacks should be cached again"
+    );
+
+    // Check if the cache is discarded if the fallback is removed (and kept otherwise):
+    // Add a new node to not disturb the cache of the other nodes
+    let value = graph.add_node(TestNodeConstant::new(10), "value".to_string())?;
+
+    assert_eq!(
+        graph.compute_with(
+            value.output(),
+            &ComputationOptions {
+                context: Some(&context),
+            },
+            Some(&mut cache),
+        )?,
+        10
+    );
+    assert_eq!(get_op_log_set(), [].into_iter().collect(),);
+
+    assert_eq!(
+        graph.compute_with(
+            op5.output(),
+            &ComputationOptions {
+                context: Some(&context),
+            },
+            Some(&mut cache),
+        )?,
+        12
+    );
+    assert_eq!(
+        get_op_log_set(),
+        ["op5"].into_iter().collect(),
+        "fallbacks should still be in the cache, even though the fallback was not used"
+    );
+
+    // now remove the fallback
+
+    context.remove_fallback::<usize>();
+    assert_eq!(
+        graph.compute_with(
+            value.output(),
+            &ComputationOptions {
+                context: Some(&context),
+            },
+            Some(&mut cache),
+        )?,
+        10
+    );
+    assert_eq!(get_op_log_set(), [].into_iter().collect(),);
+
+    // And re-add it (with the same generator as last time)
+    context.set_fallback_generator(|_node_name| 3_usize);
+
+    assert_eq!(
+        graph.compute_with(
+            op5.output(),
+            &ComputationOptions {
+                context: Some(&context),
+            },
+            Some(&mut cache),
+        )?,
+        12
+    );
+    assert_eq!(
+        get_op_log_set(),
+        ["op3", "op4", "op5"].into_iter().collect(),
+        "fallbacks should be discarded from the cache"
+    );
+
+    Ok(())
+}
