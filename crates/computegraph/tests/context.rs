@@ -81,6 +81,7 @@ fn test_context_fallback() -> Result<()> {
     let addition = graph.add_node(TestNodeAddition::new(), "addition".to_string())?;
 
     let mut ctx = ComputationContext::new();
+    ctx.set_fallback_generator(|_name| 2_usize);
     ctx.set_fallback(5_usize);
     ctx.set_fallback(10_usize);
 
@@ -96,6 +97,32 @@ fn test_context_fallback() -> Result<()> {
     );
 
     assert_eq!(ctx.remove_fallback::<usize>(), Some(10));
+    assert_eq!(ctx.remove_fallback::<usize>(), None);
+
+    Ok(())
+}
+
+#[test]
+fn test_context_fallback_generator() -> Result<()> {
+    let mut graph = ComputeGraph::new();
+
+    let addition = graph.add_node(TestNodeAddition::new(), "addition".to_string())?;
+
+    let mut ctx = ComputationContext::new();
+    ctx.set_fallback(5_usize);
+    ctx.set_fallback_generator(|_name| 10_usize);
+
+    assert_eq!(graph.compute_with_context(addition.output(), &ctx)?, 20);
+    assert_eq!(
+        *graph
+            .compute_untyped_with_context(addition.output().into(), &ctx)?
+            .as_ref()
+            .as_any()
+            .downcast_ref::<usize>()
+            .unwrap(),
+        20
+    );
+
     assert_eq!(ctx.remove_fallback::<usize>(), None);
 
     Ok(())
