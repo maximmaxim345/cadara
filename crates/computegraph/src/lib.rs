@@ -1173,6 +1173,8 @@ impl ComputeGraph {
     ///
     /// This function is the untyped version of [`ComputeGraph::compute`].
     ///
+    /// Use [`ComputeGraph::compute_untyped_with`] when caching or a context are needed.
+    ///
     /// # Arguments
     ///
     /// * `output` - The output port to compute.
@@ -1677,6 +1679,8 @@ impl ComputeGraph {
     }
 
     /// Computes the result for a given output port.
+    ///
+    /// Use [`ComputeGraph::compute_with`] when caching or a context are needed.
     ///
     /// # Arguments
     ///
