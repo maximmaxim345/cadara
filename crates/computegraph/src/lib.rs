@@ -1661,6 +1661,7 @@ impl ComputeGraph {
     /// - An input port of the node or a dependency of the node are not connected, and
     ///   no value is provided via the context
     /// - A cycle is detected in the graph.
+    #[deprecated]
     pub fn compute_untyped_with_context(
         &self,
         output: OutputPortUntyped,
@@ -1725,6 +1726,7 @@ impl ComputeGraph {
     /// - An input port of the node or a dependency of the node are not connected, and
     ///   no value is provided via the context
     /// - A cycle is detected in the graph.
+    #[deprecated]
     pub fn compute_with_context<T: 'static>(
         &self,
         output: OutputPort<T>,
