@@ -1640,45 +1640,6 @@ impl ComputeGraph {
         }
     }
 
-    /// Computes the result for a given output port using the provided context, returning a boxed value.
-    ///
-    /// This function is the untyped version of [`ComputeGraph::compute_with_context`].
-    ///
-    /// This function behaves similarly to [`ComputeGraph::compute_untyped`], but uses
-    /// the values given in the context as described in [`ComputationContext`].
-    ///
-    /// # Arguments
-    ///
-    /// * `output` - The output port to compute.
-    /// * `context` - Collection of values used to perform the computation.
-    ///
-    /// # Returns
-    ///
-    /// A result containing the computed boxed value or an error.
-    ///
-    /// # Errors
-    ///
-    /// An error is returned if:
-    /// - The node is not found.
-    /// - The node has the incorrect output type
-    /// - An input port of the node or a dependency of the node are not connected, and
-    ///   no value is provided via the context
-    /// - A cycle is detected in the graph.
-    #[deprecated]
-    pub fn compute_untyped_with_context(
-        &self,
-        output: OutputPortUntyped,
-        context: &ComputationContext,
-    ) -> Result<Box<dyn SendSyncAny>, ComputeError> {
-        self.compute_untyped_with(
-            output,
-            &ComputationOptions {
-                context: Some(context),
-            },
-            None,
-        )
-    }
-
     /// Computes the result for a given output port.
     ///
     /// Use [`ComputeGraph::compute_with`] when caching or a context are needed.
@@ -1700,50 +1661,6 @@ impl ComputeGraph {
     /// - A cycle is detected in the graph.
     pub fn compute<T: 'static>(&self, output: OutputPort<T>) -> Result<T, ComputeError> {
         let res = self.compute_untyped(output.port.clone())?;
-        let res = res
-            .into_any()
-            .downcast::<T>()
-            .map_err(|_| ComputeError::OutputTypeMismatch {
-                node: output.port.node,
-            })?;
-        Ok(*res)
-    }
-
-    /// Computes the result for a given output port using the provided context
-    ///
-    /// This function behaves similarly to [`ComputeGraph::compute`], but uses
-    /// the values given in the context as described in [`ComputationContext`].
-    ///
-    /// # Arguments
-    ///
-    /// * `output` - The output port to compute.
-    /// * `context` - Collection of values used to perform the computation,
-    ///
-    /// # Returns
-    ///
-    /// A result containing the computed boxed value or an error.
-    ///
-    /// # Errors
-    ///
-    /// An error is returned if:
-    /// - The node is not found.
-    /// - The node has the incorrect output type
-    /// - An input port of the node or a dependency of the node are not connected, and
-    ///   no value is provided via the context
-    /// - A cycle is detected in the graph.
-    #[deprecated]
-    pub fn compute_with_context<T: 'static>(
-        &self,
-        output: OutputPort<T>,
-        context: &ComputationContext,
-    ) -> Result<T, ComputeError> {
-        let res = self.compute_untyped_with(
-            output.port.clone(),
-            &ComputationOptions {
-                context: Some(context),
-            },
-            None,
-        )?;
         let res = res
             .into_any()
             .downcast::<T>()
