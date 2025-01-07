@@ -1,7 +1,7 @@
 use crate::ViewportEvent;
 use computegraph::{
-    ComputationContext, ComputeGraph, DynamicNode, InputPort, InputPortUntyped, NodeFactory,
-    NodeHandle, OutputPort, OutputPortUntyped,
+    ComputationContext, ComputationOptions, ComputeGraph, DynamicNode, InputPort, InputPortUntyped,
+    NodeFactory, NodeHandle, OutputPort, OutputPortUntyped,
 };
 use project::ProjectView;
 use std::any::TypeId;
@@ -472,9 +472,13 @@ impl ViewportPipeline {
         let last_node = self.nodes.last().ok_or(ExecuteError::EmptyPipeline)?;
         let mut ctx = ComputationContext::default();
         ctx.set_fallback(project_view);
-        let scene = self
-            .graph
-            .compute_with_context(last_node.scene_output.clone(), &ctx)?;
+        let scene = self.graph.compute_with(
+            last_node.scene_output.clone(),
+            &ComputationOptions {
+                context: Some(&ctx),
+            },
+            None,
+        )?;
 
         Ok(scene)
     }
@@ -500,7 +504,13 @@ impl ViewportPipeline {
 
         let result = scene
             .graph
-            .compute_untyped_with_context(scene.update_state_out, &ctx)
+            .compute_untyped_with(
+                scene.update_state_out,
+                &ComputationOptions {
+                    context: Some(&ctx),
+                },
+                None,
+            )
             .map_err(ExecuteError::ComputeError)?;
         state.state = Some(result);
         Ok(())
@@ -525,7 +535,13 @@ impl ViewportPipeline {
 
         let result = scene
             .graph
-            .compute_with_context(scene.render_primitive_out, &ctx)
+            .compute_with(
+                scene.render_primitive_out,
+                &ComputationOptions {
+                    context: Some(&ctx),
+                },
+                None,
+            )
             .map_err(ExecuteError::ComputeError);
         let a = ctx.remove_override_untyped(&scene.render_state_in);
         debug_assert!(a.is_some());
