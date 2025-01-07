@@ -499,13 +499,13 @@ enum Fallback {
     Generator(FallbackGenerator),
 }
 
-/// Set predefined values for [`ComputeGraph::compute_with_context`].
+/// Set predefined values for [`ComputeGraph::compute_with`].
 ///
 /// Use this container to:
 /// - Override values passed to [`InputPort`]s
 /// - Set fallback values for unconnected [`InputPort`]s
 ///
-/// To be used with [`ComputeGraph::compute_with_context`] and [`ComputeGraph::compute_untyped_with_context`].
+/// To be used with [`ComputeGraph::compute_with`] and [`ComputeGraph::compute_untyped_with`].
 #[derive(Debug, Default)]
 pub struct ComputationContext {
     overrides: Vec<InputPortValue>,
