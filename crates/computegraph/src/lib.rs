@@ -57,7 +57,8 @@
 //! context.set_override(multiply_node.input_b(), 2);
 //!
 //! // Compute the result
-//! let result = graph.compute_with_context(multiply_node.output(), &context).unwrap();
+//! let options = ComputationOptions {context: Some(&context) };
+//! let result = graph.compute_with(multiply_node.output(), &options, None).unwrap();
 //! assert_eq!(result, (3 + 4) * 2);
 //! ```
 //!
@@ -1736,7 +1737,13 @@ impl ComputeGraph {
         output: OutputPort<T>,
         context: &ComputationContext,
     ) -> Result<T, ComputeError> {
-        let res = self.compute_untyped_with_context(output.port.clone(), context)?;
+        let res = self.compute_untyped_with(
+            output.port.clone(),
+            &ComputationOptions {
+                context: Some(context),
+            },
+            None,
+        )?;
         let res = res
             .into_any()
             .downcast::<T>()

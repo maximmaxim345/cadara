@@ -18,13 +18,25 @@ fn test_context_override() -> Result<()> {
     ctx.set_override(addition.input_a(), 5);
 
     assert_eq!(
-        graph.compute_with_context(addition.output(), &ctx)?,
+        graph.compute_with(
+            addition.output(),
+            &ComputationOptions {
+                context: Some(&ctx),
+            },
+            None
+        )?,
         8,
         "ctx should use the latest given value"
     );
     assert_eq!(
         *graph
-            .compute_untyped_with_context(addition.output().into(), &ctx)?
+            .compute_untyped_with(
+                addition.output().into(),
+                &ComputationOptions {
+                    context: Some(&ctx),
+                },
+                None
+            )?
             .as_ref()
             .as_any()
             .downcast_ref::<usize>()
@@ -55,7 +67,13 @@ fn test_context_override_skip_dependencies() -> Result<()> {
 
     assert_eq!(
         graph
-            .compute_with_context(addition.output(), &ctx)
+            .compute_with(
+                addition.output(),
+                &ComputationOptions {
+                    context: Some(&ctx),
+                },
+                None
+            )
             .expect("This should skip 'invalid_dep' entirely"),
         15
     );
@@ -85,10 +103,25 @@ fn test_context_fallback() -> Result<()> {
     ctx.set_fallback(5_usize);
     ctx.set_fallback(10_usize);
 
-    assert_eq!(graph.compute_with_context(addition.output(), &ctx)?, 20);
+    assert_eq!(
+        graph.compute_with(
+            addition.output(),
+            &ComputationOptions {
+                context: Some(&ctx),
+            },
+            None
+        )?,
+        20
+    );
     assert_eq!(
         *graph
-            .compute_untyped_with_context(addition.output().into(), &ctx)?
+            .compute_untyped_with(
+                addition.output().into(),
+                &ComputationOptions {
+                    context: Some(&ctx),
+                },
+                None
+            )?
             .as_ref()
             .as_any()
             .downcast_ref::<usize>()
@@ -112,10 +145,25 @@ fn test_context_fallback_generator() -> Result<()> {
     ctx.set_fallback(5_usize);
     ctx.set_fallback_generator(|_name| 10_usize);
 
-    assert_eq!(graph.compute_with_context(addition.output(), &ctx)?, 20);
+    assert_eq!(
+        graph.compute_with(
+            addition.output(),
+            &ComputationOptions {
+                context: Some(&ctx),
+            },
+            None
+        )?,
+        20
+    );
     assert_eq!(
         *graph
-            .compute_untyped_with_context(addition.output().into(), &ctx)?
+            .compute_untyped_with(
+                addition.output().into(),
+                &ComputationOptions {
+                    context: Some(&ctx),
+                },
+                None
+            )?
             .as_ref()
             .as_any()
             .downcast_ref::<usize>()
@@ -127,7 +175,6 @@ fn test_context_fallback_generator() -> Result<()> {
 
     Ok(())
 }
-
 #[test]
 fn test_context_priority() -> Result<()> {
     let mut graph = ComputeGraph::new();
@@ -144,7 +191,13 @@ fn test_context_priority() -> Result<()> {
     ctx.set_fallback(10_usize);
 
     assert_eq!(
-        graph.compute_with_context(addition.output(), &ctx)?,
+        graph.compute_with(
+            addition.output(),
+            &ComputationOptions {
+                context: Some(&ctx),
+            },
+            None
+        )?,
         1,
         "priority should be override > connected > fallback"
     );
