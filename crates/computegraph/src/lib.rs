@@ -423,10 +423,7 @@ where
     }
 
     fn partial_eq(&self, other: &dyn SendSyncPartialEqAny) -> bool {
-        other
-            .as_any()
-            .downcast_ref::<T>()
-            .map_or(false, |other| self == other)
+        other.as_any().downcast_ref::<T>() == Some(self)
     }
 }
 
