@@ -284,7 +284,7 @@ fn delete_build_dirs(path: &Path) -> std::io::Result<()> {
             && path
                 .file_name()
                 .and_then(|n| n.to_str())
-                .map_or(false, |s| s.starts_with("build-"))
+                .is_some_and(|s| s.starts_with("build-"))
         {
             fs::remove_dir_all(path)?;
         }
