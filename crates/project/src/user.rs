@@ -8,7 +8,6 @@ use uuid::Uuid;
 /// 2. To create sessions to associate changes with a user.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-#[expect(clippy::module_name_repetitions)]
 pub struct UserId(Uuid);
 
 impl UserId {

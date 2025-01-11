@@ -15,7 +15,6 @@ use crate::{
 /// Unique identifier of a data section in a [`crate::Project`].
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
-#[expect(clippy::module_name_repetitions)]
 pub struct DataId(Uuid);
 
 impl DataId {
@@ -38,7 +37,6 @@ impl fmt::Display for DataId {
 /// It allows you to inspect the persistent, user-specific, session, and shared data, but not to modify the project directly.
 /// Modifications must be made through a [`ChangeBuilder`] and applied to the [`crate::Project`] using [`crate::Project::apply_changes`].
 #[derive(Clone, Debug)]
-#[expect(clippy::module_name_repetitions)]
 pub struct DataView<'a, M: Module> {
     pub project: &'a ProjectView,
     pub id: DataId,
@@ -221,7 +219,6 @@ impl<M: Module> DataView<'_, M> {
 
 /// Pending version of [`DataView`] that does not yet exist in the [`ProjectView`].
 #[derive(Debug)]
-#[expect(clippy::module_name_repetitions)]
 pub struct PlannedData<'a, 'b, M: Module> {
     pub id: DataId,
     pub project: &'a ProjectView,

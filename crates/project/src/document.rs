@@ -11,7 +11,6 @@ use uuid::Uuid;
 /// Unique identifier of a `document` in a [`crate::Project`].
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
-#[expect(clippy::module_name_repetitions)]
 pub struct DocumentId(Uuid);
 
 impl DocumentId {
@@ -42,7 +41,6 @@ pub struct Document {
 /// in a project. It allows you to inspect the document's contents and create data sections, but not to modify the project directly.
 /// Modifications must be made through a [`ChangeBuilder`] and applied to the [`crate::Project`] using [`crate::Project::apply_changes`].
 #[derive(Clone, Debug)]
-#[expect(clippy::module_name_repetitions)]
 pub struct DocumentView<'a> {
     pub id: DocumentId,
     pub project: &'a ProjectView,
@@ -149,7 +147,6 @@ impl DocumentView<'_> {
 
 /// Pending version of [`DocumentView`] that does not yet exist in the [`ProjectView`].
 #[derive(Debug)]
-#[expect(clippy::module_name_repetitions)]
 pub struct PlannedDocument<'a, 'b> {
     pub id: DocumentId,
     pub project: &'a ProjectView,

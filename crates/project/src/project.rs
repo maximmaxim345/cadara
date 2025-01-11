@@ -16,7 +16,6 @@ use std::fmt::Debug;
 ///
 /// Use [`crate::Project::create_view`] create a [`ProjectView`].
 #[derive(Clone, Serialize, Deserialize, Debug)]
-#[expect(clippy::module_name_repetitions)]
 pub struct ProjectView {
     /// The user currently interacting with the project.
     pub(crate) user: UserId,

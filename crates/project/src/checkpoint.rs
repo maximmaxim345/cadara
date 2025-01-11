@@ -15,5 +15,4 @@ use uuid::Uuid;
 /// Unique identifier to a point in the [`crate::Project::log`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-#[expect(clippy::module_name_repetitions)]
 pub struct CheckpointId(Uuid);
