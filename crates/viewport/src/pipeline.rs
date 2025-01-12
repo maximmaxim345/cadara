@@ -1,10 +1,10 @@
 use crate::ViewportEvent;
 use computegraph::{
-    ComputationContext, ComputationOptions, ComputeGraph, DynamicNode, InputPort, InputPortUntyped,
-    NodeFactory, NodeHandle, OutputPort, OutputPortUntyped,
+    ComputationCache, ComputationContext, ComputationOptions, ComputeGraph, DynamicNode, InputPort,
+    InputPortUntyped, NodeFactory, NodeHandle, OutputPort, OutputPortUntyped,
 };
 use project::ProjectView;
-use std::any::TypeId;
+use std::{any::TypeId, sync::Mutex};
 
 /// Errors that can occur when creating a new [`ViewportPlugin`] or [`DynamicViewportPlugin`]
 #[derive(thiserror::Error, Debug)]
@@ -115,10 +115,21 @@ impl<T> From<SceneGraphBuilder<T>> for SceneGraph {
 /// the viewport.
 ///
 /// TODO: add examples
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct ViewportPipeline {
     graph: ComputeGraph,
     nodes: Vec<ViewportPluginNode>,
+    cache: Mutex<ComputationCache>,
+}
+
+impl Clone for ViewportPipeline {
+    fn clone(&self) -> Self {
+        Self {
+            graph: self.graph.clone(),
+            nodes: self.nodes.clone(),
+            cache: Default::default(),
+        }
+    }
 }
 
 #[derive(Default, Debug)]
@@ -540,7 +551,7 @@ impl ViewportPipeline {
                 &ComputationOptions {
                     context: Some(&ctx),
                 },
-                None,
+                Some(&mut self.cache.lock().unwrap()),
             )
             .map_err(ExecuteError::ComputeError);
         let a = ctx.remove_override_untyped(&scene.render_state_in);
