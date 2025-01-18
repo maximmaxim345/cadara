@@ -1,5 +1,5 @@
 use computegraph::{node, ComputeGraph};
-use viewport::{RenderNodePorts, SceneGraphBuilder, UpdateNodePorts};
+use viewport::{ProjectState, RenderNodePorts, SceneGraphBuilder, UpdateNodePorts};
 
 mod camera;
 mod rendering;
@@ -15,10 +15,7 @@ pub struct ModelingViewportPlugin {
 }
 
 #[node(ModelingViewportPlugin -> (scene, output))]
-fn run(
-    &self,
-    _project: &project::ProjectView,
-) -> (viewport::SceneGraph, ModelingViewportPluginOutput) {
+fn run(&self, _project: &ProjectState) -> (viewport::SceneGraph, ModelingViewportPluginOutput) {
     let mut graph = ComputeGraph::new();
     let model_node = graph
         .add_node(
