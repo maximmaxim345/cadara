@@ -19,6 +19,11 @@ const LIB_DIR: &str = "occt_lib";
 const INCLUDE_DIR: &str = "occt_include";
 const OCCT_VERSION_LOCK_FILE: &str = "occt_commit_hash.lock";
 
+#[cfg(feature = "debug")]
+const DEBUG_BUILD: bool = true;
+#[cfg(not(feature = "debug"))]
+const DEBUG_BUILD: bool = false;
+
 pub struct OpenCascadeSource {
     profile: Option<String>,
 }
@@ -31,17 +36,22 @@ impl OpenCascadeSource {
         // - INSTALL_DIR_LIB is partly ignored, it installs to occt_libd for some reason
         // - cmake can't find pdb files
         // - with ninja, for some reason /FS option is ignored, failing to lock pdb files
-        // I have no idea how to fix this, but as Release build seems to work,
-        // so we will always use that on windows.
-        let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
-        let is_windows = target_os == "windows";
-        Self {
-            profile: if is_windows {
-                Some("Release".to_string())
-            } else {
-                None
-            },
+        // I have no idea how to fix this, but as Release build seems to work.
+        let is_windows = env::var("CARGO_CFG_TARGET_OS").unwrap() == "windows";
+        let profile = env::var("PROFILE").unwrap();
+        let debug_build = DEBUG_BUILD && profile == "debug";
+
+        if is_windows && debug_build {
+            panic!("Debug builds of OpenCASCADE are not (yet) supported on Windows");
         }
+
+        let profile = if debug_build {
+            Some("Debug".to_string())
+        } else {
+            Some("Release".to_string())
+        };
+
+        Self { profile }
     }
 
     pub fn build(self) -> OpenCascadeBuild {
