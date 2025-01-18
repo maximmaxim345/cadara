@@ -76,7 +76,7 @@ pub struct ViewportState {
 #[derive(Clone)]
 pub struct Viewport {
     pub pipeline: ViewportPipeline,
-    pub project_view: ProjectView,
+    pub project_view: Arc<ProjectView>,
 }
 
 impl Viewport {
@@ -84,7 +84,7 @@ impl Viewport {
     pub fn new(project_view: ProjectView) -> Self {
         Self {
             pipeline: ViewportPipeline::default(),
-            project_view,
+            project_view: Arc::new(project_view),
         }
     }
 }
@@ -147,7 +147,7 @@ impl<Message> shader::Program<Message> for Viewport {
 pub struct ShaderPrimitive {
     pub pipeline: ViewportPipeline,
     pub state: ViewportState,
-    pub project_view: ProjectView,
+    pub project_view: Arc<ProjectView>,
 }
 
 impl shader::Primitive for ShaderPrimitive {
