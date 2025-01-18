@@ -1,6 +1,7 @@
 use computegraph::node;
 use iced::widget::shader;
-use viewport::ViewportEvent;
+use project::TrackedDataView;
+use viewport::{ProjectState, ViewportEvent};
 
 use super::{
     rendering::{MeshData, RenderPrimitive, Vertex},
@@ -13,11 +14,11 @@ pub struct ModelNode {
 }
 
 #[node(ModelNode -> !)]
-fn run(&self, project: &project::ProjectView) -> occara::shape::Shape {
-    let data_view: project::DataView<modeling_module::ModelingModule> =
+fn run(&self, project: &ProjectState) -> occara::shape::Shape {
+    let data_view: TrackedDataView<modeling_module::ModelingModule> =
         project.open_data_by_id(self.data_uuid).unwrap();
 
-    data_view.persistent.shape()
+    data_view.persistent().shape()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,10 +65,10 @@ fn run(
     &self,
     event: &ViewportEvent,
     state: &ViewportState,
-    project: &project::ProjectView,
+    project: &ProjectState,
 ) -> ViewportState {
     let mut state = (*state).clone();
-    let _data_view: project::DataView<modeling_module::ModelingModule> =
+    let _data_view: TrackedDataView<modeling_module::ModelingModule> =
         project.open_data_by_id(self.data_uuid).unwrap();
     if let shader::Event::Mouse(m) = event.event {
         match m {
