@@ -471,6 +471,7 @@ impl ViewportPipeline {
     pub fn compute_scene(
         &self,
         project_view: Arc<ProjectView>,
+        _project_view_version: u64,
     ) -> Result<SceneGraph, ExecuteError> {
         // TODO: pass ProjectView to ViewportPluginNodes
         let last_node = self.nodes.last().ok_or(ExecuteError::EmptyPipeline)?;
@@ -493,8 +494,9 @@ impl ViewportPipeline {
         state: &mut ViewportPipelineState,
         events: ViewportEvent,
         project_view: Arc<ProjectView>,
+        project_view_version: u64,
     ) -> Result<(), ExecuteError> {
-        let scene = self.compute_scene(project_view.clone())?;
+        let scene = self.compute_scene(project_view.clone(), project_view_version)?;
 
         let s = state.state.take();
         let s = match s {
@@ -526,8 +528,9 @@ impl ViewportPipeline {
         &self,
         state: &mut ViewportPipelineState,
         project_view: Arc<ProjectView>,
+        project_view_version: u64,
     ) -> Result<Box<dyn iced::widget::shader::Primitive>, ExecuteError> {
-        let scene = self.compute_scene(project_view.clone())?;
+        let scene = self.compute_scene(project_view.clone(), project_view_version)?;
 
         let s = state.state.take();
         let s = match s {

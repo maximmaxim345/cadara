@@ -126,9 +126,10 @@ fn run(&self, scene: &SceneGraph, input: &CounterState) -> (SceneGraph, CounterS
 pub fn node_count(pipeline: &ViewportPipeline) -> Result<usize, Box<dyn std::error::Error>> {
     let p = project::Project::new();
     let g = pipeline
-        .compute_scene(Arc::new(
-            p.create_view(&project::ModuleRegistry::default()).unwrap(),
-        ))?
+        .compute_scene(
+            Arc::new(p.create_view(&project::ModuleRegistry::default()).unwrap()),
+            1,
+        )?
         .graph;
     let out_port = computegraph::OutputPortUntyped {
         node: computegraph::NodeHandle {

@@ -77,6 +77,7 @@ pub struct ViewportState {
 pub struct Viewport {
     pub pipeline: ViewportPipeline,
     pub project_view: Arc<ProjectView>,
+    pub project_view_version: u64,
 }
 
 impl Viewport {
@@ -85,6 +86,7 @@ impl Viewport {
         Self {
             pipeline: ViewportPipeline::default(),
             project_view: Arc::new(project_view),
+            project_view_version: 1,
         }
     }
 }
@@ -115,6 +117,7 @@ impl<Message> shader::Program<Message> for Viewport {
                 &mut state.state.lock().unwrap(),
                 event,
                 self.project_view.clone(),
+                self.project_view_version,
             )
             .unwrap();
         (iced::advanced::graphics::core::event::Status::Ignored, None)
@@ -130,6 +133,7 @@ impl<Message> shader::Program<Message> for Viewport {
             pipeline: self.pipeline.clone(),
             state: state.clone(),
             project_view: self.project_view.clone(),
+            project_view_version: self.project_view_version,
         }
     }
 
@@ -148,6 +152,7 @@ pub struct ShaderPrimitive {
     pub pipeline: ViewportPipeline,
     pub state: ViewportState,
     pub project_view: Arc<ProjectView>,
+    pub project_view_version: u64,
 }
 
 impl shader::Primitive for ShaderPrimitive {
@@ -165,6 +170,7 @@ impl shader::Primitive for ShaderPrimitive {
             .compute_primitive(
                 &mut self.state.state.lock().unwrap(),
                 self.project_view.clone(),
+                self.project_view_version,
             )
             .unwrap();
         a.prepare(device, queue, format, storage, bounds, viewport);
@@ -182,6 +188,7 @@ impl shader::Primitive for ShaderPrimitive {
             .compute_primitive(
                 &mut self.state.state.lock().unwrap(),
                 self.project_view.clone(),
+                self.project_view_version,
             )
             .unwrap();
         a.render(encoder, storage, target, clip_bounds);
