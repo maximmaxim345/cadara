@@ -17,6 +17,8 @@ resolver = "2"
 
 [workspace.dependencies]
 project = { path = "crates/project" }
+# To enable debugging of OpenCASCADE itself, use this instead:
+# opencascade-sys = { path = "crates/opencascade-sys", features = ["debug"] }
 opencascade-sys = { path = "crates/opencascade-sys" }
 occara = { path = "crates/occara" }
 viewport = { path = "crates/viewport" }
