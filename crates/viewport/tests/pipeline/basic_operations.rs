@@ -86,10 +86,13 @@ fn test_compute_single_node_pipeline() {
 fn test_compute_empty_pipeline() {
     let pipeline = ViewportPipeline::default();
     let project = project::Project::new();
-    let result = pipeline.compute_scene(Arc::new(
-        project
-            .create_view(&project::ModuleRegistry::default())
-            .unwrap(),
-    ));
+    let result = pipeline.compute_scene(
+        Arc::new(
+            project
+                .create_view(&project::ModuleRegistry::default())
+                .unwrap(),
+        ),
+        1,
+    );
     assert!(matches!(result, Err(ExecuteError::EmptyPipeline)));
 }
