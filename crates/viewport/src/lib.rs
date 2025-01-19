@@ -56,8 +56,8 @@ mod pipeline;
 
 #[doc(inline)]
 pub use pipeline::{
-    DynamicViewportPlugin, ExecuteError, PipelineAddError, RenderNodePorts, SceneGraph,
-    SceneGraphBuilder, UpdateNodePorts, ViewportPipeline, ViewportPlugin,
+    DynamicViewportPlugin, ExecuteError, PipelineAddError, ProjectState, RenderNodePorts,
+    SceneGraph, SceneGraphBuilder, UpdateNodePorts, ViewportPipeline, ViewportPlugin,
     ViewportPluginValidationError,
 };
 
