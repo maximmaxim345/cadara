@@ -64,6 +64,13 @@ impl TrackedProjectView {
         (Self(pv, accesses.clone()), accesses)
     }
 
+    /// Opens a read only [`TrackedDocumentView`].
+    ///
+    /// # Arguments
+    /// * `document_id` - The unique identifier of the document to open
+    ///
+    /// # Returns
+    /// An `Option` containing a [`TrackedDocumentView`] if the document was found, or `None` otherwise.
     #[must_use]
     pub fn open_document(&self, document_id: DocumentId) -> Option<TrackedDocumentView> {
         self.1.track(AccessEvent::OpenDocument(document_id));
@@ -72,6 +79,15 @@ impl TrackedProjectView {
             .map(|d| TrackedDocumentView(d, self.1.clone()))
     }
 
+    /// Plans the creation of a new empty document.
+    ///
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
+    ///
+    /// # Returns
+    /// The unique identifier of the document recorded to `cb`.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     #[must_use]
     pub fn create_document<'b, 'c>(
         &'b self,
@@ -81,10 +97,30 @@ impl TrackedProjectView {
         self.0.create_document(cb, path)
     }
 
+    /// Plans the creation of a new empty data section with type `M`.
+    ///
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
+    ///
+    /// # Returns
+    ///
+    /// The unique identifier of the data recorded to `cb`.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn create_data<M: Module>(&self, cb: &mut ChangeBuilder) -> DataId {
         self.0.create_data::<M>(cb)
     }
 
+    /// Opens a read only [`TrackedDataView`].
+    ///
+    /// # Arguments
+    /// * `data_id` - The unique identifier of the document to open
+    ///
+    /// # Type Parameters
+    /// * `M` - The [`Module`] expected to describe the data
+    ///
+    /// # Returns
+    /// An `Option` containing a [`TrackedDataView`] if the document was found and is of type `M`, or `None` otherwise.
     #[must_use]
     pub fn open_data_by_id<M: Module>(&self, data_id: DataId) -> Option<TrackedDataView<M>> {
         self.1.track(AccessEvent::OpenDataById(data_id));
@@ -93,6 +129,13 @@ impl TrackedProjectView {
             .map(|d| TrackedDataView(d, self.1.clone()))
     }
 
+    /// Opens read only [`TrackedDataView`]s to all data with the type `M`.
+    ///
+    /// # Type Parameters
+    /// * `M` - The [`Module`] to filter by
+    ///
+    /// # Returns
+    /// An iterator yielding [`TrackedDataView`]s of type `M` found in this document.
     pub fn open_data_by_type<M: Module>(&self) -> impl Iterator<Item = TrackedDataView<M>> + '_ {
         self.0
             .open_data_by_type()
@@ -117,6 +160,16 @@ impl From<TrackedDocumentView<'_>> for DocumentId {
 }
 
 impl TrackedDocumentView<'_> {
+    /// Opens a read only [`TrackedDataView`] to data contained in this document.
+    ///
+    /// # Arguments
+    /// * `data_id` - The unique identifier of the document to open
+    ///
+    /// # Type Parameters
+    /// * `M` - The [`Module`] expected to describe the data
+    ///
+    /// # Returns
+    /// An `Option` containing a [`TrackedDataView`] if the document was found in this document and is of type `M`, or `None` otherwise.
     #[must_use]
     pub fn open_data_by_id<M: Module>(&self, data_id: DataId) -> Option<TrackedDataView<M>> {
         self.0
@@ -124,12 +177,30 @@ impl TrackedDocumentView<'_> {
             .map(|d| TrackedDataView(d, self.1.clone()))
     }
 
+    /// Opens read only [`TrackedDataView`]s to all data with the type `M`.
+    ///
+    /// # Type Parameters
+    /// * `M` - The [`Module`] to filter by
+    ///
+    /// # Returns
+    /// An iterator yielding [`TrackedDataView`]s of type `M` found in this document.
     pub fn open_data_by_type<M: Module>(&self) -> impl Iterator<Item = TrackedDataView<M>> + '_ {
         self.0
             .open_data_by_type()
             .map(|d| TrackedDataView(d, self.1.clone()))
     }
 
+    /// Plans the creation of a new empty data section with type `M`
+    ///
+    /// The new data section will be contained in this document
+    ///
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
+    ///
+    /// # Returns
+    /// The unique identifier of the data recorded to `cb`.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     #[must_use]
     pub fn create_data<'b, 'c, M: Module>(
         &'b self,
@@ -138,6 +209,12 @@ impl TrackedDocumentView<'_> {
         self.0.create_data(cb)
     }
 
+    /// Plans the deletion of this document and all its contained data
+    ///
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn delete(&self, cb: &mut ChangeBuilder) {
         self.0.delete(cb);
     }
@@ -160,6 +237,16 @@ impl<M: Module> From<TrackedDataView<'_, M>> for DataId {
 }
 
 impl<'a, M: Module> TrackedDataView<'a, M> {
+    /// Plans to apply a transaction to [`Module::PersistentData`].
+    ///
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - Arguments of the transaction.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn apply_persistent(
         &self,
         args: <M::PersistentData as DataSection>::Args,
@@ -168,6 +255,16 @@ impl<'a, M: Module> TrackedDataView<'a, M> {
         self.0.apply_persistent(args, cb);
     }
 
+    /// Plans to apply a transaction to [`Module::PersistentUserData`].
+    ///
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - Arguments of the transaction.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn apply_persistent_user(
         &self,
         args: <M::PersistentUserData as DataSection>::Args,
@@ -176,6 +273,16 @@ impl<'a, M: Module> TrackedDataView<'a, M> {
         self.0.apply_persistent_user(args, cb);
     }
 
+    /// Plans to apply a transaction to [`Module::SessionData`].
+    ///
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - Arguments of the transaction.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn apply_session(
         &self,
         args: <M::SessionData as DataSection>::Args,
@@ -184,18 +291,50 @@ impl<'a, M: Module> TrackedDataView<'a, M> {
         self.0.apply_session(args, cb);
     }
 
+    /// Plans to apply a transaction to [`Module::SharedData`].
+    ///
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - Arguments of the transaction.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn apply_shared(&self, args: <M::SharedData as DataSection>::Args, cb: &mut ChangeBuilder) {
         self.0.apply_shared(args, cb);
     }
 
+    /// Plans the deletion of this data
+    ///
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn delete(&self, cb: &mut ChangeBuilder) {
         self.0.delete(cb);
     }
 
+    /// Plans to move this data section to another document.
+    ///
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_owner` - The document to move the data to.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn move_to_document(&self, new_owner: &crate::DocumentView, cb: &mut ChangeBuilder) {
         self.0.move_to_document(new_owner, cb);
     }
 
+    /// Plans to make this data section an orphan (not owned by any document).
+    ///
+    /// This will not modify the [`crate::Project`], just record this change to `cb`.
+    ///
+    /// # Panics
+    /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
     pub fn make_orphan(&self, cb: &mut ChangeBuilder) {
         self.0.make_orphan(cb);
     }
