@@ -2,6 +2,7 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::cognitive_complexity)]
+// TODO: look if docs need to be changed
 
 //! # Viewport
 //!
