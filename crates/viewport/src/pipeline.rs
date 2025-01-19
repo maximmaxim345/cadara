@@ -3,7 +3,7 @@ use computegraph::{
     ComputationContext, ComputationOptions, ComputeGraph, DynamicNode, InputPort, InputPortUntyped,
     NodeFactory, NodeHandle, OutputPort, OutputPortUntyped,
 };
-use project::ProjectView;
+use project::{ProjectView, TrackedProjectView};
 use std::{any::TypeId, sync::Arc};
 
 /// Errors that can occur when creating a new [`ViewportPlugin`] or [`DynamicViewportPlugin`]
@@ -250,6 +250,53 @@ fn validate_plugin(
             }
         }
         (None, None) => Ok(PluginPosition::Initial),
+    }
+}
+
+/// State of the whole project, wrapper around [`ProjectView`] with caching support.
+///
+/// While it implements clone, do not use a cloned [`ProjectView`]. This will panic.
+pub enum ProjectState {
+    Valid(TrackedProjectView, u64),
+    Cloned(u64),
+}
+
+impl ProjectState {
+    #[expect(dead_code)]
+    const fn new(pvo: TrackedProjectView, version: u64) -> Self {
+        Self::Valid(pvo, version)
+    }
+}
+
+impl Clone for ProjectState {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Cloned(version) | Self::Valid(_, version) => Self::Cloned(*version),
+        }
+    }
+}
+
+impl PartialEq for ProjectState {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                Self::Valid(_, self_version) | Self::Cloned(self_version),
+                Self::Valid(_, other_version) | Self::Cloned(other_version),
+            ) => self_version == other_version,
+        }
+    }
+}
+
+impl std::ops::Deref for ProjectState {
+    type Target = TrackedProjectView;
+
+    fn deref(&self) -> &Self::Target {
+        if let Self::Valid(view, _) = self {
+            view
+        } else {
+            // TODO: this could just be a compile time check if we don't implement Clone
+            panic!("A cloned ProjectState must never be used for anything else but comparisons")
+        }
     }
 }
 
