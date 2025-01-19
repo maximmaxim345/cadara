@@ -93,6 +93,7 @@ fn test_compute_empty_pipeline() {
                 .unwrap(),
         ),
         1,
+        None,
     );
     assert!(matches!(result, Err(ExecuteError::EmptyPipeline)));
 }

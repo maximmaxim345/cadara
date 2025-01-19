@@ -129,6 +129,7 @@ pub fn node_count(pipeline: &ViewportPipeline) -> Result<usize, Box<dyn std::err
         .compute_scene(
             Arc::new(p.create_view(&project::ModuleRegistry::default()).unwrap()),
             1,
+            None,
         )?
         .graph;
     let out_port = computegraph::OutputPortUntyped {
