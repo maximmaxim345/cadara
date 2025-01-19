@@ -6,6 +6,7 @@ use module::{DataSection, Module};
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
+/// Represents specific events related to accessing project data.
 #[expect(dead_code)]
 #[derive(Debug, Clone)]
 enum AccessEvent {
@@ -17,15 +18,29 @@ enum AccessEvent {
     AccessSession(DataId),
 }
 
+/// A log of read accesses on a [`TrackedProjectView`] for caching purposes.
 #[derive(Clone, Debug)]
 pub struct AccessRecorder(Arc<Mutex<Vec<AccessEvent>>>);
 
 impl AccessRecorder {
+    /// Tracks an [`AccessEvent`] by appending it to the log.
+    ///
+    /// # Arguments
+    /// * `access` - The [`AccessEvent`] to track.
     fn track(&self, access: AccessEvent) {
         self.0.lock().unwrap().push(access);
     }
 }
 
+/// A wrapper around [`ProjectView`] that provides access tracking functionality.
+///
+/// [`TrackedProjectView`] is a wrapper around [`ProjectView`] that tracks all read
+/// actions on that [`TrackedProjectView`] related [`TrackedDocumentView`] and
+/// [`TrackedDataView`]s.
+///
+/// This allows implicit dependency tracking of [`ProjectView`]s for caching purposes.
+///
+/// Create a new [`TrackedProjectView`] and a [`AccessRecorder`] with [`TrackedProjectView::new`].
 #[derive(Clone, Debug)]
 pub struct TrackedProjectView(Arc<ProjectView>, AccessRecorder);
 
@@ -36,6 +51,13 @@ impl ProjectSource for TrackedProjectView {
 }
 
 impl TrackedProjectView {
+    /// Creates a new [`TrackedProjectView`] from a [`ProjectView`].
+    ///
+    /// # Arguments
+    /// * `pv` - The [`ProjectView`] to wrap.
+    ///
+    /// # Returns
+    /// A tuple containing the new [`TrackedProjectView`] and its associated [`AccessRecorder`].
     #[must_use]
     pub fn new(pv: Arc<ProjectView>) -> (Self, AccessRecorder) {
         let accesses = AccessRecorder(Arc::new(Mutex::new(Vec::new())));
@@ -78,6 +100,7 @@ impl TrackedProjectView {
     }
 }
 
+/// A wrapper around [`DocumentView`] that provides access tracking functionality.
 #[derive(Clone, Debug)]
 pub struct TrackedDocumentView<'a>(DocumentView<'a>, AccessRecorder);
 
@@ -120,6 +143,7 @@ impl TrackedDocumentView<'_> {
     }
 }
 
+/// A wrapper around [`DataView`] that provides access tracking functionality.
 #[derive(Clone, Debug)]
 pub struct TrackedDataView<'a, M: Module>(DataView<'a, M>, AccessRecorder);
 
@@ -176,24 +200,40 @@ impl<'a, M: Module> TrackedDataView<'a, M> {
         self.0.make_orphan(cb);
     }
 
+    /// Accesses the persistent data section, shared by all users.
+    ///
+    /// # Returns
+    /// A reference to [`DataView::persistent`].
     #[must_use]
     pub fn persistent(&self) -> &'a &<M as Module>::PersistentData {
         self.1.track(AccessEvent::AccessPesistent(self.0.id));
         &self.0.persistent
     }
 
+    /// Accesses the persistent user-specific data section.
+    ///
+    /// # Returns
+    /// A reference to [`DataView::persistent_user`].
     #[must_use]
     pub fn persistent_user(&self) -> &'a &<M as Module>::PersistentUserData {
         self.1.track(AccessEvent::AccessPesistentUser(self.0.id));
         &self.0.persistent_user
     }
 
+    /// Accesses the non-persistent data section, that is shared among other users.
+    ///
+    /// # Returns
+    /// A reference to [`DataView::shared_data`].
     #[must_use]
     pub fn shared_data(&self) -> &'a &<M as Module>::SharedData {
         self.1.track(AccessEvent::AccessShared(self.0.id));
         &self.0.shared_data
     }
 
+    /// Accesses the non-persistent user-specific data section.
+    ///
+    /// # Returns
+    /// A reference to [`DataView::session_data`].
     #[must_use]
     pub fn session_data(&self) -> &'a &<M as Module>::SessionData {
         self.1.track(AccessEvent::AccessSession(self.0.id));
