@@ -158,6 +158,7 @@ mod data;
 mod document;
 mod module_data;
 mod project;
+mod tracked;
 mod user;
 
 use branch::BranchId;
@@ -184,6 +185,10 @@ pub use document::Path;
 pub use document::PlannedDocument;
 pub use module_data::ModuleRegistry;
 pub use project::ProjectView;
+pub use tracked::AccessRecorder;
+pub use tracked::TrackedDataView;
+pub use tracked::TrackedDocumentView;
+pub use tracked::TrackedProjectView;
 pub use user::UserId;
 
 /// Facilitates the deserialization of a [`Project`] from a serialized format.
