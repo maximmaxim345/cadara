@@ -529,7 +529,6 @@ impl ViewportPipeline {
         // TODO: pass ProjectView to ViewportPluginNodes
         let last_node = self.nodes.last().ok_or(ExecuteError::EmptyPipeline)?;
         let mut ctx = ComputationContext::default();
-        ctx.set_fallback(project_view.as_ref().clone());
         ctx.set_fallback_generator(move |_node_name| {
             let (view, _observer) = TrackedProjectView::new(project_view.clone());
             ProjectState::new(view, project_view_version)
@@ -567,7 +566,6 @@ impl ViewportPipeline {
         let mut ctx = ComputationContext::default();
         ctx.set_override_untyped(scene.update_state_in.clone(), s);
         ctx.set_override(scene.update_event_in, events);
-        ctx.set_fallback(project_view.as_ref().clone());
         ctx.set_fallback_generator(move |_node_name| {
             let (view, _observer) = TrackedProjectView::new(project_view.clone());
             ProjectState::new(view, project_view_version)
@@ -607,7 +605,6 @@ impl ViewportPipeline {
 
         let mut ctx = ComputationContext::default();
         ctx.set_override_untyped(scene.render_state_in.clone(), s);
-        ctx.set_fallback(project_view.as_ref().clone());
         ctx.set_fallback_generator(move |_node_name| {
             let (view, _observer) = TrackedProjectView::new(project_view.clone());
             ProjectState::new(view, project_view_version)
