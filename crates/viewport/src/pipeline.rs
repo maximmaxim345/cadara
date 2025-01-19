@@ -1,10 +1,13 @@
 use crate::ViewportEvent;
 use computegraph::{
-    ComputationContext, ComputationOptions, ComputeGraph, DynamicNode, InputPort, InputPortUntyped,
-    NodeFactory, NodeHandle, OutputPort, OutputPortUntyped,
+    ComputationCache, ComputationContext, ComputationOptions, ComputeGraph, DynamicNode, InputPort,
+    InputPortUntyped, NodeFactory, NodeHandle, OutputPort, OutputPortUntyped,
 };
 use project::{ProjectView, TrackedProjectView};
-use std::{any::TypeId, sync::Arc};
+use std::{
+    any::TypeId,
+    sync::{Arc, Mutex},
+};
 
 /// Errors that can occur when creating a new [`ViewportPlugin`] or [`DynamicViewportPlugin`]
 #[derive(thiserror::Error, Debug)]
@@ -124,6 +127,8 @@ pub struct ViewportPipeline {
 #[derive(Default, Debug)]
 pub struct ViewportPipelineState {
     state: Option<Box<dyn computegraph::SendSyncAny>>,
+    scenegraph_cache: Mutex<ComputationCache>,
+    viewport_pipeline_cache: Mutex<ComputationCache>,
 }
 
 /// Represents the position of a plugin in the viewport pipeline.
@@ -262,7 +267,6 @@ pub enum ProjectState {
 }
 
 impl ProjectState {
-    #[expect(dead_code)]
     const fn new(pvo: TrackedProjectView, version: u64) -> Self {
         Self::Valid(pvo, version)
     }
@@ -504,6 +508,8 @@ impl ViewportPipeline {
     ///
     /// # Parameters
     /// - `project_view`: This [`ProjectView`] will be passed to all nodes of the [`ViewportPlugin`]s and the [`SceneGraph`].
+    ///   (accessible through a [`ProjectState`] in nodes)
+    /// - `cache`: A optional [`ComputationCache`] that will be used to cache the viewport pipeline.
     ///
     /// # Returns
     ///
@@ -514,28 +520,31 @@ impl ViewportPipeline {
     /// - `Err(ExecuteError::EmptyPipeline)` if the pipeline is empty.
     /// - `Err(ExecuteError::ComputeError)` if there's an error during computation
     ///     of the added [`ViewportPlugin`]s.
-    #[expect(clippy::needless_pass_by_value)]
     pub fn compute_scene(
         &self,
         project_view: Arc<ProjectView>,
-        _project_view_version: u64,
+        project_view_version: u64,
+        cache: Option<&mut ComputationCache>,
     ) -> Result<SceneGraph, ExecuteError> {
         // TODO: pass ProjectView to ViewportPluginNodes
         let last_node = self.nodes.last().ok_or(ExecuteError::EmptyPipeline)?;
         let mut ctx = ComputationContext::default();
         ctx.set_fallback(project_view.as_ref().clone());
+        ctx.set_fallback_generator(move |_node_name| {
+            let (view, _observer) = TrackedProjectView::new(project_view.clone());
+            ProjectState::new(view, project_view_version)
+        });
         let scene = self.graph.compute_with(
             last_node.scene_output.clone(),
             &ComputationOptions {
                 context: Some(&ctx),
             },
-            None,
+            cache,
         )?;
 
         Ok(scene)
     }
 
-    #[expect(clippy::needless_pass_by_value)]
     pub(crate) fn update(
         &self,
         state: &mut ViewportPipelineState,
@@ -543,7 +552,11 @@ impl ViewportPipeline {
         project_view: Arc<ProjectView>,
         project_view_version: u64,
     ) -> Result<(), ExecuteError> {
-        let scene = self.compute_scene(project_view.clone(), project_view_version)?;
+        let scene = self.compute_scene(
+            project_view.clone(),
+            project_view_version,
+            Some(&mut state.viewport_pipeline_cache.lock().unwrap()),
+        )?;
 
         let s = state.state.take();
         let s = match s {
@@ -555,6 +568,10 @@ impl ViewportPipeline {
         ctx.set_override_untyped(scene.update_state_in.clone(), s);
         ctx.set_override(scene.update_event_in, events);
         ctx.set_fallback(project_view.as_ref().clone());
+        ctx.set_fallback_generator(move |_node_name| {
+            let (view, _observer) = TrackedProjectView::new(project_view.clone());
+            ProjectState::new(view, project_view_version)
+        });
 
         let result = scene
             .graph
@@ -570,14 +587,17 @@ impl ViewportPipeline {
         Ok(())
     }
 
-    #[expect(clippy::needless_pass_by_value)]
     pub(crate) fn compute_primitive(
         &self,
         state: &mut ViewportPipelineState,
         project_view: Arc<ProjectView>,
         project_view_version: u64,
     ) -> Result<Box<dyn iced::widget::shader::Primitive>, ExecuteError> {
-        let scene = self.compute_scene(project_view.clone(), project_view_version)?;
+        let scene = self.compute_scene(
+            project_view.clone(),
+            project_view_version,
+            Some(&mut state.viewport_pipeline_cache.lock().unwrap()),
+        )?;
 
         let s = state.state.take();
         let s = match s {
@@ -588,6 +608,10 @@ impl ViewportPipeline {
         let mut ctx = ComputationContext::default();
         ctx.set_override_untyped(scene.render_state_in.clone(), s);
         ctx.set_fallback(project_view.as_ref().clone());
+        ctx.set_fallback_generator(move |_node_name| {
+            let (view, _observer) = TrackedProjectView::new(project_view.clone());
+            ProjectState::new(view, project_view_version)
+        });
 
         let result = scene
             .graph
@@ -596,7 +620,7 @@ impl ViewportPipeline {
                 &ComputationOptions {
                     context: Some(&ctx),
                 },
-                None,
+                Some(&mut state.scenegraph_cache.lock().unwrap()),
             )
             .map_err(ExecuteError::ComputeError);
         let a = ctx.remove_override_untyped(&scene.render_state_in);
