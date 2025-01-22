@@ -82,10 +82,10 @@ pub struct Viewport {
 
 impl Viewport {
     #[must_use]
-    pub fn new(project_view: ProjectView) -> Self {
+    pub fn new(project_view: Arc<ProjectView>) -> Self {
         Self {
             pipeline: ViewportPipeline::default(),
-            project_view: Arc::new(project_view),
+            project_view,
             project_view_version: 1,
         }
     }
