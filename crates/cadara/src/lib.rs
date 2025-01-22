@@ -4,6 +4,7 @@
 #![allow(clippy::cognitive_complexity)]
 
 use modeling_module::ModelingModule;
+use std::sync::Arc;
 use workspace::Workspace;
 
 struct App {
@@ -43,7 +44,7 @@ impl App {
         );
         project.apply_changes(cb, &reg).unwrap();
 
-        let project_view = project.create_view(&reg).unwrap();
+        let project_view = Arc::new(project.create_view(&reg).unwrap());
 
         let mut viewport = viewport::Viewport::new(project_view);
         let workspace = modeling_workspace::ModelingWorkspace { data_uuid };
