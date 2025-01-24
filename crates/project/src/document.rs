@@ -30,7 +30,7 @@ impl fmt::Display for DocumentId {
 /// Document in a [`crate::Project`]
 ///
 /// Defines the metadata and the identifiers of containing data sections.
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Document {
     pub data: Vec<DataId>,
 }
