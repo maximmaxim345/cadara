@@ -77,6 +77,7 @@ pub struct ViewportState {
 pub struct Viewport {
     pub pipeline: ViewportPipeline,
     pub project_view: Arc<ProjectView>,
+    pub prev_project_view: Option<Arc<ProjectView>>,
     pub project_view_version: u64,
 }
 
@@ -86,12 +87,13 @@ impl Viewport {
         Self {
             pipeline: ViewportPipeline::default(),
             project_view,
+            prev_project_view: None,
             project_view_version: 1,
         }
     }
 
     pub fn update(&mut self, project_view: Arc<ProjectView>) {
-        self.project_view = project_view;
+        self.prev_project_view = Some(std::mem::replace(&mut self.project_view, project_view));
         self.project_view_version += 1;
     }
 }
@@ -138,6 +140,7 @@ impl<Message> shader::Program<Message> for Viewport {
             pipeline: self.pipeline.clone(),
             state: state.clone(),
             project_view: self.project_view.clone(),
+            prev_project_view: self.prev_project_view.clone(),
             project_view_version: self.project_view_version,
         }
     }
@@ -157,6 +160,7 @@ pub struct ShaderPrimitive {
     pub pipeline: ViewportPipeline,
     pub state: ViewportState,
     pub project_view: Arc<ProjectView>,
+    pub prev_project_view: Option<Arc<ProjectView>>,
     pub project_view_version: u64,
 }
 
