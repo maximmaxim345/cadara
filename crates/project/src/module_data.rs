@@ -304,6 +304,13 @@ macro_rules! define_type_erased {
     };
 }
 
+pub trait DataCompare {
+    fn persistent_eq(&self, other: &dyn DataTrait) -> bool;
+    fn persistent_user_eq(&self, other: &dyn DataTrait) -> bool;
+    fn session_eq(&self, other: &dyn DataTrait) -> bool;
+    fn shared_eq(&self, other: &dyn DataTrait) -> bool;
+}
+
 /// Complete state of the data of a module, publicly accessible through a [`crate::DataView`].
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct Data<M: Module> {
@@ -312,7 +319,34 @@ pub struct Data<M: Module> {
     pub session: M::SessionData,
     pub shared: M::SharedData,
 }
-define_type_erased!(Data, deserialize_data);
+define_type_erased!(Data, deserialize_data, DataCompare);
+
+impl<M: Module> DataCompare for Data<M> {
+    fn persistent_eq(&self, other: &dyn DataTrait) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Self>()
+            .is_some_and(|other| self.persistent == other.persistent)
+    }
+    fn persistent_user_eq(&self, other: &dyn DataTrait) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Self>()
+            .is_some_and(|other| self.persistent_user == other.persistent_user)
+    }
+    fn session_eq(&self, other: &dyn DataTrait) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Self>()
+            .is_some_and(|other| self.session == other.session)
+    }
+    fn shared_eq(&self, other: &dyn DataTrait) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Self>()
+            .is_some_and(|other| self.shared == other.shared)
+    }
+}
 
 /// Wrapper type around [`Module::SharedData`]
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
