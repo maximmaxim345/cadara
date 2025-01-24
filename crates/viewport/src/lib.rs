@@ -175,14 +175,58 @@ impl shader::Primitive for ShaderPrimitive {
         bounds: &iced::Rectangle,
         viewport: &shader::Viewport,
     ) {
-        let a = self
+        let mut state = self.state.state.lock().unwrap();
+        if state.known_version != self.project_view_version {
+            let lr = &state.last_run.clone(); // TODO: no clone!
+            for (name, (c, _v)) in lr {
+                state
+                    .sceengraph_cached_project_versions
+                    .entry(name.clone())
+                    .and_modify(|e| {
+                        let valid = self
+                            .prev_project_view
+                            .as_ref()
+                            .is_some_and(|pv| c.is_cache_valid(pv, &self.project_view));
+                        if !valid {
+                            *e = self.project_view_version;
+                        }
+                    })
+                    .or_insert_with(|| self.project_view_version);
+            }
+            state.known_version = self.project_view_version;
+        }
+        let mut llr = std::mem::take(&mut state.last_run);
+        let (a, lr) = self
             .pipeline
             .compute_primitive(
-                &mut self.state.state.lock().unwrap(),
+                &mut state,
                 self.project_view.clone(),
                 self.project_view_version,
             )
             .unwrap();
+        // let lr = std::mem::take(&mut state.last_run);
+
+        // let mut llr2 = Vec::new();
+        for (name, (c, v)) in &mut llr {
+            if let Some(a) = lr.get(name) {
+                // TODO:  continue here, accessed nodes should be moved from lr to llr
+                if a.0.was_accessed() {
+                    // llr2.push((name.clone(), a.clone()));
+                    *c = a.0.clone();
+                    *v = a.1;
+                }
+            }
+        }
+        for a in lr {
+            if let std::collections::btree_map::Entry::Vacant(e) = llr.entry(a.0) {
+                e.insert(a.1);
+            }
+        }
+        // for a in llr2.into_iter() {
+        //     llr.insert(a.0, a.1);
+        // }
+        state.last_run = llr;
+        drop(state);
         a.prepare(device, queue, format, storage, bounds, viewport);
     }
 
@@ -201,6 +245,6 @@ impl shader::Primitive for ShaderPrimitive {
                 self.project_view_version,
             )
             .unwrap();
-        a.render(encoder, storage, target, clip_bounds);
+        a.0.render(encoder, storage, target, clip_bounds);
     }
 }

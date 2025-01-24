@@ -3,9 +3,10 @@ use computegraph::{
     ComputationCache, ComputationContext, ComputationOptions, ComputeGraph, DynamicNode, InputPort,
     InputPortUntyped, NodeFactory, NodeHandle, OutputPort, OutputPortUntyped,
 };
-use project::{ProjectView, TrackedProjectView};
+use project::{CacheValidator, ProjectView, TrackedProjectView};
 use std::{
     any::TypeId,
+    collections::BTreeMap,
     sync::{Arc, Mutex},
 };
 
@@ -129,6 +130,9 @@ pub struct ViewportPipelineState {
     state: Option<Box<dyn computegraph::SendSyncAny>>,
     scenegraph_cache: Mutex<ComputationCache>,
     viewport_pipeline_cache: Mutex<ComputationCache>,
+    pub(crate) sceengraph_cached_project_versions: BTreeMap<String, u64>,
+    pub(crate) known_version: u64,
+    pub(crate) last_run: BTreeMap<String, (CacheValidator, u64)>,
 }
 
 /// Represents the position of a plugin in the viewport pipeline.
@@ -529,8 +533,12 @@ impl ViewportPipeline {
         // TODO: pass ProjectView to ViewportPluginNodes
         let last_node = self.nodes.last().ok_or(ExecuteError::EmptyPipeline)?;
         let mut ctx = ComputationContext::default();
-        ctx.set_fallback_generator(move |_node_name| {
-            let (view, _observer) = TrackedProjectView::new(project_view.clone());
+        let access_trackers = Arc::new(Mutex::new(BTreeMap::new()));
+        let access_trackers_clone = access_trackers.clone();
+        ctx.set_fallback_generator(move |node_name| {
+            let node_name = node_name.to_string();
+            let (view, log) = TrackedProjectView::new(project_view.clone());
+            access_trackers_clone.lock().unwrap().insert(node_name, log);
             ProjectState::new(view, project_view_version)
         });
         let scene = self.graph.compute_with(
@@ -540,6 +548,12 @@ impl ViewportPipeline {
             },
             cache,
         )?;
+        {
+            let t = access_trackers.lock().unwrap();
+            if !t.is_empty() {
+                // println!("compute_scene: {t:?}");
+            }
+        }
 
         Ok(scene)
     }
@@ -566,8 +580,12 @@ impl ViewportPipeline {
         let mut ctx = ComputationContext::default();
         ctx.set_override_untyped(scene.update_state_in.clone(), s);
         ctx.set_override(scene.update_event_in, events);
-        ctx.set_fallback_generator(move |_node_name| {
-            let (view, _observer) = TrackedProjectView::new(project_view.clone());
+        let access_trackers = Arc::new(Mutex::new(BTreeMap::new()));
+        let access_trackers_clone = access_trackers.clone();
+        ctx.set_fallback_generator(move |node_name| {
+            let node_name = node_name.to_string();
+            let (view, log) = TrackedProjectView::new(project_view.clone());
+            access_trackers_clone.lock().unwrap().insert(node_name, log);
             ProjectState::new(view, project_view_version)
         });
 
@@ -581,6 +599,12 @@ impl ViewportPipeline {
                 None,
             )
             .map_err(ExecuteError::ComputeError)?;
+        {
+            let t = access_trackers.lock().unwrap();
+            if !t.is_empty() {
+                // println!("update: {t:?}");
+            }
+        }
         state.state = Some(result);
         Ok(())
     }
@@ -590,7 +614,13 @@ impl ViewportPipeline {
         state: &mut ViewportPipelineState,
         project_view: Arc<ProjectView>,
         project_view_version: u64,
-    ) -> Result<Box<dyn iced::widget::shader::Primitive>, ExecuteError> {
+    ) -> Result<
+        (
+            Box<dyn iced::widget::shader::Primitive>,
+            BTreeMap<String, (CacheValidator, u64)>,
+        ),
+        ExecuteError,
+    > {
         let scene = self.compute_scene(
             project_view.clone(),
             project_view_version,
@@ -605,9 +635,22 @@ impl ViewportPipeline {
 
         let mut ctx = ComputationContext::default();
         ctx.set_override_untyped(scene.render_state_in.clone(), s);
-        ctx.set_fallback_generator(move |_node_name| {
-            let (view, _observer) = TrackedProjectView::new(project_view.clone());
-            ProjectState::new(view, project_view_version)
+        // TODO: combine mutexes
+        let project_versions = Arc::new(state.sceengraph_cached_project_versions.clone());
+        let access_trackers = Arc::new(Mutex::new(BTreeMap::new()));
+        // TODO: this needs some thinking
+        let access_trackers_clone = access_trackers.clone();
+        ctx.set_fallback_generator(move |node_name| {
+            let (view, log) = TrackedProjectView::new(project_view.clone());
+            access_trackers_clone
+                .lock()
+                .unwrap()
+                .insert(node_name.to_string(), (log, project_view_version));
+            let version = project_versions
+                .clone()
+                .get(node_name)
+                .map_or(project_view_version, |version| *version);
+            ProjectState::new(view, version)
         });
 
         let result = scene
@@ -620,10 +663,15 @@ impl ViewportPipeline {
                 Some(&mut state.scenegraph_cache.lock().unwrap()),
             )
             .map_err(ExecuteError::ComputeError);
+        // TODO: use try_unwrap
+        let accesses: BTreeMap<_, _> = std::mem::take(&mut *access_trackers.lock().unwrap())
+            .into_iter()
+            .map(|(name, (rec, version))| (name, (rec.freeze(), version)))
+            .collect();
         let a = ctx.remove_override_untyped(&scene.render_state_in);
         debug_assert!(a.is_some());
         state.state = a;
-        result
+        result.map(|r| (r, accesses))
     }
 
     /// Returns the number of plugins in the viewport pipeline.
