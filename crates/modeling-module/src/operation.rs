@@ -7,4 +7,6 @@ pub mod sketch;
 pub enum ModelingOperation {
     Sketch(sketch::Sketch),
     Extrude(extrude::Extrude),
+    Grow,
+    Shrink,
 }
