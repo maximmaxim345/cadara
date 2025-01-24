@@ -186,6 +186,7 @@ pub use document::PlannedDocument;
 pub use module_data::ModuleRegistry;
 pub use project::ProjectView;
 pub use tracked::AccessRecorder;
+pub use tracked::CacheValidator;
 pub use tracked::TrackedDataView;
 pub use tracked::TrackedDocumentView;
 pub use tracked::TrackedProjectView;

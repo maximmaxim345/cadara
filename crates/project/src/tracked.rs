@@ -7,7 +7,6 @@ use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 /// Represents specific events related to accessing project data.
-#[expect(dead_code)]
 #[derive(Debug, Clone)]
 enum AccessEvent {
     OpenDocument(DocumentId),
@@ -29,6 +28,126 @@ impl AccessRecorder {
     /// * `access` - The [`AccessEvent`] to track.
     fn track(&self, access: AccessEvent) {
         self.0.lock().unwrap().push(access);
+    }
+
+    /// Freezes the current state of tracked read accesses, producing an immutable
+    /// [`CacheValidator`] that can be used to later check if the same accesses
+    /// on a different [`ProjectView`] would yield the same results.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if:
+    /// - The internal mutex is poisoned (indicates another thread panicked while holding the lock)
+    #[must_use]
+    pub fn freeze(&self) -> CacheValidator {
+        CacheValidator(std::mem::take(
+            &mut *self.0.lock().expect("failed to acquire lock"),
+        ))
+    }
+}
+
+/// An immutable record of read accesses performed on a [`TrackedProjectView`].
+///
+/// This is used to determine if a cached result derived from that view is still valid.
+#[derive(Debug, Clone)]
+pub struct CacheValidator(Vec<AccessEvent>);
+
+impl CacheValidator {
+    /// Checks if the accesses in this [`CacheValidator`] yield the same data on two [`ProjectView`]s.
+    ///
+    /// This effectively determines if a cache based on these accesses is still valid when comparing
+    /// a previous project state (`old_view`) to a potentially updated one (`new_view`).
+    ///
+    /// # Returns
+    /// `true` if the cache is still valid, and `false` otherwise.
+    #[must_use]
+    pub fn is_cache_valid(&self, old_view: &ProjectView, new_view: &ProjectView) -> bool {
+        if old_view.uuid != new_view.uuid {
+            return false;
+        }
+        for e in &self.0 {
+            match e {
+                AccessEvent::OpenDocument(document_id) => {
+                    if old_view.documents.get(document_id) != new_view.documents.get(document_id) {
+                        return false;
+                    }
+                }
+                AccessEvent::OpenDataById(data_id) => {
+                    if old_view.data.get(data_id).map(|d| d.module)
+                        != new_view.data.get(data_id).map(|d| d.module)
+                    {
+                        return false;
+                    }
+                }
+                AccessEvent::AccessPesistent(data_id) => {
+                    match (old_view.data.get(data_id), new_view.data.get(data_id)) {
+                        (None, None) => {}
+                        (None, Some(_)) | (Some(_), None) => return false,
+                        (Some(old), Some(new)) => {
+                            if old.module != new.module {
+                                return false;
+                            }
+                            if !old.data.persistent_eq(new.data.as_ref()) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                AccessEvent::AccessPesistentUser(data_id) => {
+                    match (old_view.data.get(data_id), new_view.data.get(data_id)) {
+                        (None, None) => {}
+                        (None, Some(_)) | (Some(_), None) => return false,
+                        (Some(old), Some(new)) => {
+                            if old.module != new.module {
+                                return false;
+                            }
+                            if !old.data.persistent_user_eq(new.data.as_ref()) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                AccessEvent::AccessShared(data_id) => {
+                    match (old_view.data.get(data_id), new_view.data.get(data_id)) {
+                        (None, None) => {}
+                        (None, Some(_)) | (Some(_), None) => return false,
+                        (Some(old), Some(new)) => {
+                            if old.module != new.module {
+                                return false;
+                            }
+                            if !old.data.shared_eq(new.data.as_ref()) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                AccessEvent::AccessSession(data_id) => {
+                    match (old_view.data.get(data_id), new_view.data.get(data_id)) {
+                        (None, None) => {}
+                        (None, Some(_)) | (Some(_), None) => return false,
+                        (Some(old), Some(new)) => {
+                            if old.module != new.module {
+                                return false;
+                            }
+                            if !old.data.session_eq(new.data.as_ref()) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        true
+    }
+
+    /// Checks if the associated [`TrackedProjectView`] had any read accesses.
+    ///
+    /// # Returns
+    /// `true` if at least one property about the `project` was queried, and `false` if not.
+    #[must_use]
+    pub fn was_accessed(&self) -> bool {
+        !self.0.is_empty()
     }
 }
 
