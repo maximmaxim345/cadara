@@ -89,6 +89,11 @@ impl Viewport {
             project_view_version: 1,
         }
     }
+
+    pub fn update(&mut self, project_view: Arc<ProjectView>) {
+        self.project_view = project_view;
+        self.project_view_version += 1;
+    }
 }
 
 impl<Message> shader::Program<Message> for Viewport {
