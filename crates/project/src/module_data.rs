@@ -62,10 +62,13 @@ impl fmt::Display for ModuleId {
 /// - `TDeserializer` - Deserializer for type-erased data
 macro_rules! define_type_erased {
     ($d:ty, $reg_entry:ident) => {
+        define_type_erased!($d, $reg_entry,);
+    };
+    ($d:ty, $reg_entry:ident, $($extra_traits:path),*) => {
         paste! {
             #[doc = "A trait shared by all [`" $d "`] types for all [`Module`]"]
             #[allow(dead_code)]
-            pub trait [<$d Trait>]: erased_serde::Serialize + Debug + Send + Sync + Any + DynClone {
+            pub trait [<$d Trait>]: erased_serde::Serialize + Debug + Send + Sync + Any + DynClone $(+ $extra_traits)* {
                 /// Provides read-only access to the underlying data type.
                 fn as_any(&self) -> &dyn Any;
                 /// Provides mutable access to the underlying data type.
