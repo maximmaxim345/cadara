@@ -626,25 +626,43 @@ impl ViewportPipeline {
         project_view: Arc<ProjectView>,
         project_view_version: u64,
     ) -> Result<(), ExecuteError> {
+        let mut cache_metadata = state.scenegraph_cache_metadata.take().unwrap_or_default();
+        if let Some(prev_project_view) = &state.prev_project_view {
+            if state.scenegraph_cache_version != project_view_version {
+                update_cache_versions(
+                    &mut cache_metadata,
+                    &project_view,
+                    project_view_version,
+                    prev_project_view,
+                );
+            }
+        }
+        state.scenegraph_cache_version = project_view_version;
+        state.prev_project_view = Some(project_view.clone());
+
         let scene = self.compute_scene(
             project_view.clone(),
             project_view_version,
             Some(&mut state.viewport_pipeline_cache.lock().unwrap()),
         )?;
 
-        let s = state.state.take();
-        let s = match s {
-            Some(s) => s,
-            None => scene.graph.compute_untyped(scene.init_state)?,
-        };
+        let s = state
+            .state
+            .take()
+            .map_or_else(|| scene.graph.compute_untyped(scene.init_state), Ok)?;
 
+        // setup the computation context
         let mut ctx = ComputationContext::default();
         ctx.set_override_untyped(scene.update_state_in.clone(), s);
         ctx.set_override(scene.update_event_in, events);
-        ctx.set_fallback_generator(move |_node_name| {
-            let (view, _observer) = TrackedProjectView::new(project_view.clone());
-            ProjectState::new(view, project_view_version)
-        });
+
+        let cache_metadata = Arc::new(cache_metadata);
+        let access_recorders = initialize_access_tracking(
+            &mut ctx,
+            project_view,
+            project_view_version,
+            cache_metadata.clone(),
+        );
 
         let result = scene
             .graph
@@ -653,9 +671,19 @@ impl ViewportPipeline {
                 &ComputationOptions {
                     context: Some(&ctx),
                 },
-                None,
+                Some(&mut state.scenegraph_cache.lock().unwrap()),
             )
             .map_err(ExecuteError::ComputeError)?;
+
+        drop(ctx);
+
+        let mut cache_metadata =
+            Arc::try_unwrap(cache_metadata).expect("we dropped ctx, which had the only other copy");
+
+        update_cache_metadata(&mut cache_metadata, &access_recorders);
+
+        state.scenegraph_cache_metadata = Some(cache_metadata);
+
         state.state = Some(result);
         Ok(())
     }
