@@ -30,6 +30,7 @@
 //!   via a [`ModuleRegistry`].
 //! - **[`ChangeBuilder`]:** A mechanism for recording changes to be applied to a `Project`, ensuring atomicity and enabling
 //!   undo/redo.
+//! - **[`TrackedProjectView`]:** A tracked version of a [`ProjectView`] allowing implicit dependency tracking
 //!
 //! ## Usage
 //!
