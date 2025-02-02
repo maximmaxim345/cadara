@@ -133,6 +133,8 @@ pub struct ViewportPipelineState {
     scenegraph_cache_version: u64,
     scenegraph_cache_metadata: Option<CacheMetadata>,
     viewport_pipeline_cache: Mutex<ComputationCache>,
+    viewport_pipeline_cache_version: u64,
+    viewport_pipeline_cache_metadata: Option<CacheMetadata>,
 }
 
 /// Represents the position of a plugin in the viewport pipeline.
@@ -595,6 +597,7 @@ impl ViewportPipeline {
     /// - `Err(ExecuteError::EmptyPipeline)` if the pipeline is empty.
     /// - `Err(ExecuteError::ComputeError)` if there's an error during computation
     ///     of the added [`ViewportPlugin`]s.
+    #[expect(clippy::missing_panics_doc, reason = "lock should not be poisend")]
     pub fn compute_scene(
         &self,
         project_view: Arc<ProjectView>,
@@ -604,8 +607,12 @@ impl ViewportPipeline {
         // TODO: pass ProjectView to ViewportPluginNodes
         let last_node = self.nodes.last().ok_or(ExecuteError::EmptyPipeline)?;
         let mut ctx = ComputationContext::default();
-        ctx.set_fallback_generator(move |_node_name| {
-            let (view, _observer) = TrackedProjectView::new(project_view.clone());
+        let access_trackers = Arc::new(Mutex::new(BTreeMap::new()));
+        let access_trackers_clone = access_trackers.clone();
+        ctx.set_fallback_generator(move |node_name| {
+            let node_name = node_name.to_string();
+            let (view, log) = TrackedProjectView::new(project_view.clone());
+            access_trackers_clone.lock().unwrap().insert(node_name, log);
             ProjectState::new(view, project_view_version)
         });
         let scene = self.graph.compute_with(
@@ -615,6 +622,12 @@ impl ViewportPipeline {
             },
             cache,
         )?;
+        {
+            let t = access_trackers.lock().unwrap();
+            if !t.is_empty() {
+                // println!("compute_scene: {t:?}");
+            }
+        }
 
         Ok(scene)
     }
