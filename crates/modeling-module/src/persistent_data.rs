@@ -11,7 +11,6 @@ use uuid::Uuid;
 pub struct Step {
     name: String,
     operation: ModelingOperation,
-    uuid: Uuid,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -38,11 +37,9 @@ impl DataSection for PersistentData {
     fn apply(&mut self, args: Self::Args) {
         match args {
             ModelingTransaction::Create(c) => {
-                let uuid = Uuid::new_v4();
                 self.steps.push(Step {
                     name: "new operation".to_string(),
                     operation: c.operation,
-                    uuid,
                 });
             }
             ModelingTransaction::Update => todo!(),
