@@ -131,7 +131,7 @@ pub struct ViewportPipelineState {
     prev_project_view: Option<Arc<ProjectView>>,
     scenegraph_cache: Mutex<ComputationCache>,
     scenegraph_cache_version: u64,
-    scenegraph_cache_metadata: BTreeMap<String, (CacheValidator, u64)>,
+    scenegraph_cache_metadata: CacheMetadata,
     viewport_pipeline_cache: Mutex<ComputationCache>,
 }
 
@@ -311,9 +311,10 @@ impl std::ops::Deref for ProjectState {
 // helper functions for caching
 
 type AccessRecorders = Arc<Mutex<BTreeMap<String, (project::AccessRecorder, u64)>>>;
+type CacheMetadata = BTreeMap<String, (CacheValidator, u64)>;
 
 fn update_cache_versions(
-    cache_metadata: &mut BTreeMap<String, (CacheValidator, u64)>,
+    cache_metadata: &mut CacheMetadata,
     project_view: &Arc<ProjectView>,
     project_view_version: u64,
     prev_project_view: &Arc<ProjectView>,
@@ -332,7 +333,7 @@ fn initialize_access_tracking(
     ctx: &mut ComputationContext,
     project_view: Arc<ProjectView>,
     project_view_version: u64,
-    cache_metadata: BTreeMap<String, (CacheValidator, u64)>,
+    cache_metadata: CacheMetadata,
 ) -> AccessRecorders {
     let cached_versions = Arc::new(cache_metadata);
     // create a shared structure to record access from each node, to later more granualy
@@ -356,10 +357,7 @@ fn initialize_access_tracking(
     access_recorders
 }
 
-fn update_cache_metadata(
-    metadata: &mut BTreeMap<String, (CacheValidator, u64)>,
-    access_recorders: &AccessRecorders,
-) {
+fn update_cache_metadata(metadata: &mut CacheMetadata, access_recorders: &AccessRecorders) {
     let access_recorders = std::mem::take(&mut *(access_recorders.lock().unwrap()));
     // Freeze and collect all access recorder data.
     let mut access_data: BTreeMap<_, _> = access_recorders
