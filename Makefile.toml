@@ -245,27 +245,45 @@ description = "Display help information about available tasks"
 workspace = false
 script_runner = "@rust"
 script = '''
-println!("Available tasks:");
-println!("\nVerification Tasks:");
-println!("  verify          - Run all standard verification tasks");
-println!("  verify-strict   - Run all verification tasks with strict warning settings");
-println!("  test-wasm       - Run all tests on a wasm build");
+//! ```cargo
+//! [dependencies]
+//! colored = "2.0"
+//! ```
+use colored::*;
 
-println!("\nWASM Build Tasks:");
-println!("  build-wasm-dev  - Build WASM target (development version)");
-println!("  build-wasm-debug - Build WASM target (with debug information)");
-println!("  build-wasm-release - Build WASM target (release version)");
-println!(" (this will automatically setup a wasm build environment)");
+fn main() {
+    println!("{}", "CADara Build System".bold().blue());
+    println!("\n{}", "Usage:".bold());
+    println!("  cargo make <task-name>\n");
+    println!("  cargo make verify         # Run verification suite");
+    println!("  cargo make dev            # Start WASM development server");
+    println!("  cargo make test-wasm      # Run WASM test suite");
 
-println!("\nServer Tasks:");
-println!("  dev            - Build development version and serve it");
-println!("  debug          - Build debug version and serve it");
-println!("  release        - Build release version and serve it");
-println!("  serve          - Serve the last build");
+    println!("\n{}", "Note:".bold());
+    println!("  All commands must be executed from the repository root directory\n");
 
-println!("\nUsage:");
-println!("  cargo make <task-name>");
-println!("\nExample:");
-println!("  cargo make verify");
-println!("  cargo make dev");
+    println!("{}", "Primary Commands:".bold().green());
+    println!("  verify      - Run standard verification suite");
+    println!("  verify-all  - Run extended verification suite (including ignored tests)");
+    println!("  dev         - Start WASM server");
+    println!("  debug       - Start WASM server with debug symbols");
+    println!("  release     - Start WASM production server\n");
+
+    println!("{}", "Verification Tasks:".bold().yellow());
+    println!("  run-tests         - Run workspace tests (via nextest)");
+    println!("  run-all-tests     - Run all tests including ignored ones");
+    println!("  lint              - Run Clippy");
+    println!("  docs              - Generate documentation");
+    println!("  spell-check       - Check for typos in codebase");
+    println!("  verify-doc-tests  - Verify documentation examples");
+    println!("  verify-formatting - Check code formatting");
+    println!("  deny              - Check dependencies compliance\n");
+
+    println!("{}", "WASM Operations:".bold().magenta());
+    println!("  build-wasm-dev     - Build WASM target (development)");
+    println!("  build-wasm-debug   - Build WASM target (with debug info)");
+    println!("  build-wasm-release - Build WASM target (production)");
+    println!("  test-wasm          - Run WASM-specific tests");
+    println!("  serve              - Start local web server (port 8080)\n");
+}
 '''
