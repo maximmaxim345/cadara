@@ -6,8 +6,8 @@ description = "Run most verification tasks"
 workspace = false
 dependencies = [
     "run-tests",
-    "lint-strict",
-    "docs-strict",
+    "lint",
+    "docs",
     "spell-check",
     "verify-doc-tests",
     "verify-formatting",
@@ -19,8 +19,8 @@ description = "Run all verification tasks"
 workspace = false
 dependencies = [
     "run-all-tests",
-    "lint-strict",
-    "docs-strict",
+    "lint",
+    "docs",
     "spell-check",
     "verify-doc-tests",
     "verify-formatting",
@@ -69,7 +69,7 @@ workspace = false
 command = "cargo"
 args = ["fmt", "--check", "--all"]
 
-[tasks.lint-strict]
+[tasks.lint]
 description = "Run Clippy with warnings treated as errors"
 workspace = false
 command = "cargo"
@@ -84,7 +84,7 @@ args = [
     "warnings",
 ]
 
-[tasks.docs-strict]
+[tasks.docs]
 description = "Generate documentation with warnings treated as errors"
 workspace = false
 command = "cargo"
