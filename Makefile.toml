@@ -1,11 +1,11 @@
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
-[tasks.verify-strict]
-description = "Run all verification tasks with strict warning settings"
+[tasks.verify]
+description = "Run most verification tasks"
 workspace = false
 dependencies = [
-    "run-all-tests",
+    "run-tests",
     "lint-strict",
     "docs-strict",
     "spell-check",
@@ -14,13 +14,13 @@ dependencies = [
     "deny",
 ]
 
-[tasks.verify]
-description = "Run most verification tasks"
+[tasks.verify-all]
+description = "Run all verification tasks"
 workspace = false
 dependencies = [
-    "run-tests",
-    "lint",
-    "docs",
+    "run-all-tests",
+    "lint-strict",
+    "docs-strict",
     "spell-check",
     "verify-doc-tests",
     "verify-formatting",
@@ -47,22 +47,6 @@ args = [
     "all",
 ]
 install_crate = "cargo-nextest"
-
-[tasks.lint]
-workspace = false
-command = "cargo"
-args = ["clippy", "--workspace", "--tests", "--benches", "--all-features"]
-
-[tasks.docs]
-workspace = false
-command = "cargo"
-args = [
-    "doc",
-    "--workspace",
-    "--no-deps",
-    "--all-features",
-    "--document-private-items",
-]
 
 [tasks.deny]
 workspace = false
