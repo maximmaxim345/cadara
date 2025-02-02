@@ -131,7 +131,7 @@ pub struct ViewportPipelineState {
     prev_project_view: Option<Arc<ProjectView>>,
     scenegraph_cache: Mutex<ComputationCache>,
     scenegraph_cache_version: u64,
-    scenegraph_cache_metadata: CacheMetadata,
+    scenegraph_cache_metadata: Option<CacheMetadata>,
     viewport_pipeline_cache: Mutex<ComputationCache>,
 }
 
@@ -333,9 +333,8 @@ fn initialize_access_tracking(
     ctx: &mut ComputationContext,
     project_view: Arc<ProjectView>,
     project_view_version: u64,
-    cache_metadata: CacheMetadata,
+    cache_metadata: Arc<CacheMetadata>,
 ) -> AccessRecorders {
-    let cached_versions = Arc::new(cache_metadata);
     // create a shared structure to record access from each node, to later more granualy
     // detect cache validity
     let access_recorders = Arc::new(Mutex::new(BTreeMap::new()));
@@ -349,7 +348,7 @@ fn initialize_access_tracking(
             .lock()
             .unwrap()
             .insert(node_name.to_string(), (recorder, project_view_version));
-        let version = cached_versions
+        let version = cache_metadata
             .get(node_name)
             .map_or(project_view_version, |e| e.1);
         ProjectState::new(tracked_view, version)
@@ -667,10 +666,11 @@ impl ViewportPipeline {
         project_view: Arc<ProjectView>,
         project_view_version: u64,
     ) -> Result<Box<dyn iced::widget::shader::Primitive>, ExecuteError> {
+        let mut cache_metadata = state.scenegraph_cache_metadata.take().unwrap_or_default();
         if let Some(prev_project_view) = &state.prev_project_view {
             if state.scenegraph_cache_version != project_view_version {
                 update_cache_versions(
-                    &mut state.scenegraph_cache_metadata,
+                    &mut cache_metadata,
                     &project_view,
                     project_view_version,
                     prev_project_view,
@@ -695,11 +695,12 @@ impl ViewportPipeline {
         let mut ctx = ComputationContext::default();
         ctx.set_override_untyped(scene.render_state_in.clone(), s);
 
+        let cache_metadata = Arc::new(cache_metadata);
         let access_recorders = initialize_access_tracking(
             &mut ctx,
             project_view,
             project_view_version,
-            state.scenegraph_cache_metadata.clone(),
+            cache_metadata.clone(),
         );
 
         let result = scene
@@ -717,7 +718,14 @@ impl ViewportPipeline {
         debug_assert!(new_state.is_some());
         state.state = new_state;
 
-        update_cache_metadata(&mut state.scenegraph_cache_metadata, &access_recorders);
+        drop(ctx);
+
+        let mut cache_metadata =
+            Arc::try_unwrap(cache_metadata).expect("we dropped ctx, which had the only other copy");
+
+        update_cache_metadata(&mut cache_metadata, &access_recorders);
+
+        state.scenegraph_cache_metadata = Some(cache_metadata);
 
         result
     }
