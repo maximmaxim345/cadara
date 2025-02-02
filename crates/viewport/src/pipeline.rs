@@ -6,7 +6,7 @@ use computegraph::{
 use project::{CacheValidator, ProjectView, TrackedProjectView};
 use std::{
     any::TypeId,
-    collections::{btree_map, BTreeMap},
+    collections::BTreeMap,
     sync::{Arc, Mutex},
 };
 
@@ -309,6 +309,89 @@ impl std::ops::Deref for ProjectState {
     }
 }
 
+// helper functions for caching
+
+type AccessRecorders = Arc<Mutex<BTreeMap<String, (project::AccessRecorder, u64)>>>;
+
+fn update_cache_versions(
+    cached_versions: &mut BTreeMap<String, u64>,
+    cache_metadata: &BTreeMap<String, (CacheValidator, u64)>,
+    project_view: &Arc<ProjectView>,
+    project_view_version: u64,
+    prev_project_view: &Arc<ProjectView>,
+) {
+    for (node_name, (cache_validator, _cached_version)) in cache_metadata {
+        // Update each nodes version if its cache is no longer valid.
+        cached_versions
+            .entry(node_name.clone())
+            .and_modify(|cached_version| {
+                let cache_still_valid =
+                    cache_validator.is_cache_valid(prev_project_view, project_view);
+                if !cache_still_valid {
+                    // Force recomputation by setting to the new version.
+                    *cached_version = project_view_version;
+                }
+            })
+            // If not present, insert the current project view version.
+            .or_insert(project_view_version);
+    }
+}
+
+fn initialize_access_tracking(
+    ctx: &mut ComputationContext,
+    project_view: Arc<ProjectView>,
+    project_view_version: u64,
+    cached_versions: BTreeMap<String, u64>,
+) -> AccessRecorders {
+    let cached_versions = Arc::new(cached_versions);
+    // create a shared structure to record access from each node, to later more granualy
+    // detect cache validity
+    let access_recorders = Arc::new(Mutex::new(BTreeMap::new()));
+
+    // fallback generator is called for every node to provide a ProjectState, even those
+    // who will be cached (so not be executed)
+    let access_recorders_clone = access_recorders.clone();
+    ctx.set_fallback_generator(move |node_name| {
+        let (tracked_view, recorder) = TrackedProjectView::new(project_view.clone());
+        access_recorders_clone
+            .lock()
+            .unwrap()
+            .insert(node_name.to_string(), (recorder, project_view_version));
+        let version = cached_versions
+            .get(node_name)
+            .copied()
+            .unwrap_or(project_view_version);
+        ProjectState::new(tracked_view, version)
+    });
+    access_recorders
+}
+
+fn update_cache_metadata(
+    metadata: &mut BTreeMap<String, (CacheValidator, u64)>,
+    access_recorders: &AccessRecorders,
+) {
+    let access_recorders = std::mem::take(&mut *(access_recorders.lock().unwrap()));
+    // Freeze and collect all access recorder data.
+    let access_data: BTreeMap<_, _> = access_recorders
+        .into_iter()
+        .map(|(node_name, (recorder, version))| (node_name, (recorder.freeze(), version)))
+        .collect();
+
+    // Update metadata for nodes that already existed.
+    for (node_name, (existing_validator, existing_version)) in metadata.iter_mut() {
+        if let Some((_, (new_validator, new_version))) = access_data.remove_entry(node_name) {
+            if new_validator.was_accessed() {
+                *existing_validator = new_validator;
+                *existing_version = new_version;
+            }
+        }
+    }
+    // Add any new nodes that were not in the previous metadata.
+    for (node_name, data) in access_data {
+        metadata.insert(node_name, data);
+    }
+}
+
 impl ViewportPipeline {
     /// Adds a plugin to the viewport pipeline.
     ///
@@ -596,75 +679,44 @@ impl ViewportPipeline {
         project_view: Arc<ProjectView>,
         project_view_version: u64,
     ) -> Result<Box<dyn iced::widget::shader::Primitive>, ExecuteError> {
-        // 1. Update Cache Versions If Project View Changed
         let mut cached_versions = state.sceengraph_cached_project_versions.clone();
-        let mut metadata = std::mem::take(&mut state.scenegraph_cache_metadata);
-
-        // If the project view version has changed, revalidate each node's cache.
-        if state.scenegraph_cache_version != project_view_version {
-            for (node_name, (cache_validator, _cached_version)) in &metadata {
-                // Update each nodes version if its cache is no longer valid.
-                cached_versions
-                    .entry(node_name.clone())
-                    .and_modify(|cached_version| {
-                        let cache_still_valid = state
-                            .prev_project_view
-                            .clone()
-                            .is_some_and(|pv| cache_validator.is_cache_valid(&pv, &project_view));
-                        if !cache_still_valid {
-                            // Force recomputation by setting to the new version.
-                            *cached_version = project_view_version;
-                        }
-                    })
-                    // If not present, insert the current project view version.
-                    .or_insert(project_view_version);
+        if let Some(prev_project_view) = &state.prev_project_view {
+            if state.scenegraph_cache_version != project_view_version {
+                update_cache_versions(
+                    &mut cached_versions,
+                    &state.scenegraph_cache_metadata,
+                    &project_view,
+                    project_view_version,
+                    prev_project_view,
+                );
+                state.sceengraph_cached_project_versions = cached_versions.clone();
             }
-            state.scenegraph_cache_version = project_view_version;
-            state.prev_project_view = Some(project_view.clone());
-            state.sceengraph_cached_project_versions = cached_versions.clone();
         }
-        // Wrap cached_versions in an Arc for later sharing.
-        let cached_versions = Arc::new(cached_versions);
+        state.scenegraph_cache_version = project_view_version;
+        state.prev_project_view = Some(project_view.clone());
 
-        // 2. Compute the Scene Graph
         let scene = self.compute_scene(
             project_view.clone(),
             project_view_version,
             Some(&mut state.viewport_pipeline_cache.lock().unwrap()),
         )?;
 
-        // Retrieve the current state; if none exists, compute it.
-        let initial_state = state
+        let s = state
             .state
             .take()
             .map_or_else(|| scene.graph.compute_untyped(scene.init_state), Ok)?;
 
-        // 3. Set Up Computation Context
+        // setup the computation context
         let mut ctx = ComputationContext::default();
-        ctx.set_override_untyped(scene.render_state_in.clone(), initial_state);
+        ctx.set_override_untyped(scene.render_state_in.clone(), s);
 
-        // Create a shared structure to record access from each node, to later more granualy
-        // detect cache validity
-        let access_recorders = Arc::new(Mutex::new(BTreeMap::new()));
-        {
-            let access_recorders_clone = access_recorders.clone();
-            // Fallback generator is invoked for every node to provide a ProjectState, even those
-            // who will be cached
-            ctx.set_fallback_generator(move |node_name| {
-                let (tracked_view, recorder) = TrackedProjectView::new(project_view.clone());
-                access_recorders_clone
-                    .lock()
-                    .unwrap()
-                    .insert(node_name.to_string(), (recorder, project_view_version));
-                let version = cached_versions
-                    .get(node_name)
-                    .copied()
-                    .unwrap_or(project_view_version);
-                ProjectState::new(tracked_view, version)
-            });
-        }
+        let access_recorders = initialize_access_tracking(
+            &mut ctx,
+            project_view,
+            project_view_version,
+            cached_versions,
+        );
 
-        // 4. Compute the Final Primitive
         let result = scene
             .graph
             .compute_with(
@@ -676,36 +728,11 @@ impl ViewportPipeline {
             )
             .map_err(ExecuteError::ComputeError);
 
-        // 5. Update Cache Metadata Based on Access Records
-        // Freeze and collect all access recorder data.
-        let access_data = std::mem::take(&mut *access_recorders.lock().unwrap())
-            .into_iter()
-            .map(|(node_name, (recorder, version))| (node_name, (recorder.freeze(), version)));
-
-        // Remove the override state from the context and store it back.
         let new_state = ctx.remove_override_untyped(&scene.render_state_in);
         debug_assert!(new_state.is_some());
         state.state = new_state;
 
-        // Build new metadata from the recorded accesses.
-        let new_metadata: BTreeMap<_, _> = access_data.collect();
-
-        // Update metadata for nodes that already existed.
-        for (node_name, (existing_validator, existing_version)) in &mut metadata {
-            if let Some((new_validator, new_version)) = new_metadata.get(node_name) {
-                if new_validator.was_accessed() {
-                    *existing_validator = new_validator.clone();
-                    *existing_version = *new_version;
-                }
-            }
-        }
-        // Add any new nodes that were not in the previous metadata.
-        for (node_name, data) in new_metadata {
-            if let btree_map::Entry::Vacant(entry) = metadata.entry(node_name) {
-                entry.insert(data);
-            }
-        }
-        state.scenegraph_cache_metadata = metadata;
+        update_cache_metadata(&mut state.scenegraph_cache_metadata, &access_recorders);
 
         result
     }
