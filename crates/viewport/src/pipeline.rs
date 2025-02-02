@@ -132,7 +132,6 @@ pub struct ViewportPipelineState {
     scenegraph_cache: Mutex<ComputationCache>,
     scenegraph_cache_version: u64,
     scenegraph_cache_metadata: BTreeMap<String, (CacheValidator, u64)>,
-    sceengraph_cached_project_versions: BTreeMap<String, u64>,
     viewport_pipeline_cache: Mutex<ComputationCache>,
 }
 
@@ -314,26 +313,18 @@ impl std::ops::Deref for ProjectState {
 type AccessRecorders = Arc<Mutex<BTreeMap<String, (project::AccessRecorder, u64)>>>;
 
 fn update_cache_versions(
-    cached_versions: &mut BTreeMap<String, u64>,
-    cache_metadata: &BTreeMap<String, (CacheValidator, u64)>,
+    cache_metadata: &mut BTreeMap<String, (CacheValidator, u64)>,
     project_view: &Arc<ProjectView>,
     project_view_version: u64,
     prev_project_view: &Arc<ProjectView>,
 ) {
-    for (node_name, (cache_validator, _cached_version)) in cache_metadata {
+    for (cache_validator, cached_version) in cache_metadata.values_mut() {
         // Update each nodes version if its cache is no longer valid.
-        cached_versions
-            .entry(node_name.clone())
-            .and_modify(|cached_version| {
-                let cache_still_valid =
-                    cache_validator.is_cache_valid(prev_project_view, project_view);
-                if !cache_still_valid {
-                    // Force recomputation by setting to the new version.
-                    *cached_version = project_view_version;
-                }
-            })
-            // If not present, insert the current project view version.
-            .or_insert(project_view_version);
+        let cache_still_valid = cache_validator.is_cache_valid(prev_project_view, project_view);
+        if !cache_still_valid {
+            // Force recomputation by setting to the new version.
+            *cached_version = project_view_version;
+        }
     }
 }
 
@@ -341,9 +332,9 @@ fn initialize_access_tracking(
     ctx: &mut ComputationContext,
     project_view: Arc<ProjectView>,
     project_view_version: u64,
-    cached_versions: BTreeMap<String, u64>,
+    cache_metadata: BTreeMap<String, (CacheValidator, u64)>,
 ) -> AccessRecorders {
-    let cached_versions = Arc::new(cached_versions);
+    let cached_versions = Arc::new(cache_metadata);
     // create a shared structure to record access from each node, to later more granualy
     // detect cache validity
     let access_recorders = Arc::new(Mutex::new(BTreeMap::new()));
@@ -359,8 +350,7 @@ fn initialize_access_tracking(
             .insert(node_name.to_string(), (recorder, project_view_version));
         let version = cached_versions
             .get(node_name)
-            .copied()
-            .unwrap_or(project_view_version);
+            .map_or(project_view_version, |e| e.1);
         ProjectState::new(tracked_view, version)
     });
     access_recorders
@@ -372,7 +362,7 @@ fn update_cache_metadata(
 ) {
     let access_recorders = std::mem::take(&mut *(access_recorders.lock().unwrap()));
     // Freeze and collect all access recorder data.
-    let access_data: BTreeMap<_, _> = access_recorders
+    let mut access_data: BTreeMap<_, _> = access_recorders
         .into_iter()
         .map(|(node_name, (recorder, version))| (node_name, (recorder.freeze(), version)))
         .collect();
@@ -679,17 +669,14 @@ impl ViewportPipeline {
         project_view: Arc<ProjectView>,
         project_view_version: u64,
     ) -> Result<Box<dyn iced::widget::shader::Primitive>, ExecuteError> {
-        let mut cached_versions = state.sceengraph_cached_project_versions.clone();
         if let Some(prev_project_view) = &state.prev_project_view {
             if state.scenegraph_cache_version != project_view_version {
                 update_cache_versions(
-                    &mut cached_versions,
-                    &state.scenegraph_cache_metadata,
+                    &mut state.scenegraph_cache_metadata,
                     &project_view,
                     project_view_version,
                     prev_project_view,
                 );
-                state.sceengraph_cached_project_versions = cached_versions.clone();
             }
         }
         state.scenegraph_cache_version = project_view_version;
@@ -714,7 +701,7 @@ impl ViewportPipeline {
             &mut ctx,
             project_view,
             project_view_version,
-            cached_versions,
+            state.scenegraph_cache_metadata.clone(),
         );
 
         let result = scene
