@@ -30,6 +30,7 @@
 //!   via a [`ModuleRegistry`].
 //! - **[`ChangeBuilder`]:** A mechanism for recording changes to be applied to a `Project`, ensuring atomicity and enabling
 //!   undo/redo.
+//! - **[`TrackedProjectView`]:** A tracked version of a [`ProjectView`] allowing implicit dependency tracking
 //!
 //! ## Usage
 //!
@@ -158,6 +159,7 @@ mod data;
 mod document;
 mod module_data;
 mod project;
+mod tracked;
 mod user;
 
 use branch::BranchId;
@@ -184,6 +186,11 @@ pub use document::Path;
 pub use document::PlannedDocument;
 pub use module_data::ModuleRegistry;
 pub use project::ProjectView;
+pub use tracked::AccessRecorder;
+pub use tracked::CacheValidator;
+pub use tracked::TrackedDataView;
+pub use tracked::TrackedDocumentView;
+pub use tracked::TrackedProjectView;
 pub use user::UserId;
 
 /// Facilitates the deserialization of a [`Project`] from a serialized format.

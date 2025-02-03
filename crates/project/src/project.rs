@@ -34,6 +34,12 @@ impl ProjectSource for ProjectView {
     }
 }
 
+impl ProjectSource for std::sync::Arc<ProjectView> {
+    fn uuid(&self) -> uuid::Uuid {
+        self.uuid
+    }
+}
+
 impl ProjectView {
     /// Opens a read only [`DocumentView`].
     ///

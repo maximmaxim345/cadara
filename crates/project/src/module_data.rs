@@ -62,10 +62,13 @@ impl fmt::Display for ModuleId {
 /// - `TDeserializer` - Deserializer for type-erased data
 macro_rules! define_type_erased {
     ($d:ty, $reg_entry:ident) => {
+        define_type_erased!($d, $reg_entry,);
+    };
+    ($d:ty, $reg_entry:ident, $($extra_traits:path),*) => {
         paste! {
             #[doc = "A trait shared by all [`" $d "`] types for all [`Module`]"]
             #[allow(dead_code)]
-            pub trait [<$d Trait>]: erased_serde::Serialize + Debug + Send + Sync + Any + DynClone {
+            pub trait [<$d Trait>]: erased_serde::Serialize + Debug + Send + Sync + Any + DynClone $(+ $extra_traits)* {
                 /// Provides read-only access to the underlying data type.
                 fn as_any(&self) -> &dyn Any;
                 /// Provides mutable access to the underlying data type.
@@ -301,6 +304,13 @@ macro_rules! define_type_erased {
     };
 }
 
+pub trait DataCompare {
+    fn persistent_eq(&self, other: &dyn DataTrait) -> bool;
+    fn persistent_user_eq(&self, other: &dyn DataTrait) -> bool;
+    fn session_eq(&self, other: &dyn DataTrait) -> bool;
+    fn shared_eq(&self, other: &dyn DataTrait) -> bool;
+}
+
 /// Complete state of the data of a module, publicly accessible through a [`crate::DataView`].
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct Data<M: Module> {
@@ -309,7 +319,34 @@ pub struct Data<M: Module> {
     pub session: M::SessionData,
     pub shared: M::SharedData,
 }
-define_type_erased!(Data, deserialize_data);
+define_type_erased!(Data, deserialize_data, DataCompare);
+
+impl<M: Module> DataCompare for Data<M> {
+    fn persistent_eq(&self, other: &dyn DataTrait) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Self>()
+            .is_some_and(|other| self.persistent == other.persistent)
+    }
+    fn persistent_user_eq(&self, other: &dyn DataTrait) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Self>()
+            .is_some_and(|other| self.persistent_user == other.persistent_user)
+    }
+    fn session_eq(&self, other: &dyn DataTrait) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Self>()
+            .is_some_and(|other| self.session == other.session)
+    }
+    fn shared_eq(&self, other: &dyn DataTrait) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Self>()
+            .is_some_and(|other| self.shared == other.shared)
+    }
+}
 
 /// Wrapper type around [`Module::SharedData`]
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]

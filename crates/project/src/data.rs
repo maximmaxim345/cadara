@@ -198,6 +198,31 @@ impl<M: Module> DataView<'_, M> {
         }));
     }
 
+    /// Plans to move this data section to another planned document.
+    ///
+    /// This will not modify the [`crate::Project`], just record this change to the
+    /// same [`ChangeBuilder`] [`crate::PlannedDocument`] was created with.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_owner` - The planned document to move the data to.
+    ///
+    /// # Panics
+    /// If a [`crate::PlannedDocument`] for a different [`crate::Project`] was passed.
+    pub fn move_to_planned_document(&self, new_owner: &mut crate::PlannedDocument) {
+        assert!(
+            new_owner.cb.is_same_source_as(self),
+            "ChangeBuilder must stem from the same project"
+        );
+        new_owner
+            .cb
+            .changes
+            .push(PendingChange::Change(Change::MoveData {
+                id: self.id,
+                new_owner: Some(new_owner.id),
+            }));
+    }
+
     /// Plans to make this data section an orphan (not owned by any document).
     ///
     /// This will not modify the [`crate::Project`], just record this change to `cb`.
