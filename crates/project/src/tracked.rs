@@ -1,6 +1,6 @@
 use crate::{
-    ChangeBuilder, DataId, DataView, DocumentId, DocumentView, Path, PlannedData, PlannedDocument,
-    ProjectSource, ProjectView,
+    module_data::ModuleId, ChangeBuilder, DataId, DataView, DocumentId, DocumentView, Path,
+    PlannedData, PlannedDocument, ProjectSource, ProjectView,
 };
 use module::{DataSection, Module};
 use std::sync::{Arc, Mutex};
@@ -11,6 +11,9 @@ use uuid::Uuid;
 enum AccessEvent {
     OpenDocument(DocumentId),
     OpenDataById(DataId),
+    OpenDataByType(ModuleId),
+    OpenDocumentDataById(DocumentId, DataId),
+    OpenDocumentDataByType(DocumentId, ModuleId),
     AccessPesistent(DataId),
     AccessPesistentUser(DataId),
     AccessShared(DataId),
@@ -61,6 +64,7 @@ impl CacheValidator {
     /// # Returns
     /// `true` if the cache is still valid, and `false` otherwise.
     #[must_use]
+    #[expect(clippy::too_many_lines)]
     pub fn is_cache_valid(&self, old_view: &ProjectView, new_view: &ProjectView) -> bool {
         if old_view.uuid != new_view.uuid {
             return false;
@@ -77,6 +81,65 @@ impl CacheValidator {
                         != new_view.data.get(data_id).map(|d| d.module)
                     {
                         return false;
+                    }
+                }
+                AccessEvent::OpenDataByType(module_id) => {
+                    let old_data_ids = old_view
+                        .data
+                        .iter()
+                        .filter(|d| d.1.module == *module_id)
+                        .map(|d| d.0);
+                    let new_data_ids = new_view
+                        .data
+                        .iter()
+                        .filter(|d| d.1.module == *module_id)
+                        .map(|d| d.0);
+                    if !old_data_ids.eq(new_data_ids) {
+                        return false;
+                    }
+                }
+                AccessEvent::OpenDocumentDataById(document_id, data_id) => {
+                    match (
+                        old_view.documents.get(document_id),
+                        new_view.documents.get(document_id),
+                    ) {
+                        (None, None) => {}
+                        (None, Some(_)) | (Some(_), None) => return false,
+                        (Some(old_doc), Some(new_doc)) => {
+                            if old_doc.data.iter().any(|d| d == data_id)
+                                != new_doc.data.iter().any(|d| d == data_id)
+                            {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                AccessEvent::OpenDocumentDataByType(document_id, module_id) => {
+                    match (
+                        old_view.documents.get(document_id),
+                        new_view.documents.get(document_id),
+                    ) {
+                        (None, None) => {}
+                        (None, Some(_)) | (Some(_), None) => return false,
+                        (Some(old_doc), Some(new_doc)) => {
+                            let old_data_ids = old_doc
+                                .data
+                                .iter()
+                                .map(|d| (d, old_view.data.get(d)))
+                                .filter_map(|d| d.1.map(|ed| (d.0, ed)))
+                                .filter(|d| d.1.module == *module_id)
+                                .map(|d| d.0);
+                            let new_data_ids = new_doc
+                                .data
+                                .iter()
+                                .map(|d| (d, new_view.data.get(d)))
+                                .filter_map(|d| d.1.map(|ed| (d.0, ed)))
+                                .filter(|d| d.1.module == *module_id)
+                                .map(|d| d.0);
+                            if !old_data_ids.eq(new_data_ids) {
+                                return false;
+                            }
+                        }
                     }
                 }
                 AccessEvent::AccessPesistent(data_id) => {
@@ -256,6 +319,8 @@ impl TrackedProjectView {
     /// # Returns
     /// An iterator yielding [`TrackedDataView`]s of type `M` found in this document.
     pub fn open_data_by_type<M: Module>(&self) -> impl Iterator<Item = TrackedDataView<M>> + '_ {
+        self.1
+            .track(AccessEvent::OpenDataByType(ModuleId::from_module::<M>()));
         self.0
             .open_data_by_type()
             .map(|d| TrackedDataView(d, self.1.clone()))
@@ -291,6 +356,10 @@ impl TrackedDocumentView<'_> {
     /// An `Option` containing a [`TrackedDataView`] if the document was found in this document and is of type `M`, or `None` otherwise.
     #[must_use]
     pub fn open_data_by_id<M: Module>(&self, data_id: DataId) -> Option<TrackedDataView<M>> {
+        self.1.track(AccessEvent::OpenDocumentDataById(
+            self.0.clone().into(),
+            data_id,
+        ));
         self.0
             .open_data_by_id(data_id)
             .map(|d| TrackedDataView(d, self.1.clone()))
@@ -304,6 +373,10 @@ impl TrackedDocumentView<'_> {
     /// # Returns
     /// An iterator yielding [`TrackedDataView`]s of type `M` found in this document.
     pub fn open_data_by_type<M: Module>(&self) -> impl Iterator<Item = TrackedDataView<M>> + '_ {
+        self.1.track(AccessEvent::OpenDocumentDataByType(
+            self.0.clone().into(),
+            ModuleId::from_module::<M>(),
+        ));
         self.0
             .open_data_by_type()
             .map(|d| TrackedDataView(d, self.1.clone()))
