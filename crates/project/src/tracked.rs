@@ -521,6 +521,21 @@ impl<'a, M: Module> TrackedDataView<'a, M> {
         self.0.move_to_document(&new_owner.0, cb);
     }
 
+    /// Plans to move this data section to another planned document.
+    ///
+    /// This will not modify the [`crate::Project`], just record this change to the
+    /// same [`ChangeBuilder`] [`crate::PlannedDocument`] was created with.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_owner` - The planned document to move the data to.
+    ///
+    /// # Panics
+    /// If a [`crate::PlannedDocument`] for a different [`crate::Project`] was passed.
+    pub fn move_to_planned_document(&self, new_owner: &mut crate::PlannedDocument) {
+        self.0.move_to_planned_document(new_owner);
+    }
+
     /// Plans to make this data section an orphan (not owned by any document).
     ///
     /// This will not modify the [`crate::Project`], just record this change to `cb`.
