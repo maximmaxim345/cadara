@@ -444,8 +444,8 @@ impl<'a, M: Module> TrackedDataView<'a, M> {
     ///
     /// # Panics
     /// If a [`ChangeBuilder`] of a different [`crate::Project`] was passed.
-    pub fn move_to_document(&self, new_owner: &crate::DocumentView, cb: &mut ChangeBuilder) {
-        self.0.move_to_document(new_owner, cb);
+    pub fn move_to_document(&self, new_owner: &crate::TrackedDocumentView, cb: &mut ChangeBuilder) {
+        self.0.move_to_document(&new_owner.0, cb);
     }
 
     /// Plans to make this data section an orphan (not owned by any document).
