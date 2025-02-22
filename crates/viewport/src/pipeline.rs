@@ -1,7 +1,7 @@
 use crate::ViewportEvent;
 use computegraph::{
-    ComputationCache, ComputationContext, ComputationOptions, ComputeGraph, DynamicNode, InputPort,
-    InputPortUntyped, NodeFactory, NodeHandle, OutputPort, OutputPortUntyped,
+    node, ComputationCache, ComputationContext, ComputationOptions, ComputeGraph, DynamicNode,
+    InputPort, InputPortUntyped, NodeFactory, NodeHandle, OutputPort, OutputPortUntyped,
 };
 use project::{CacheValidator, ProjectView, TrackedProjectView};
 use std::{
@@ -59,6 +59,8 @@ struct ViewportPluginNode {
     node: NodeHandle,
     output: OutputPortUntyped,
     scene_output: OutputPort<SceneGraph>,
+    cache_node: NodeHandle,
+    scene_output_cached: OutputPort<SceneGraph>,
 }
 
 #[derive(Clone)]
@@ -98,6 +100,14 @@ pub struct SceneGraph {
     update_state_out: OutputPortUntyped,
 }
 
+#[derive(PartialEq, Debug, Clone)]
+struct CloneSceneGraphNode();
+
+#[node(CloneSceneGraphNode -> !)]
+fn run(&self, scene: &SceneGraph) -> SceneGraph {
+    scene.clone()
+}
+
 impl<T> From<SceneGraphBuilder<T>> for SceneGraph {
     fn from(scene_graph: SceneGraphBuilder<T>) -> Self {
         Self {
@@ -126,13 +136,21 @@ pub struct ViewportPipeline {
 }
 
 #[derive(Default, Debug)]
+pub struct ViewportPipelineCache {
+    prev_project_view: Option<Arc<ProjectView>>,
+    cache: Mutex<ComputationCache>,
+    version: u64,
+    metadata: Option<CacheMetadata>,
+}
+
+#[derive(Default, Debug)]
 pub struct ViewportPipelineState {
     state: Option<Box<dyn computegraph::SendSyncAny>>,
     prev_project_view: Option<Arc<ProjectView>>,
     scenegraph_cache: Mutex<ComputationCache>,
     scenegraph_cache_version: u64,
     scenegraph_cache_metadata: Option<CacheMetadata>,
-    viewport_pipeline_cache: Mutex<ComputationCache>,
+    pipeline_cache: ViewportPipelineCache,
 }
 
 /// Represents the position of a plugin in the viewport pipeline.
@@ -547,10 +565,24 @@ impl ViewportPipeline {
             }
         }?;
 
+        let scene_output = scene_output.to_typed();
+
+        let cache_node = self
+            .graph
+            .add_node(CloneSceneGraphNode(), node.node_name.clone() + "_cache")
+            .expect("some text");
+        let scene_output_cached = cache_node.output();
+
+        self.graph
+            .connect(scene_output.clone(), cache_node.input_scene())
+            .expect("test");
+
         self.nodes.push(ViewportPluginNode {
             node,
             output,
-            scene_output: scene_output.to_typed(),
+            scene_output,
+            cache_node: cache_node.into(),
+            scene_output_cached,
         });
 
         Ok(())
@@ -570,6 +602,9 @@ impl ViewportPipeline {
             self.graph
                 .remove_node(node.node)
                 .expect("We added it, so it should exist");
+            self.graph
+                .remove_node(node.cache_node)
+                .expect("We added it, so it should exist");
         }
     }
 
@@ -581,7 +616,7 @@ impl ViewportPipeline {
     /// # Parameters
     /// - `project_view`: This [`ProjectView`] will be passed to all nodes of the [`ViewportPlugin`]s and the [`SceneGraph`].
     ///   (accessible through a [`ProjectState`] in nodes)
-    /// - `cache`: A optional [`ComputationCache`] that will be used to cache the viewport pipeline.
+    /// - `cache`: A [`ViewportCache`] that will be used to cache the viewport pipeline.
     ///
     /// # Returns
     ///
@@ -592,26 +627,54 @@ impl ViewportPipeline {
     /// - `Err(ExecuteError::EmptyPipeline)` if the pipeline is empty.
     /// - `Err(ExecuteError::ComputeError)` if there's an error during computation
     ///     of the added [`ViewportPlugin`]s.
+    #[expect(clippy::missing_panics_doc, reason = "only panics with poisoned lock")]
     pub fn compute_scene(
         &self,
         project_view: Arc<ProjectView>,
         project_view_version: u64,
-        cache: Option<&mut ComputationCache>,
+        cache: &mut ViewportPipelineCache,
     ) -> Result<SceneGraph, ExecuteError> {
-        // TODO: pass ProjectView to ViewportPluginNodes
+        let mut cache_metadata = cache.metadata.take().unwrap_or_default();
+        if let Some(prev_project_view) = &cache.prev_project_view {
+            if cache.version != project_view_version {
+                update_cache_versions(
+                    &mut cache_metadata,
+                    &project_view,
+                    project_view_version,
+                    prev_project_view,
+                );
+            }
+        }
+        cache.version = project_view_version;
+        cache.prev_project_view = Some(project_view.clone());
+
         let last_node = self.nodes.last().ok_or(ExecuteError::EmptyPipeline)?;
         let mut ctx = ComputationContext::default();
-        ctx.set_fallback_generator(move |_node_name| {
-            let (view, _observer) = TrackedProjectView::new(project_view.clone());
-            ProjectState::new(view, project_view_version)
-        });
+
+        let cache_metadata = Arc::new(cache_metadata);
+        let access_recorders = initialize_access_tracking(
+            &mut ctx,
+            project_view,
+            project_view_version,
+            cache_metadata.clone(),
+        );
+
         let scene = self.graph.compute_with(
-            last_node.scene_output.clone(),
+            last_node.scene_output_cached.clone(),
             &ComputationOptions {
                 context: Some(&ctx),
             },
-            cache,
+            Some(&mut cache.cache.lock().unwrap()),
         )?;
+
+        drop(ctx);
+
+        let mut cache_metadata =
+            Arc::try_unwrap(cache_metadata).expect("we dropped ctx, which had the only other copy");
+
+        update_cache_metadata(&mut cache_metadata, &access_recorders);
+
+        cache.metadata = Some(cache_metadata);
 
         Ok(scene)
     }
@@ -640,7 +703,7 @@ impl ViewportPipeline {
         let scene = self.compute_scene(
             project_view.clone(),
             project_view_version,
-            Some(&mut state.viewport_pipeline_cache.lock().unwrap()),
+            &mut state.pipeline_cache,
         )?;
 
         let s = state
@@ -708,7 +771,7 @@ impl ViewportPipeline {
         let scene = self.compute_scene(
             project_view.clone(),
             project_view_version,
-            Some(&mut state.viewport_pipeline_cache.lock().unwrap()),
+            &mut state.pipeline_cache,
         )?;
 
         let s = state

@@ -4,7 +4,7 @@ use computegraph::{node, ComputeGraph};
 use iced::widget::shader::{wgpu, Primitive};
 use viewport::{
     RenderNodePorts, SceneGraph, SceneGraphBuilder, UpdateNodePorts, ViewportEvent,
-    ViewportPipeline,
+    ViewportPipeline, ViewportPipelineCache,
 };
 
 #[derive(Clone, PartialEq)]
@@ -129,7 +129,7 @@ pub fn node_count(pipeline: &ViewportPipeline) -> Result<usize, Box<dyn std::err
         .compute_scene(
             Arc::new(p.create_view(&project::ModuleRegistry::default()).unwrap()),
             1,
-            None,
+            &mut ViewportPipelineCache::default(),
         )?
         .graph;
     let out_port = computegraph::OutputPortUntyped {
