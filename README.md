@@ -32,12 +32,14 @@ The CAD software landscape is divided between proprietary and open-source soluti
 ### Proprietary Solutions
 
 Professional tools like SolidWorks, Fusion 360, and Onshape dominate the market, offering:
+
 - Polished, mostly intuitive user interfaces
 - Comprehensive feature sets
 - Professional support and training
 - Regular updates and improvements
 
 However, they come with significant drawbacks:
+
 - Increasing subscription costs
 - Vendor lock-in through proprietary file formats
 - Limited platform availability (especially on Linux)
@@ -47,6 +49,7 @@ However, they come with significant drawbacks:
 ### Existing Open-Source Alternatives
 
 **FreeCAD**
+
 - By far the most solid open source CAD application
 - Has made significant progress with version 1.0
 - Offers powerful features rivaling commercial solutions
@@ -56,6 +59,7 @@ However, they come with significant drawbacks:
 - Complex workflows can be challenging to master
 
 **Other Applications**
+
 - BRL-CAD: Focus on solid modeling and ray-tracing
 - CAD Sketcher: Blender-integrated parametric modeling
 - CadQuery: Programming-based approach
@@ -68,16 +72,19 @@ However, they come with significant drawbacks:
 CADara bridges the gap between proprietary polish and open-source flexibility through:
 
 1. **Modern Architecture**
+
    - Using Rust's type system to prevent common CAD software bugs at compile-time
    - Building on proven technologies like OpenCASCADE
    - Designing for extensibility from the ground up
 
 2. **User Experience**
+
    - Focusing on intuitive workflows
    - Maintaining compatibility with familiar CAD concepts
    - Prioritizing discoverability of features
 
 3. **Collaboration and Data Security**
+
    - Advanced version control with branching and merging
    - Offline-first collaboration with CRDT-based sync capabilities
    - Continuous document history and autosave, allowing precise historical views
@@ -101,15 +108,17 @@ CADara's interface is designed with a focus on simplicity and efficiency while m
 ## 🛣️ Roadmap to Basic Usability
 
 ### Completed Components
+
 - `computegraph`: Framework for editable computation DAGs
 - Modular viewport widget with plugin system
 - Module system for core components
 - `occara`: High-level Rust bindings for OpenCASCADE
 - WebAssembly support with C++ dependencies
 - Basic project system foundation
+- Caching system for computation and viewport
 
 ### In Development
-- Caching system for computation and viewport
+
 - CRDT-based project system for collaboration
 - Custom widget library using iced
 - 3D viewport selection system
