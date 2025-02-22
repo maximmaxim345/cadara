@@ -100,6 +100,10 @@ pub struct SceneGraph {
     update_state_out: OutputPortUntyped,
 }
 
+/// Node to allow caching of the last node.
+///
+/// This node allows the last node of the [`ViewportPipeline`] to be cached, since otherwise
+/// the output of that node would be consumed with `compute()`.
 #[derive(PartialEq, Debug, Clone)]
 struct CloneSceneGraphNode();
 
@@ -135,6 +139,10 @@ pub struct ViewportPipeline {
     nodes: Vec<ViewportPluginNode>,
 }
 
+/// Project aware cache for the Viewport.
+///
+/// This is a extension of [`ComputationCache`], that allows changes to [`ProjectView`]s, if
+/// a node did only access parts of that, that did not change.
 #[derive(Default, Debug)]
 pub struct ViewportCache {
     prev_project_view: Option<Arc<ProjectView>>,

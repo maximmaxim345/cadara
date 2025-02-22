@@ -92,6 +92,7 @@ impl Viewport {
         }
     }
 
+    /// Update the viewport with a new version of the [`ProjectView`].
     pub fn update(&mut self, project_view: Arc<ProjectView>) {
         self.prev_project_view = Some(std::mem::replace(&mut self.project_view, project_view));
         self.project_view_version += 1;
