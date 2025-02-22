@@ -136,7 +136,7 @@ pub struct ViewportPipeline {
 }
 
 #[derive(Default, Debug)]
-pub struct ViewportPipelineCache {
+pub struct ViewportCache {
     prev_project_view: Option<Arc<ProjectView>>,
     cache: Mutex<ComputationCache>,
     version: u64,
@@ -147,10 +147,8 @@ pub struct ViewportPipelineCache {
 pub struct ViewportPipelineState {
     state: Option<Box<dyn computegraph::SendSyncAny>>,
     prev_project_view: Option<Arc<ProjectView>>,
-    scenegraph_cache: Mutex<ComputationCache>,
-    scenegraph_cache_version: u64,
-    scenegraph_cache_metadata: Option<CacheMetadata>,
-    pipeline_cache: ViewportPipelineCache,
+    scenegraph_cache: ViewportCache,
+    pipeline_cache: ViewportCache,
 }
 
 /// Represents the position of a plugin in the viewport pipeline.
@@ -632,7 +630,7 @@ impl ViewportPipeline {
         &self,
         project_view: Arc<ProjectView>,
         project_view_version: u64,
-        cache: &mut ViewportPipelineCache,
+        cache: &mut ViewportCache,
     ) -> Result<SceneGraph, ExecuteError> {
         let mut cache_metadata = cache.metadata.take().unwrap_or_default();
         if let Some(prev_project_view) = &cache.prev_project_view {
@@ -686,9 +684,9 @@ impl ViewportPipeline {
         project_view: Arc<ProjectView>,
         project_view_version: u64,
     ) -> Result<(), ExecuteError> {
-        let mut cache_metadata = state.scenegraph_cache_metadata.take().unwrap_or_default();
+        let mut cache_metadata = state.scenegraph_cache.metadata.take().unwrap_or_default();
         if let Some(prev_project_view) = &state.prev_project_view {
-            if state.scenegraph_cache_version != project_view_version {
+            if state.scenegraph_cache.version != project_view_version {
                 update_cache_versions(
                     &mut cache_metadata,
                     &project_view,
@@ -697,7 +695,7 @@ impl ViewportPipeline {
                 );
             }
         }
-        state.scenegraph_cache_version = project_view_version;
+        state.scenegraph_cache.version = project_view_version;
         state.prev_project_view = Some(project_view.clone());
 
         let scene = self.compute_scene(
@@ -731,7 +729,7 @@ impl ViewportPipeline {
                 &ComputationOptions {
                     context: Some(&ctx),
                 },
-                Some(&mut state.scenegraph_cache.lock().unwrap()),
+                Some(&mut state.scenegraph_cache.cache.lock().unwrap()),
             )
             .map_err(ExecuteError::ComputeError)?;
 
@@ -742,7 +740,7 @@ impl ViewportPipeline {
 
         update_cache_metadata(&mut cache_metadata, &access_recorders);
 
-        state.scenegraph_cache_metadata = Some(cache_metadata);
+        state.scenegraph_cache.metadata = Some(cache_metadata);
 
         state.state = Some(result);
         Ok(())
@@ -754,9 +752,9 @@ impl ViewportPipeline {
         project_view: Arc<ProjectView>,
         project_view_version: u64,
     ) -> Result<Box<dyn iced::widget::shader::Primitive>, ExecuteError> {
-        let mut cache_metadata = state.scenegraph_cache_metadata.take().unwrap_or_default();
+        let mut cache_metadata = state.scenegraph_cache.metadata.take().unwrap_or_default();
         if let Some(prev_project_view) = &state.prev_project_view {
-            if state.scenegraph_cache_version != project_view_version {
+            if state.scenegraph_cache.version != project_view_version {
                 update_cache_versions(
                     &mut cache_metadata,
                     &project_view,
@@ -765,7 +763,7 @@ impl ViewportPipeline {
                 );
             }
         }
-        state.scenegraph_cache_version = project_view_version;
+        state.scenegraph_cache.version = project_view_version;
         state.prev_project_view = Some(project_view.clone());
 
         let scene = self.compute_scene(
@@ -798,7 +796,7 @@ impl ViewportPipeline {
                 &ComputationOptions {
                     context: Some(&ctx),
                 },
-                Some(&mut state.scenegraph_cache.lock().unwrap()),
+                Some(&mut state.scenegraph_cache.cache.lock().unwrap()),
             )
             .map_err(ExecuteError::ComputeError);
 
@@ -813,7 +811,7 @@ impl ViewportPipeline {
 
         update_cache_metadata(&mut cache_metadata, &access_recorders);
 
-        state.scenegraph_cache_metadata = Some(cache_metadata);
+        state.scenegraph_cache.metadata = Some(cache_metadata);
 
         result
     }

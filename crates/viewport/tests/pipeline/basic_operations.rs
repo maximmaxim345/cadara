@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::common::*;
-use viewport::{ExecuteError, ViewportPipeline, ViewportPipelineCache, ViewportPlugin};
+use viewport::{ExecuteError, ViewportCache, ViewportPipeline, ViewportPlugin};
 
 #[test]
 fn test_viewport_plugins() {
@@ -93,7 +93,7 @@ fn test_compute_empty_pipeline() {
                 .unwrap(),
         ),
         1,
-        &mut ViewportPipelineCache::default(),
+        &mut ViewportCache::default(),
     );
     assert!(matches!(result, Err(ExecuteError::EmptyPipeline)));
 }
