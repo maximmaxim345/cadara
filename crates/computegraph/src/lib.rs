@@ -1365,7 +1365,7 @@ impl ComputeGraph {
                 let mut recompute_required = if cache.is_some() {
                     computed_results
                         .get(&current_node.handle)
-                        .map_or(true, |node_cache| {
+                        .is_none_or(|node_cache| {
                             // We already computed a node with the same name, check if it changed
                             let is_equal = node_cache
                                 .node
@@ -1421,7 +1421,7 @@ impl ComputeGraph {
                                         if match &value {
                                             FallbackValue::Opaque(_) => true,
                                             FallbackValue::Cacheable(value) => {
-                                                cache.as_mut().map_or(true, |cache| {
+                                                cache.as_mut().is_none_or(|cache| {
                                                     if let Some(fb) =
                                                         cache.fallback_cache.get_mut(&input.1)
                                                     {

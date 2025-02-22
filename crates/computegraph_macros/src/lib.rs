@@ -292,8 +292,8 @@ fn node_impl(args: TokenStream, input: TokenStream) -> TokenStream {
                                 // return type of '-> ()'
                             }
                             1 => {
-                                return Error::new_spanned(node_name,
-                                "ambiguous return type, use #[node({node_name} -> output)] (to return the whole tuple) or #[node({node_name} -> (output))] (to return the first element of the tuple)"
+                                return Error::new_spanned(&node_name,
+                                format!("ambiguous return type, use #[node({node_name} -> output)] (to return the whole tuple) or #[node({node_name} -> (output))] (to return the first element of the tuple)")
                                 ).to_compile_error().into();
                             }
                             n => {
