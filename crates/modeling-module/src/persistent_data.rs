@@ -11,7 +11,6 @@ use uuid::Uuid;
 pub struct Step {
     name: String,
     operation: ModelingOperation,
-    uuid: Uuid,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -38,11 +37,9 @@ impl DataSection for PersistentData {
     fn apply(&mut self, args: Self::Args) {
         match args {
             ModelingTransaction::Create(c) => {
-                let uuid = Uuid::new_v4();
                 self.steps.push(Step {
                     name: "new operation".to_string(),
                     operation: c.operation,
-                    uuid,
                 });
             }
             ModelingTransaction::Update => todo!(),
@@ -58,11 +55,27 @@ impl DataSection for PersistentData {
 impl PersistentData {
     #[must_use]
     pub fn shape(&self) -> occara::shape::Shape {
+        let mut scale = 1.0;
+        for _ in self
+            .steps
+            .iter()
+            .filter(|s| matches!(s.operation, ModelingOperation::Grow))
+        {
+            scale *= 1.02;
+        }
+
+        for _ in self
+            .steps
+            .iter()
+            .filter(|s| matches!(s.operation, ModelingOperation::Shrink))
+        {
+            scale /= 1.02;
+        }
         let wire = {
             let p1 = Point::new(0.0, 0.0, 0.0);
-            let p2 = Point::new(0.0, 1.0, 0.0);
-            let p3 = Point::new(1.0, 1.0, 0.0);
-            let p4 = Point::new(1.0, 0.0, 0.0);
+            let p2 = Point::new(0.0, scale, 0.0);
+            let p3 = Point::new(scale, scale, 0.0);
+            let p4 = Point::new(scale, 0.0, 0.0);
             Wire::new(&[
                 &Edge::line(&p1, &p2),
                 &Edge::line(&p2, &p3),
@@ -70,7 +83,7 @@ impl PersistentData {
                 &Edge::line(&p4, &p1),
             ])
         };
-        let b = wire.face().extrude(&Vector::new(0.0, 0.0, 1.0));
+        let b = wire.face().extrude(&Vector::new(0.0, 0.0, scale));
 
         let mut f = b.fillet();
         for e in b.edges() {

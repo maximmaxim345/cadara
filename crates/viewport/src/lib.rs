@@ -56,9 +56,9 @@ mod pipeline;
 
 #[doc(inline)]
 pub use pipeline::{
-    DynamicViewportPlugin, ExecuteError, PipelineAddError, RenderNodePorts, SceneGraph,
-    SceneGraphBuilder, UpdateNodePorts, ViewportPipeline, ViewportPlugin,
-    ViewportPluginValidationError,
+    DynamicViewportPlugin, ExecuteError, PipelineAddError, ProjectState, RenderNodePorts,
+    SceneGraph, SceneGraphBuilder, UpdateNodePorts, ViewportCache, ViewportPipeline,
+    ViewportPlugin, ViewportPluginValidationError,
 };
 
 #[derive(Debug)]
@@ -76,16 +76,26 @@ pub struct ViewportState {
 #[derive(Clone)]
 pub struct Viewport {
     pub pipeline: ViewportPipeline,
-    pub project_view: ProjectView,
+    pub project_view: Arc<ProjectView>,
+    pub prev_project_view: Option<Arc<ProjectView>>,
+    pub project_view_version: u64,
 }
 
 impl Viewport {
     #[must_use]
-    pub fn new(project_view: ProjectView) -> Self {
+    pub fn new(project_view: Arc<ProjectView>) -> Self {
         Self {
             pipeline: ViewportPipeline::default(),
             project_view,
+            prev_project_view: None,
+            project_view_version: 1,
         }
+    }
+
+    /// Update the viewport with a new version of the [`ProjectView`].
+    pub fn update(&mut self, project_view: Arc<ProjectView>) {
+        self.prev_project_view = Some(std::mem::replace(&mut self.project_view, project_view));
+        self.project_view_version += 1;
     }
 }
 
@@ -115,6 +125,7 @@ impl<Message> shader::Program<Message> for Viewport {
                 &mut state.state.lock().unwrap(),
                 event,
                 self.project_view.clone(),
+                self.project_view_version,
             )
             .unwrap();
         (iced::advanced::graphics::core::event::Status::Ignored, None)
@@ -130,6 +141,8 @@ impl<Message> shader::Program<Message> for Viewport {
             pipeline: self.pipeline.clone(),
             state: state.clone(),
             project_view: self.project_view.clone(),
+            prev_project_view: self.prev_project_view.clone(),
+            project_view_version: self.project_view_version,
         }
     }
 
@@ -147,7 +160,9 @@ impl<Message> shader::Program<Message> for Viewport {
 pub struct ShaderPrimitive {
     pub pipeline: ViewportPipeline,
     pub state: ViewportState,
-    pub project_view: ProjectView,
+    pub project_view: Arc<ProjectView>,
+    pub prev_project_view: Option<Arc<ProjectView>>,
+    pub project_view_version: u64,
 }
 
 impl shader::Primitive for ShaderPrimitive {
@@ -165,6 +180,7 @@ impl shader::Primitive for ShaderPrimitive {
             .compute_primitive(
                 &mut self.state.state.lock().unwrap(),
                 self.project_view.clone(),
+                self.project_view_version,
             )
             .unwrap();
         a.prepare(device, queue, format, storage, bounds, viewport);
@@ -182,6 +198,7 @@ impl shader::Primitive for ShaderPrimitive {
             .compute_primitive(
                 &mut self.state.state.lock().unwrap(),
                 self.project_view.clone(),
+                self.project_view_version,
             )
             .unwrap();
         a.render(encoder, storage, target, clip_bounds);

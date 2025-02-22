@@ -1,7 +1,9 @@
+use std::sync::Arc;
+
 use computegraph::{node, ComputeGraph};
 use iced::widget::shader::{wgpu, Primitive};
 use viewport::{
-    RenderNodePorts, SceneGraph, SceneGraphBuilder, UpdateNodePorts, ViewportEvent,
+    RenderNodePorts, SceneGraph, SceneGraphBuilder, UpdateNodePorts, ViewportCache, ViewportEvent,
     ViewportPipeline,
 };
 
@@ -124,7 +126,11 @@ fn run(&self, scene: &SceneGraph, input: &CounterState) -> (SceneGraph, CounterS
 pub fn node_count(pipeline: &ViewportPipeline) -> Result<usize, Box<dyn std::error::Error>> {
     let p = project::Project::new();
     let g = pipeline
-        .compute_scene(p.create_view(&project::ModuleRegistry::default()).unwrap())?
+        .compute_scene(
+            Arc::new(p.create_view(&project::ModuleRegistry::default()).unwrap()),
+            1,
+            &mut ViewportCache::default(),
+        )?
         .graph;
     let out_port = computegraph::OutputPortUntyped {
         node: computegraph::NodeHandle {

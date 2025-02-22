@@ -1,10 +1,14 @@
 use crate::ViewportEvent;
 use computegraph::{
-    ComputationContext, ComputationOptions, ComputeGraph, DynamicNode, InputPort, InputPortUntyped,
-    NodeFactory, NodeHandle, OutputPort, OutputPortUntyped,
+    node, ComputationCache, ComputationContext, ComputationOptions, ComputeGraph, DynamicNode,
+    InputPort, InputPortUntyped, NodeFactory, NodeHandle, OutputPort, OutputPortUntyped,
 };
-use project::ProjectView;
-use std::any::TypeId;
+use project::{CacheValidator, ProjectView, TrackedProjectView};
+use std::{
+    any::TypeId,
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
 
 /// Errors that can occur when creating a new [`ViewportPlugin`] or [`DynamicViewportPlugin`]
 #[derive(thiserror::Error, Debug)]
@@ -55,6 +59,8 @@ struct ViewportPluginNode {
     node: NodeHandle,
     output: OutputPortUntyped,
     scene_output: OutputPort<SceneGraph>,
+    cache_node: NodeHandle,
+    scene_output_cached: OutputPort<SceneGraph>,
 }
 
 #[derive(Clone)]
@@ -94,6 +100,18 @@ pub struct SceneGraph {
     update_state_out: OutputPortUntyped,
 }
 
+/// Node to allow caching of the last node.
+///
+/// This node allows the last node of the [`ViewportPipeline`] to be cached, since otherwise
+/// the output of that node would be consumed with `compute()`.
+#[derive(PartialEq, Debug, Clone)]
+struct CloneSceneGraphNode();
+
+#[node(CloneSceneGraphNode -> !)]
+fn run(&self, scene: &SceneGraph) -> SceneGraph {
+    scene.clone()
+}
+
 impl<T> From<SceneGraphBuilder<T>> for SceneGraph {
     fn from(scene_graph: SceneGraphBuilder<T>) -> Self {
         Self {
@@ -121,9 +139,24 @@ pub struct ViewportPipeline {
     nodes: Vec<ViewportPluginNode>,
 }
 
+/// Project aware cache for the Viewport.
+///
+/// This is a extension of [`ComputationCache`], that allows changes to [`ProjectView`]s, if
+/// a node did only access parts of that, that did not change.
+#[derive(Default, Debug)]
+pub struct ViewportCache {
+    prev_project_view: Option<Arc<ProjectView>>,
+    cache: Mutex<ComputationCache>,
+    version: u64,
+    metadata: Option<CacheMetadata>,
+}
+
 #[derive(Default, Debug)]
 pub struct ViewportPipelineState {
     state: Option<Box<dyn computegraph::SendSyncAny>>,
+    prev_project_view: Option<Arc<ProjectView>>,
+    scenegraph_cache: ViewportCache,
+    pipeline_cache: ViewportCache,
 }
 
 /// Represents the position of a plugin in the viewport pipeline.
@@ -250,6 +283,123 @@ fn validate_plugin(
             }
         }
         (None, None) => Ok(PluginPosition::Initial),
+    }
+}
+
+/// State of the whole project, wrapper around [`ProjectView`] with caching support.
+///
+/// While it implements clone, do not use a cloned [`ProjectView`]. This will panic.
+pub enum ProjectState {
+    Valid(TrackedProjectView, u64),
+    Cloned(u64),
+}
+
+impl ProjectState {
+    const fn new(pvo: TrackedProjectView, version: u64) -> Self {
+        Self::Valid(pvo, version)
+    }
+}
+
+impl Clone for ProjectState {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Cloned(version) | Self::Valid(_, version) => Self::Cloned(*version),
+        }
+    }
+}
+
+impl PartialEq for ProjectState {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                Self::Valid(_, self_version) | Self::Cloned(self_version),
+                Self::Valid(_, other_version) | Self::Cloned(other_version),
+            ) => self_version == other_version,
+        }
+    }
+}
+
+impl std::ops::Deref for ProjectState {
+    type Target = TrackedProjectView;
+
+    fn deref(&self) -> &Self::Target {
+        if let Self::Valid(view, _) = self {
+            view
+        } else {
+            // TODO: this could just be a compile time check if we don't implement Clone
+            panic!("A cloned ProjectState must never be used for anything else but comparisons")
+        }
+    }
+}
+
+// helper functions for caching
+
+type AccessRecorders = Arc<Mutex<BTreeMap<String, (project::AccessRecorder, u64)>>>;
+type CacheMetadata = BTreeMap<String, (CacheValidator, u64)>;
+
+fn update_cache_versions(
+    cache_metadata: &mut CacheMetadata,
+    project_view: &Arc<ProjectView>,
+    project_view_version: u64,
+    prev_project_view: &Arc<ProjectView>,
+) {
+    for (cache_validator, cached_version) in cache_metadata.values_mut() {
+        // Update each nodes version if its cache is no longer valid.
+        let cache_still_valid = cache_validator.is_cache_valid(prev_project_view, project_view);
+        if !cache_still_valid {
+            // Force recomputation by setting to the new version.
+            *cached_version = project_view_version;
+        }
+    }
+}
+
+fn initialize_access_tracking(
+    ctx: &mut ComputationContext,
+    project_view: Arc<ProjectView>,
+    project_view_version: u64,
+    cache_metadata: Arc<CacheMetadata>,
+) -> AccessRecorders {
+    // create a shared structure to record access from each node, to later more granualy
+    // detect cache validity
+    let access_recorders = Arc::new(Mutex::new(BTreeMap::new()));
+
+    // fallback generator is called for every node to provide a ProjectState, even those
+    // who will be cached (so not be executed)
+    let access_recorders_clone = access_recorders.clone();
+    ctx.set_fallback_generator(move |node_name| {
+        let (tracked_view, recorder) = TrackedProjectView::new(project_view.clone());
+        access_recorders_clone
+            .lock()
+            .unwrap()
+            .insert(node_name.to_string(), (recorder, project_view_version));
+        let version = cache_metadata
+            .get(node_name)
+            .map_or(project_view_version, |e| e.1);
+        ProjectState::new(tracked_view, version)
+    });
+    access_recorders
+}
+
+fn update_cache_metadata(metadata: &mut CacheMetadata, access_recorders: &AccessRecorders) {
+    let access_recorders = std::mem::take(&mut *(access_recorders.lock().unwrap()));
+    // Freeze and collect all access recorder data.
+    let mut access_data: BTreeMap<_, _> = access_recorders
+        .into_iter()
+        .map(|(node_name, (recorder, version))| (node_name, (recorder.freeze(), version)))
+        .collect();
+
+    // Update metadata for nodes that already existed.
+    for (node_name, (existing_validator, existing_version)) in metadata.iter_mut() {
+        if let Some((_, (new_validator, new_version))) = access_data.remove_entry(node_name) {
+            if new_validator.was_accessed() {
+                *existing_validator = new_validator;
+                *existing_version = new_version;
+            }
+        }
+    }
+    // Add any new nodes that were not in the previous metadata.
+    for (node_name, data) in access_data {
+        metadata.insert(node_name, data);
     }
 }
 
@@ -421,10 +571,24 @@ impl ViewportPipeline {
             }
         }?;
 
+        let scene_output = scene_output.to_typed();
+
+        let cache_node = self
+            .graph
+            .add_node(CloneSceneGraphNode(), node.node_name.clone() + "_cache")
+            .expect("some text");
+        let scene_output_cached = cache_node.output();
+
+        self.graph
+            .connect(scene_output.clone(), cache_node.input_scene())
+            .expect("test");
+
         self.nodes.push(ViewportPluginNode {
             node,
             output,
-            scene_output: scene_output.to_typed(),
+            scene_output,
+            cache_node: cache_node.into(),
+            scene_output_cached,
         });
 
         Ok(())
@@ -441,12 +605,12 @@ impl ViewportPipeline {
     /// This should never happen under normal circumstances as the node was previously added to the graph.
     pub fn remove_last_plugin(&mut self) {
         if let Some(node) = self.nodes.pop() {
-            match self.graph.remove_node(node.node) {
-                Ok(()) => {}
-                Err(computegraph::RemoveNodeError::NodeNotFound(_)) => {
-                    panic!("We added it, so it should exist")
-                }
-            }
+            self.graph
+                .remove_node(node.node)
+                .expect("We added it, so it should exist");
+            self.graph
+                .remove_node(node.cache_node)
+                .expect("We added it, so it should exist");
         }
     }
 
@@ -457,6 +621,8 @@ impl ViewportPipeline {
     ///
     /// # Parameters
     /// - `project_view`: This [`ProjectView`] will be passed to all nodes of the [`ViewportPlugin`]s and the [`SceneGraph`].
+    ///   (accessible through a [`ProjectState`] in nodes)
+    /// - `cache`: A [`ViewportCache`] that will be used to cache the viewport pipeline.
     ///
     /// # Returns
     ///
@@ -467,18 +633,54 @@ impl ViewportPipeline {
     /// - `Err(ExecuteError::EmptyPipeline)` if the pipeline is empty.
     /// - `Err(ExecuteError::ComputeError)` if there's an error during computation
     ///     of the added [`ViewportPlugin`]s.
-    pub fn compute_scene(&self, project_view: ProjectView) -> Result<SceneGraph, ExecuteError> {
-        // TODO: pass ProjectView to ViewportPluginNodes
+    #[expect(clippy::missing_panics_doc, reason = "only panics with poisoned lock")]
+    pub fn compute_scene(
+        &self,
+        project_view: Arc<ProjectView>,
+        project_view_version: u64,
+        cache: &mut ViewportCache,
+    ) -> Result<SceneGraph, ExecuteError> {
+        let mut cache_metadata = cache.metadata.take().unwrap_or_default();
+        if let Some(prev_project_view) = &cache.prev_project_view {
+            if cache.version != project_view_version {
+                update_cache_versions(
+                    &mut cache_metadata,
+                    &project_view,
+                    project_view_version,
+                    prev_project_view,
+                );
+            }
+        }
+        cache.version = project_view_version;
+        cache.prev_project_view = Some(project_view.clone());
+
         let last_node = self.nodes.last().ok_or(ExecuteError::EmptyPipeline)?;
         let mut ctx = ComputationContext::default();
-        ctx.set_fallback(project_view);
+
+        let cache_metadata = Arc::new(cache_metadata);
+        let access_recorders = initialize_access_tracking(
+            &mut ctx,
+            project_view,
+            project_view_version,
+            cache_metadata.clone(),
+        );
+
         let scene = self.graph.compute_with(
-            last_node.scene_output.clone(),
+            last_node.scene_output_cached.clone(),
             &ComputationOptions {
                 context: Some(&ctx),
             },
-            None,
+            Some(&mut cache.cache.lock().unwrap()),
         )?;
+
+        drop(ctx);
+
+        let mut cache_metadata =
+            Arc::try_unwrap(cache_metadata).expect("we dropped ctx, which had the only other copy");
+
+        update_cache_metadata(&mut cache_metadata, &access_recorders);
+
+        cache.metadata = Some(cache_metadata);
 
         Ok(scene)
     }
@@ -487,20 +689,46 @@ impl ViewportPipeline {
         &self,
         state: &mut ViewportPipelineState,
         events: ViewportEvent,
-        project_view: ProjectView,
+        project_view: Arc<ProjectView>,
+        project_view_version: u64,
     ) -> Result<(), ExecuteError> {
-        let scene = self.compute_scene(project_view.clone())?;
+        let mut cache_metadata = state.scenegraph_cache.metadata.take().unwrap_or_default();
+        if let Some(prev_project_view) = &state.prev_project_view {
+            if state.scenegraph_cache.version != project_view_version {
+                update_cache_versions(
+                    &mut cache_metadata,
+                    &project_view,
+                    project_view_version,
+                    prev_project_view,
+                );
+            }
+        }
+        state.scenegraph_cache.version = project_view_version;
+        state.prev_project_view = Some(project_view.clone());
 
-        let s = state.state.take();
-        let s = match s {
-            Some(s) => s,
-            None => scene.graph.compute_untyped(scene.init_state)?,
-        };
+        let scene = self.compute_scene(
+            project_view.clone(),
+            project_view_version,
+            &mut state.pipeline_cache,
+        )?;
 
+        let s = state
+            .state
+            .take()
+            .map_or_else(|| scene.graph.compute_untyped(scene.init_state), Ok)?;
+
+        // setup the computation context
         let mut ctx = ComputationContext::default();
         ctx.set_override_untyped(scene.update_state_in.clone(), s);
         ctx.set_override(scene.update_event_in, events);
-        ctx.set_fallback(project_view);
+
+        let cache_metadata = Arc::new(cache_metadata);
+        let access_recorders = initialize_access_tracking(
+            &mut ctx,
+            project_view,
+            project_view_version,
+            cache_metadata.clone(),
+        );
 
         let result = scene
             .graph
@@ -509,9 +737,19 @@ impl ViewportPipeline {
                 &ComputationOptions {
                     context: Some(&ctx),
                 },
-                None,
+                Some(&mut state.scenegraph_cache.cache.lock().unwrap()),
             )
             .map_err(ExecuteError::ComputeError)?;
+
+        drop(ctx);
+
+        let mut cache_metadata =
+            Arc::try_unwrap(cache_metadata).expect("we dropped ctx, which had the only other copy");
+
+        update_cache_metadata(&mut cache_metadata, &access_recorders);
+
+        state.scenegraph_cache.metadata = Some(cache_metadata);
+
         state.state = Some(result);
         Ok(())
     }
@@ -519,19 +757,45 @@ impl ViewportPipeline {
     pub(crate) fn compute_primitive(
         &self,
         state: &mut ViewportPipelineState,
-        project_view: ProjectView,
+        project_view: Arc<ProjectView>,
+        project_view_version: u64,
     ) -> Result<Box<dyn iced::widget::shader::Primitive>, ExecuteError> {
-        let scene = self.compute_scene(project_view.clone())?;
+        let mut cache_metadata = state.scenegraph_cache.metadata.take().unwrap_or_default();
+        if let Some(prev_project_view) = &state.prev_project_view {
+            if state.scenegraph_cache.version != project_view_version {
+                update_cache_versions(
+                    &mut cache_metadata,
+                    &project_view,
+                    project_view_version,
+                    prev_project_view,
+                );
+            }
+        }
+        state.scenegraph_cache.version = project_view_version;
+        state.prev_project_view = Some(project_view.clone());
 
-        let s = state.state.take();
-        let s = match s {
-            Some(s) => s,
-            None => scene.graph.compute_untyped(scene.init_state)?,
-        };
+        let scene = self.compute_scene(
+            project_view.clone(),
+            project_view_version,
+            &mut state.pipeline_cache,
+        )?;
 
+        let s = state
+            .state
+            .take()
+            .map_or_else(|| scene.graph.compute_untyped(scene.init_state), Ok)?;
+
+        // setup the computation context
         let mut ctx = ComputationContext::default();
         ctx.set_override_untyped(scene.render_state_in.clone(), s);
-        ctx.set_fallback(project_view);
+
+        let cache_metadata = Arc::new(cache_metadata);
+        let access_recorders = initialize_access_tracking(
+            &mut ctx,
+            project_view,
+            project_view_version,
+            cache_metadata.clone(),
+        );
 
         let result = scene
             .graph
@@ -540,12 +804,23 @@ impl ViewportPipeline {
                 &ComputationOptions {
                     context: Some(&ctx),
                 },
-                None,
+                Some(&mut state.scenegraph_cache.cache.lock().unwrap()),
             )
             .map_err(ExecuteError::ComputeError);
-        let a = ctx.remove_override_untyped(&scene.render_state_in);
-        debug_assert!(a.is_some());
-        state.state = a;
+
+        let new_state = ctx.remove_override_untyped(&scene.render_state_in);
+        debug_assert!(new_state.is_some());
+        state.state = new_state;
+
+        drop(ctx);
+
+        let mut cache_metadata =
+            Arc::try_unwrap(cache_metadata).expect("we dropped ctx, which had the only other copy");
+
+        update_cache_metadata(&mut cache_metadata, &access_recorders);
+
+        state.scenegraph_cache.metadata = Some(cache_metadata);
+
         result
     }
 

@@ -1,5 +1,7 @@
+use std::sync::Arc;
+
 use crate::common::*;
-use viewport::{ExecuteError, ViewportPipeline, ViewportPlugin};
+use viewport::{ExecuteError, ViewportCache, ViewportPipeline, ViewportPlugin};
 
 #[test]
 fn test_viewport_plugins() {
@@ -85,9 +87,13 @@ fn test_compute_empty_pipeline() {
     let pipeline = ViewportPipeline::default();
     let project = project::Project::new();
     let result = pipeline.compute_scene(
-        project
-            .create_view(&project::ModuleRegistry::default())
-            .unwrap(),
+        Arc::new(
+            project
+                .create_view(&project::ModuleRegistry::default())
+                .unwrap(),
+        ),
+        1,
+        &mut ViewportCache::default(),
     );
     assert!(matches!(result, Err(ExecuteError::EmptyPipeline)));
 }
