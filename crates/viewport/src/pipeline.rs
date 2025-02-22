@@ -567,12 +567,9 @@ impl ViewportPipeline {
     /// This should never happen under normal circumstances as the node was previously added to the graph.
     pub fn remove_last_plugin(&mut self) {
         if let Some(node) = self.nodes.pop() {
-            match self.graph.remove_node(node.node) {
-                Ok(()) => {}
-                Err(computegraph::RemoveNodeError::NodeNotFound(_)) => {
-                    panic!("We added it, so it should exist")
-                }
-            }
+            self.graph
+                .remove_node(node.node)
+                .expect("We added it, so it should exist");
         }
     }
 
