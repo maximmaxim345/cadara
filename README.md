@@ -115,10 +115,10 @@ CADara's interface is designed with a focus on simplicity and efficiency while m
 - `occara`: High-level Rust bindings for OpenCASCADE
 - WebAssembly support with C++ dependencies
 - Basic project system foundation
+- Caching system for computation and viewport
 
 ### In Development
 
-- Caching system for computation and viewport
 - CRDT-based project system for collaboration
 - Custom widget library using iced
 - 3D viewport selection system
