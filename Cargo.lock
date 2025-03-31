@@ -1086,9 +1086,9 @@ checksum = "96a6ac251f4a2aca6b3f91340350eab87ae57c3f127ffeb585e92bd336717991"
 
 [[package]]
 name = "cxx"
-version = "1.0.150"
+version = "1.0.153"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d1cf22155cf6a8e0b0536efc30c775eadd7a481c376d2d7e30daf0825a42ef9"
+checksum = "4b4ab2681454aacfe7ce296ebc6df86791009f237f8020b0c752e8b245ba7c1d"
 dependencies = [
  "cc",
  "cxxbridge-cmd",
@@ -1100,9 +1100,9 @@ dependencies = [
 
 [[package]]
 name = "cxx-build"
-version = "1.0.150"
+version = "1.0.153"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db4e07e3a69db032f03450594e53785a5d6b1d787c2ad5b901d9347f0064af94"
+checksum = "5e431f7ba795550f2b11c32509b3b35927d899f0ad13a1d1e030a317a08facbe"
 dependencies = [
  "cc",
  "codespan-reporting 0.12.0",
@@ -1126,9 +1126,9 @@ dependencies = [
 
 [[package]]
 name = "cxxbridge-cmd"
-version = "1.0.150"
+version = "1.0.153"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48e9ff9c627d3abe06190462f7db81fb6cc12f3424ea081c2a8c9ed7a8cc167a"
+checksum = "7cbc41933767955d04c2a90151806029b93df5fd8b682ba22a967433347480a9"
 dependencies = [
  "clap",
  "codespan-reporting 0.12.0",
@@ -1139,15 +1139,15 @@ dependencies = [
 
 [[package]]
 name = "cxxbridge-flags"
-version = "1.0.150"
+version = "1.0.153"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e6417f4e1518ded330e088d5a66f50fbae9bbc96840e147058ae44970a2b51a"
+checksum = "9133547634329a5b76e5f58d1e53c16d627699bbcd421b9007796311165f9667"
 
 [[package]]
 name = "cxxbridge-macro"
-version = "1.0.150"
+version = "1.0.153"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "856ff0dba6e023dd78189c8f4667126842dfe88392b5d4e94118bd18b8f2afbf"
+checksum = "53e89d77ad5fd6066a3d42d94de3f72a2f23f95006da808177624429b5183596"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1713,9 +1713,9 @@ checksum = "151665d9be52f9bb40fc7966565d39666f2d1e69233571b71b87791c7e0528b3"
 
 [[package]]
 name = "glam"
-version = "0.29.2"
+version = "0.29.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc46dd3ec48fdd8e693a98d2b8bafae273a2d54c1de02a2a7e3d57d501f39677"
+checksum = "8babf46d4c1c9d92deac9f7be466f76dfc4482b6452fc5024b5e8daf6ffeb3ee"
 dependencies = [
  "bytemuck",
 ]
@@ -2259,7 +2259,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e310b3a6b5907f99202fcdb4960ff45b93735d7c7d96b760fcff8db2dc0e103d"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.5",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -2454,7 +2454,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "computegraph",
- "glam 0.29.2",
+ "glam 0.29.3",
  "iced",
  "modeling-module",
  "occara",
