@@ -346,7 +346,7 @@ fn execute_git_command(args: &[&str], source_dir: &Path) -> Result<String, Strin
         .args(args)
         .current_dir(source_dir)
         .output()
-        .map_err(|e| format!("Failed to execute git command: {}", e))?;
+        .map_err(|e| format!("Failed to execute git command: {e}"))?;
 
     if !output.status.success() {
         return Err(format!(
@@ -385,7 +385,7 @@ fn checkout_commit(source_dir: &Path, commit: &str) -> Result<(), String> {
 }
 
 fn get_latest_commit(source_dir: &Path, branch: &str) -> Result<String, String> {
-    execute_git_command(&["rev-parse", &format!("origin/{}", branch)], source_dir)
+    execute_git_command(&["rev-parse", &format!("origin/{branch}")], source_dir)
 }
 
 fn get_current_commit(source_dir: &Path) -> Result<String, String> {

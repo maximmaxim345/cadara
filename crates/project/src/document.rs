@@ -74,7 +74,7 @@ impl DocumentView<'_> {
     /// An `Option` containing a [`DataView`] if the document was found in this document and is of type `M`, or `None` otherwise.
     #[must_use]
     pub fn open_data_by_id<M: Module>(&self, data_id: DataId) -> Option<DataView<M>> {
-        if self.document.data.iter().any(|u| *u == data_id) {
+        if self.document.data.contains(&data_id) {
             self.project.open_data_by_id(data_id)
         } else {
             None

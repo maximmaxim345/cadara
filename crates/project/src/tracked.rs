@@ -209,7 +209,7 @@ impl CacheValidator {
     /// # Returns
     /// `true` if at least one property about the `project` was queried, and `false` if not.
     #[must_use]
-    pub fn was_accessed(&self) -> bool {
+    pub const fn was_accessed(&self) -> bool {
         !self.0.is_empty()
     }
 }

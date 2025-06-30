@@ -244,7 +244,7 @@ fn test_serialization_deserialization() {
 #[test]
 fn test_display() {
     let path = Path::new("/parts/screws\\/bolts/bolt1".to_string()).unwrap();
-    assert_eq!(format!("{}", path), "/parts/screws\\/bolts/bolt1");
+    assert_eq!(format!("{path}"), "/parts/screws\\/bolts/bolt1");
 }
 
 #[test]
