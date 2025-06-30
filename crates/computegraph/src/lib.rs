@@ -1205,7 +1205,7 @@ impl ComputeGraph {
     ///
     /// * `output` - The output port to compute.
     /// * `options` - [`ComputationOptions`] to customize the computation, for example, by passing
-    ///               in a [`ComputationContext`].
+    ///   in a [`ComputationContext`].
     /// * `cache` - A [`ComputationCache`] to reuse the output of previous runs when possible.
     ///
     /// # Returns
@@ -1678,7 +1678,7 @@ impl ComputeGraph {
     ///
     /// * `output` - The output port to compute.
     /// * `options` - [`ComputationOptions`] to customize the computation, for example, by passing
-    ///               in a [`ComputationContext`].
+    ///   in a [`ComputationContext`].
     /// * `cache` - A [`ComputationCache`] to reuse the output of previous runs when possible.
     ///
     /// # Returns

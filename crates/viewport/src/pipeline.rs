@@ -632,7 +632,7 @@ impl ViewportPipeline {
     ///
     /// - `Err(ExecuteError::EmptyPipeline)` if the pipeline is empty.
     /// - `Err(ExecuteError::ComputeError)` if there's an error during computation
-    ///     of the added [`ViewportPlugin`]s.
+    ///   of the added [`ViewportPlugin`]s.
     #[expect(clippy::missing_panics_doc, reason = "only panics with poisoned lock")]
     pub fn compute_scene(
         &self,

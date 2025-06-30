@@ -571,7 +571,7 @@ impl Project {
     ///
     /// # Arguments
     /// * `reg` - The [`ModuleRegistry`] containing all module implementations that were
-    ///           ever used in the project
+    ///   ever used in the project
     ///
     /// # Returns
     /// Returns a [`ProjectView`] representing the current state of the project.

@@ -52,8 +52,8 @@ impl fmt::Display for ModuleId {
 /// # Arguments
 /// * `$d` - The data type to implement type erasure for
 /// * `$reg_entry` - Field name in [`ModuleRegistryEntry`] containing the deserializer function.
-///    The field must be of type `BoxedDeserializeFunction<Box<dyn dTrait>>` where `d` is
-///    the name of the type passed into this macro.
+///   The field must be of type `BoxedDeserializeFunction<Box<dyn dTrait>>` where `d` is
+///   the name of the type passed into this macro.
 ///
 /// # Generated Types
 /// For an input type `T`, the macro generates:
