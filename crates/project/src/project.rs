@@ -49,7 +49,7 @@ impl ProjectView {
     /// # Returns
     /// An `Option` containing a [`DocumentView`] if the document was found, or `None` otherwise.
     #[must_use]
-    pub fn open_document(&self, document_id: DocumentId) -> Option<DocumentView> {
+    pub fn open_document(&self, document_id: DocumentId) -> Option<DocumentView<'_>> {
         Some(DocumentView {
             id: document_id,
             project: self,
@@ -123,7 +123,7 @@ impl ProjectView {
     /// # Returns
     /// An `Option` containing a [`DataView`] if the document was found and is of type `M`, or `None` otherwise.
     #[must_use]
-    pub fn open_data_by_id<M: Module>(&self, data_id: DataId) -> Option<DataView<M>> {
+    pub fn open_data_by_id<M: Module>(&self, data_id: DataId) -> Option<DataView<'_, M>> {
         // TODO: Option -> Result
         let data = &self.data.get(&data_id)?.downcast_ref::<M>()?;
 
@@ -145,7 +145,7 @@ impl ProjectView {
     ///
     /// # Returns
     /// An iterator yielding [`DataView`]s of type `M` found in this document.
-    pub fn open_data_by_type<M: Module>(&self) -> impl Iterator<Item = DataView<M>> + '_ {
+    pub fn open_data_by_type<M: Module>(&self) -> impl Iterator<Item = DataView<'_, M>> + '_ {
         self.data.keys().filter_map(|id| self.open_data_by_id(*id))
     }
 }
