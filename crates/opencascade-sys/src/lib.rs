@@ -13,7 +13,7 @@ use std::{env, fs, path::Path, process::Command};
 use walkdir::WalkDir;
 
 const REPOSITORY: &str = "https://github.com/maximmaxim345/cadara-occt.git";
-const BRANCH: &str = "OCCT-7.8-cadara";
+const BRANCH: &str = "OCCT-master-cadara";
 const OPENCASCADE_DIR_NAME: &str = "opencascade-sys";
 const LIB_DIR: &str = "occt_lib";
 const INCLUDE_DIR: &str = "occt_include";
