@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Generate scopes from folder structure
         id: generate-scopes
         run: |
@@ -33,7 +33,7 @@ jobs:
           echo "$scopes" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
       - name: Validate PR title
-        uses: amannn/action-semantic-pull-request@v5
+        uses: amannn/action-semantic-pull-request@v6
         with:
           scopes: ${{ steps.generate-scopes.outputs.scopes }}
         env:
