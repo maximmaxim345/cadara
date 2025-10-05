@@ -571,7 +571,7 @@ impl Project {
     ///
     /// # Arguments
     /// * `reg` - The [`ModuleRegistry`] containing all module implementations that were
-    ///           ever used in the project
+    ///   ever used in the project
     ///
     /// # Returns
     /// Returns a [`ProjectView`] representing the current state of the project.
@@ -651,7 +651,7 @@ impl Project {
                                 match data.get_mut(id) {
                                     Some(data) if data.module == args.module => {
                                         if let Err(err) = (reg.apply_data_transaction)(data, args) {
-                                            error!("Failed to apply Transaction: {}", err);
+                                            error!("Failed to apply Transaction: {err}");
                                         }
                                     }
                                     Some(_) => {
@@ -674,7 +674,7 @@ impl Project {
                                                 if let Err(err) =
                                                     (reg.apply_user_data_transaction)(data, args)
                                                 {
-                                                    error!("Failed to apply Transaction: {}", err);
+                                                    error!("Failed to apply Transaction: {err}");
                                                 }
                                             }
                                             Some(_) => {
@@ -699,7 +699,7 @@ impl Project {
                     sessions.insert(*new_session, *user);
                 }
                 ProjectLogEntry::CheckPoint(_) => {}
-            };
+            }
         }
 
         for (id, session_data) in &self.session_data {
@@ -854,7 +854,7 @@ impl Project {
                         .entry(id)
                         .or_insert_with(|| (reg.init_session_data)());
                     if let Err(err) = (reg.apply_session_data_transaction)(data, &args) {
-                        error!("Failed to apply SessionData Transaction: {}", err);
+                        error!("Failed to apply SessionData Transaction: {err}");
                     }
                     None
                 }
@@ -865,7 +865,7 @@ impl Project {
                         .entry(id)
                         .or_insert_with(|| (reg.init_shared_data)());
                     if let Err(err) = (reg.apply_shared_data_transaction)(data, &args) {
-                        error!("Failed to apply SharedData Transaction: {}", err);
+                        error!("Failed to apply SharedData Transaction: {err}");
                     }
                     None
                 }

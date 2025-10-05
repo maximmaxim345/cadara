@@ -13,7 +13,7 @@ use std::{env, fs, path::Path, process::Command};
 use walkdir::WalkDir;
 
 const REPOSITORY: &str = "https://github.com/maximmaxim345/cadara-occt.git";
-const BRANCH: &str = "OCCT-7.8-cadara";
+const BRANCH: &str = "OCCT-master-cadara";
 const OPENCASCADE_DIR_NAME: &str = "opencascade-sys";
 const LIB_DIR: &str = "occt_lib";
 const INCLUDE_DIR: &str = "occt_include";
@@ -229,6 +229,8 @@ impl OpenCascadeBuild {
         if target_os == "windows" {
             // Also link with the user32 library, which is for some reason needed
             println!("cargo:rustc-link-lib=user32");
+            // Link with advapi32 for Windows security and registry APIs
+            println!("cargo:rustc-link-lib=advapi32");
         }
     }
 
@@ -346,7 +348,7 @@ fn execute_git_command(args: &[&str], source_dir: &Path) -> Result<String, Strin
         .args(args)
         .current_dir(source_dir)
         .output()
-        .map_err(|e| format!("Failed to execute git command: {}", e))?;
+        .map_err(|e| format!("Failed to execute git command: {e}"))?;
 
     if !output.status.success() {
         return Err(format!(
@@ -385,7 +387,7 @@ fn checkout_commit(source_dir: &Path, commit: &str) -> Result<(), String> {
 }
 
 fn get_latest_commit(source_dir: &Path, branch: &str) -> Result<String, String> {
-    execute_git_command(&["rev-parse", &format!("origin/{}", branch)], source_dir)
+    execute_git_command(&["rev-parse", &format!("origin/{branch}")], source_dir)
 }
 
 fn get_current_commit(source_dir: &Path) -> Result<String, String> {

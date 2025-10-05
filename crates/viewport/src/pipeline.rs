@@ -632,7 +632,7 @@ impl ViewportPipeline {
     ///
     /// - `Err(ExecuteError::EmptyPipeline)` if the pipeline is empty.
     /// - `Err(ExecuteError::ComputeError)` if there's an error during computation
-    ///     of the added [`ViewportPlugin`]s.
+    ///   of the added [`ViewportPlugin`]s.
     #[expect(clippy::missing_panics_doc, reason = "only panics with poisoned lock")]
     pub fn compute_scene(
         &self,
@@ -826,12 +826,12 @@ impl ViewportPipeline {
 
     /// Returns the number of plugins in the viewport pipeline.
     #[must_use]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.nodes.len()
     }
 
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 }

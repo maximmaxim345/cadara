@@ -73,8 +73,8 @@ impl DocumentView<'_> {
     /// # Returns
     /// An `Option` containing a [`DataView`] if the document was found in this document and is of type `M`, or `None` otherwise.
     #[must_use]
-    pub fn open_data_by_id<M: Module>(&self, data_id: DataId) -> Option<DataView<M>> {
-        if self.document.data.iter().any(|u| *u == data_id) {
+    pub fn open_data_by_id<M: Module>(&self, data_id: DataId) -> Option<DataView<'_, M>> {
+        if self.document.data.contains(&data_id) {
             self.project.open_data_by_id(data_id)
         } else {
             None
@@ -88,7 +88,7 @@ impl DocumentView<'_> {
     ///
     /// # Returns
     /// An iterator yielding [`DataView`]s of type `M` found in this document.
-    pub fn open_data_by_type<M: Module>(&self) -> impl Iterator<Item = DataView<M>> + '_ {
+    pub fn open_data_by_type<M: Module>(&self) -> impl Iterator<Item = DataView<'_, M>> + '_ {
         self.document
             .data
             .iter()
@@ -382,7 +382,7 @@ impl Path {
     /// Use [`Self::ancestors`] or convert the `&str`s with [`Self::unescape`] to
     /// convert it to the correct folder name.
     #[must_use]
-    pub fn ancestors_unescaped(&self) -> AncestorsUnescapedIter {
+    pub fn ancestors_unescaped(&self) -> AncestorsUnescapedIter<'_> {
         AncestorsUnescapedIter {
             path: &self.0[1..],
             end_index: None,
@@ -395,7 +395,7 @@ impl Path {
     ///
     /// This function might allocate. If this is not desired, use [`Self::ancestors_unescaped`] instead.
     #[must_use]
-    pub fn ancestors(&self) -> AncestorsIter {
+    pub fn ancestors(&self) -> AncestorsIter<'_> {
         AncestorsIter(AncestorsUnescapedIter {
             path: &self.0[1..],
             end_index: None,

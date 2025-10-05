@@ -209,7 +209,7 @@ impl CacheValidator {
     /// # Returns
     /// `true` if at least one property about the `project` was queried, and `false` if not.
     #[must_use]
-    pub fn was_accessed(&self) -> bool {
+    pub const fn was_accessed(&self) -> bool {
         !self.0.is_empty()
     }
 }
@@ -254,7 +254,7 @@ impl TrackedProjectView {
     /// # Returns
     /// An `Option` containing a [`TrackedDocumentView`] if the document was found, or `None` otherwise.
     #[must_use]
-    pub fn open_document(&self, document_id: DocumentId) -> Option<TrackedDocumentView> {
+    pub fn open_document(&self, document_id: DocumentId) -> Option<TrackedDocumentView<'_>> {
         self.1.track(AccessEvent::OpenDocument(document_id));
         self.0
             .open_document(document_id)
@@ -304,7 +304,7 @@ impl TrackedProjectView {
     /// # Returns
     /// An `Option` containing a [`TrackedDataView`] if the document was found and is of type `M`, or `None` otherwise.
     #[must_use]
-    pub fn open_data_by_id<M: Module>(&self, data_id: DataId) -> Option<TrackedDataView<M>> {
+    pub fn open_data_by_id<M: Module>(&self, data_id: DataId) -> Option<TrackedDataView<'_, M>> {
         self.1.track(AccessEvent::OpenDataById(data_id));
         self.0
             .open_data_by_id(data_id)
@@ -318,7 +318,9 @@ impl TrackedProjectView {
     ///
     /// # Returns
     /// An iterator yielding [`TrackedDataView`]s of type `M` found in this document.
-    pub fn open_data_by_type<M: Module>(&self) -> impl Iterator<Item = TrackedDataView<M>> + '_ {
+    pub fn open_data_by_type<M: Module>(
+        &self,
+    ) -> impl Iterator<Item = TrackedDataView<'_, M>> + '_ {
         self.1
             .track(AccessEvent::OpenDataByType(ModuleId::from_module::<M>()));
         self.0
@@ -355,7 +357,7 @@ impl TrackedDocumentView<'_> {
     /// # Returns
     /// An `Option` containing a [`TrackedDataView`] if the document was found in this document and is of type `M`, or `None` otherwise.
     #[must_use]
-    pub fn open_data_by_id<M: Module>(&self, data_id: DataId) -> Option<TrackedDataView<M>> {
+    pub fn open_data_by_id<M: Module>(&self, data_id: DataId) -> Option<TrackedDataView<'_, M>> {
         self.1.track(AccessEvent::OpenDocumentDataById(
             self.0.clone().into(),
             data_id,
@@ -372,7 +374,9 @@ impl TrackedDocumentView<'_> {
     ///
     /// # Returns
     /// An iterator yielding [`TrackedDataView`]s of type `M` found in this document.
-    pub fn open_data_by_type<M: Module>(&self) -> impl Iterator<Item = TrackedDataView<M>> + '_ {
+    pub fn open_data_by_type<M: Module>(
+        &self,
+    ) -> impl Iterator<Item = TrackedDataView<'_, M>> + '_ {
         self.1.track(AccessEvent::OpenDocumentDataByType(
             self.0.clone().into(),
             ModuleId::from_module::<M>(),

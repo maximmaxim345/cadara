@@ -5,6 +5,8 @@
 // We can not implement Send on the underlying autocxx managed raw pointer, therefore this
 // lint is not applicable here.
 #![allow(clippy::non_send_fields_in_send_ty)]
+// Allow autocxx-generated code warnings
+#![allow(unused_attributes)]
 
 mod ffi;
 
