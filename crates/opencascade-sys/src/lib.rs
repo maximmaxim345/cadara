@@ -229,6 +229,8 @@ impl OpenCascadeBuild {
         if target_os == "windows" {
             // Also link with the user32 library, which is for some reason needed
             println!("cargo:rustc-link-lib=user32");
+            // Link with advapi32 for Windows security and registry APIs
+            println!("cargo:rustc-link-lib=advapi32");
         }
     }
 
