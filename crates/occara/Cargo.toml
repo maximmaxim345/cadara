@@ -12,7 +12,6 @@ keywords.workspace = true
 publish = false
 
 [dependencies]
-autocxx.workspace = true
 cxx.workspace = true
 walkdir.workspace = true
 
@@ -20,7 +19,6 @@ walkdir.workspace = true
 opencascade-sys.workspace = true
 cxx-build.workspace = true
 walkdir.workspace = true
-autocxx-build.workspace = true
 miette.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]

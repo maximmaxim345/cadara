@@ -70,7 +70,7 @@ struct ShellBuilder {
 };
 
 // This is equal to TopAbs_ShapeEnum
-enum class ShapeType {
+enum class ShapeType : uint32_t {
   Compound,
   CompoundSolid,
   Solid,

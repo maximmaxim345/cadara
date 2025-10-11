@@ -1,35 +1,42 @@
-use crate::ffi::occara::geom as ffi_geom;
-use autocxx::prelude::*;
-use std::{fmt, pin::Pin};
+//! Geometry module for points, vectors, directions, and surfaces.
+//!
+//! # Panics
+//! Functions in this module may panic if the underlying C++ FFI layer returns null pointers,
+//! which would indicate a bug in the C++ bindings. In normal operation, these panics should never occur.
 
-pub struct Point(pub(crate) Pin<Box<ffi_geom::Point>>);
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::fallible_impl_from)]
+
+use crate::ffi;
+use std::fmt;
+
+pub struct Point(pub(crate) cxx::UniquePtr<ffi::Point>);
 
 impl Point {
     #[must_use]
     pub fn new(x: f64, y: f64, z: f64) -> Self {
-        Self(ffi_geom::Point::create(x, y, z).within_box())
+        Self(ffi::Point_create(x, y, z))
     }
 
     #[must_use]
     pub fn x(&self) -> f64 {
-        self.0.x()
+        ffi::Point_x(&self.0)
     }
 
     #[must_use]
     pub fn y(&self) -> f64 {
-        self.0.y()
+        ffi::Point_y(&self.0)
     }
 
     #[must_use]
     pub fn z(&self) -> f64 {
-        self.0.z()
+        ffi::Point_z(&self.0)
     }
 
     #[must_use]
     pub fn get_coordinates(&self) -> (f64, f64, f64) {
         let (mut x, mut y, mut z) = (0.0, 0.0, 0.0);
-        self.0
-            .get_coordinates(Pin::new(&mut x), Pin::new(&mut y), Pin::new(&mut z));
+        ffi::Point_get_coordinates(&self.0, &mut x, &mut y, &mut z);
         (x, y, z)
     }
 
@@ -51,7 +58,7 @@ impl Point {
 
 impl Clone for Point {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Point_clone(&self.0))
     }
 }
 
@@ -81,12 +88,12 @@ unsafe impl Send for Point {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Point {}
 
-pub struct Direction(pub(crate) Pin<Box<ffi_geom::Direction>>);
+pub struct Direction(pub(crate) cxx::UniquePtr<ffi::Direction>);
 
 impl Direction {
     #[must_use]
     pub fn new(x: f64, y: f64, z: f64) -> Self {
-        Self(ffi_geom::Direction::create(x, y, z).within_box())
+        Self(ffi::Direction_create(x, y, z))
     }
 
     #[must_use]
@@ -108,15 +115,14 @@ impl Direction {
     #[must_use]
     pub fn get_components(&self) -> (f64, f64, f64) {
         let (mut x, mut y, mut z) = (0.0, 0.0, 0.0);
-        self.0
-            .get_components(Pin::new(&mut x), Pin::new(&mut y), Pin::new(&mut z));
+        ffi::Direction_get_components(&self.0, &mut x, &mut y, &mut z);
         (x, y, z)
     }
 }
 
 impl Clone for Direction {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Direction_clone(&self.0))
     }
 }
 
@@ -146,28 +152,28 @@ unsafe impl Send for Direction {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Direction {}
 
-pub struct Axis(pub(crate) Pin<Box<ffi_geom::Axis>>);
+pub struct Axis(pub(crate) cxx::UniquePtr<ffi::Axis>);
 
 impl Axis {
     #[must_use]
     pub fn new(location: &Point, direction: &Direction) -> Self {
-        Self(ffi_geom::Axis::create(&location.0, &direction.0).within_box())
+        Self(ffi::Axis_create(&location.0, &direction.0))
     }
 
     #[must_use]
     pub fn location(&self) -> Point {
-        Point(self.0.location().within_box())
+        Point(ffi::Axis_location(&self.0))
     }
 
     #[must_use]
     pub fn direction(&self) -> Direction {
-        Direction(self.0.direction().within_box())
+        Direction(ffi::Axis_direction(&self.0))
     }
 }
 
 impl Clone for Axis {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Axis_clone(&self.0))
     }
 }
 
@@ -200,28 +206,28 @@ unsafe impl Send for Axis {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Axis {}
 
-pub struct Point2D(pub(crate) Pin<Box<ffi_geom::Point2D>>);
+pub struct Point2D(pub(crate) cxx::UniquePtr<ffi::Point2D>);
 
 impl Point2D {
     #[must_use]
     pub fn new(x: f64, y: f64) -> Self {
-        Self(ffi_geom::Point2D::create(x, y).within_box())
+        Self(ffi::Point2D_create(x, y))
     }
 
     #[must_use]
     pub fn x(self) -> f64 {
-        self.0.x()
+        ffi::Point2D_x(&self.0)
     }
 
     #[must_use]
     pub fn y(self) -> f64 {
-        self.0.y()
+        ffi::Point2D_y(&self.0)
     }
 
     #[must_use]
     pub fn get_coordinates(&self) -> (f64, f64) {
         let (mut x, mut y) = (0.0, 0.0);
-        self.0.get_coordinates(Pin::new(&mut x), Pin::new(&mut y));
+        ffi::Point2D_get_coordinates(&self.0, &mut x, &mut y);
         (x, y)
     }
 
@@ -238,7 +244,7 @@ impl Point2D {
 
 impl Clone for Point2D {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Point2D_clone(&self.0))
     }
 }
 
@@ -267,12 +273,12 @@ unsafe impl Send for Point2D {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Point2D {}
 
-pub struct Direction2D(pub(crate) Pin<Box<ffi_geom::Direction2D>>);
+pub struct Direction2D(pub(crate) cxx::UniquePtr<ffi::Direction2D>);
 
 impl Direction2D {
     #[must_use]
     pub fn new(x: f64, y: f64) -> Self {
-        Self(ffi_geom::Direction2D::create(x, y).within_box())
+        Self(ffi::Direction2D_create(x, y))
     }
 
     #[must_use]
@@ -288,14 +294,14 @@ impl Direction2D {
     #[must_use]
     pub fn get_components(&self) -> (f64, f64) {
         let (mut x, mut y) = (0.0, 0.0);
-        self.0.get_components(Pin::new(&mut x), Pin::new(&mut y));
+        ffi::Direction2D_get_components(&self.0, &mut x, &mut y);
         (x, y)
     }
 }
 
 impl Clone for Direction2D {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Direction2D_clone(&self.0))
     }
 }
 
@@ -324,28 +330,28 @@ unsafe impl Send for Direction2D {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Direction2D {}
 
-pub struct Axis2D(pub(crate) Pin<Box<ffi_geom::Axis2D>>);
+pub struct Axis2D(pub(crate) cxx::UniquePtr<ffi::Axis2D>);
 
 impl Axis2D {
     #[must_use]
     pub fn new(location: &Point2D, direction: &Direction2D) -> Self {
-        Self(ffi_geom::Axis2D::create(&location.0, &direction.0).within_box())
+        Self(ffi::Axis2D_create(&location.0, &direction.0))
     }
 
     #[must_use]
     pub fn location(&self) -> Point2D {
-        Point2D(self.0.location().within_box())
+        Point2D(ffi::Axis2D_location(&self.0))
     }
 
     #[must_use]
     pub fn direction(&self) -> Direction2D {
-        Direction2D(self.0.direction().within_box())
+        Direction2D(ffi::Axis2D_direction(&self.0))
     }
 }
 
 impl Clone for Axis2D {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Axis2D_clone(&self.0))
     }
 }
 
@@ -378,28 +384,28 @@ unsafe impl Send for Axis2D {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Axis2D {}
 
-pub struct PlaneAxis(pub(crate) Pin<Box<ffi_geom::PlaneAxis>>);
+pub struct PlaneAxis(pub(crate) cxx::UniquePtr<ffi::PlaneAxis>);
 
 impl PlaneAxis {
     #[must_use]
     pub fn new(location: &Point, direction: &Direction) -> Self {
-        Self(ffi_geom::PlaneAxis::create(&location.0, &direction.0).within_box())
+        Self(ffi::PlaneAxis_create(&location.0, &direction.0))
     }
 
     #[must_use]
     pub fn location(&self) -> Point {
-        Point(self.0.location().within_box())
+        Point(ffi::PlaneAxis_location(&self.0))
     }
 
     #[must_use]
     pub fn direction(&self) -> Direction {
-        Direction(self.0.direction().within_box())
+        Direction(ffi::PlaneAxis_direction(&self.0))
     }
 }
 
 impl Clone for PlaneAxis {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::PlaneAxis_clone(&self.0))
     }
 }
 
@@ -432,28 +438,28 @@ unsafe impl Send for PlaneAxis {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for PlaneAxis {}
 
-pub struct SpaceAxis(pub(crate) Pin<Box<ffi_geom::SpaceAxis>>);
+pub struct SpaceAxis(pub(crate) cxx::UniquePtr<ffi::SpaceAxis>);
 
 impl SpaceAxis {
     #[must_use]
     pub fn new(location: &Point, direction: &Direction) -> Self {
-        Self(ffi_geom::SpaceAxis::create(&location.0, &direction.0).within_box())
+        Self(ffi::SpaceAxis_create(&location.0, &direction.0))
     }
 
     #[must_use]
     pub fn location(&self) -> Point {
-        Point(self.0.location().within_box())
+        Point(ffi::SpaceAxis_location(&self.0))
     }
 
     #[must_use]
     pub fn direction(&self) -> Direction {
-        Direction(self.0.direction().within_box())
+        Direction(ffi::SpaceAxis_direction(&self.0))
     }
 }
 
 impl Clone for SpaceAxis {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::SpaceAxis_clone(&self.0))
     }
 }
 
@@ -486,38 +492,38 @@ unsafe impl Send for SpaceAxis {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for SpaceAxis {}
 
-pub struct TrimmedCurve(pub(crate) Pin<Box<ffi_geom::TrimmedCurve>>);
+pub struct TrimmedCurve(pub(crate) cxx::UniquePtr<ffi::TrimmedCurve>);
 
 impl TrimmedCurve {
     #[must_use]
     pub fn arc_of_circle(p1: &Point, p2: &Point, p3: &Point) -> Self {
-        Self(ffi_geom::TrimmedCurve::arc_of_circle(&p1.0, &p2.0, &p3.0).within_box())
+        Self(ffi::TrimmedCurve_arc_of_circle(&p1.0, &p2.0, &p3.0))
     }
 
     #[must_use]
     pub fn line(p1: &Point, p2: &Point) -> Self {
-        Self(ffi_geom::TrimmedCurve::line(&p1.0, &p2.0).within_box())
+        Self(ffi::TrimmedCurve_line(&p1.0, &p2.0))
     }
 }
 
 impl Clone for TrimmedCurve {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::TrimmedCurve_clone(&self.0))
     }
 }
 
-pub struct TrimmedCurve2D(pub(crate) Pin<Box<ffi_geom::TrimmedCurve2D>>);
+pub struct TrimmedCurve2D(pub(crate) cxx::UniquePtr<ffi::TrimmedCurve2D>);
 
 impl TrimmedCurve2D {
     #[must_use]
     pub fn line(p1: &Point2D, p2: &Point2D) -> Self {
-        Self(ffi_geom::TrimmedCurve2D::line(&p1.0, &p2.0).within_box())
+        Self(ffi::TrimmedCurve2D_line(&p1.0, &p2.0))
     }
 }
 
 impl Clone for TrimmedCurve2D {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::TrimmedCurve2D_clone(&self.0))
     }
 }
 
@@ -536,25 +542,24 @@ unsafe impl Send for TrimmedCurve2D {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for TrimmedCurve2D {}
 
-pub struct Curve2D(pub(crate) Pin<Box<ffi_geom::Curve2D>>);
+pub struct Curve2D(pub(crate) cxx::UniquePtr<ffi::Curve2D>);
 
 impl Curve2D {
     #[must_use]
     pub fn trim(&self, u1: f64, u2: f64) -> TrimmedCurve2D {
-        let trimmed_curve = ffi_geom::Curve2D::trim(&self.0, u1, u2).within_box();
-        TrimmedCurve2D(trimmed_curve)
+        TrimmedCurve2D(ffi::Curve2D_trim(&self.0, u1, u2))
     }
 }
 
 impl From<&TrimmedCurve2D> for Curve2D {
     fn from(curve: &TrimmedCurve2D) -> Self {
-        Self(ffi_geom::Curve2D::from_trimmed_curve2d(&curve.0).within_box())
+        Self(ffi::Curve2D_from_trimmed_curve2d(&curve.0))
     }
 }
 
 impl Clone for Curve2D {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Curve2D_clone(&self.0))
     }
 }
 
@@ -573,29 +578,28 @@ unsafe impl Send for Curve2D {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Curve2D {}
 
-pub struct Ellipse2D(pub(crate) Pin<Box<ffi_geom::Ellipse2D>>);
+pub struct Ellipse2D(pub(crate) cxx::UniquePtr<ffi::Ellipse2D>);
 
 impl Ellipse2D {
     #[must_use]
     pub fn new(axis: &Axis2D, major_radius: f64, minor_radius: f64) -> Self {
-        Self(ffi_geom::Ellipse2D::create(&axis.0, major_radius, minor_radius).within_box())
+        Self(ffi::Ellipse2D_create(&axis.0, major_radius, minor_radius))
     }
 
     #[must_use]
     pub fn value(&self, u: f64) -> Point2D {
-        let point = ffi_geom::Ellipse2D::value(&self.0, u).within_box();
-        Point2D(point)
+        Point2D(ffi::Ellipse2D_value(&self.0, u))
     }
 
     #[must_use]
     pub fn curve(&self) -> Curve2D {
-        Curve2D(self.0.curve().within_box())
+        Curve2D(ffi::Ellipse2D_curve(&self.0))
     }
 }
 
 impl Clone for Ellipse2D {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Ellipse2D_clone(&self.0))
     }
 }
 
@@ -614,19 +618,18 @@ unsafe impl Send for Ellipse2D {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Ellipse2D {}
 
-pub struct Plane(pub(crate) Pin<Box<ffi_geom::Plane>>);
+pub struct Plane(pub(crate) cxx::UniquePtr<ffi::Plane>);
 
 impl Plane {
     #[must_use]
     pub fn location(&self) -> Point {
-        let point = ffi_geom::Plane::location(&self.0).within_box();
-        Point(point)
+        Point(ffi::Plane_location(&self.0))
     }
 }
 
 impl Clone for Plane {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Plane_clone(&self.0))
     }
 }
 
@@ -645,20 +648,21 @@ unsafe impl Send for Plane {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Plane {}
 
-pub struct Surface(pub(crate) Pin<Box<ffi_geom::Surface>>);
+pub struct Surface(pub(crate) cxx::UniquePtr<ffi::Surface>);
 
 impl From<&CylindricalSurface> for Surface {
     fn from(cylindrical_surface: &CylindricalSurface) -> Self {
-        Self(ffi_geom::Surface::from_cylindrical_surface(&cylindrical_surface.0).within_box())
+        Self(ffi::Surface_from_cylindrical_surface(
+            &cylindrical_surface.0,
+        ))
     }
 }
 
 impl Surface {
     #[must_use]
     pub fn as_plane(&self) -> Option<Plane> {
-        if ffi_geom::Surface::is_plane(&self.0) {
-            let plane = ffi_geom::Surface::as_plane(&self.0).within_box();
-            Some(Plane(plane))
+        if ffi::Surface_is_plane(&self.0) {
+            Some(Plane(ffi::Surface_as_plane(&self.0)))
         } else {
             None
         }
@@ -667,7 +671,7 @@ impl Surface {
 
 impl Clone for Surface {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Surface_clone(&self.0))
     }
 }
 
@@ -691,13 +695,13 @@ pub trait Transformable {
     fn transform(&self, transformation: &Transformation) -> Self;
 }
 
-pub struct Transformation(pub(crate) Pin<Box<ffi_geom::Transformation>>);
+pub struct Transformation(pub(crate) cxx::UniquePtr<ffi::Transformation>);
 
 impl Transformation {
     #[must_use]
     pub fn mirror(axis: &Axis) -> Self {
-        let mut transformation = ffi_geom::Transformation::new().within_box();
-        transformation.as_mut().mirror(&axis.0);
+        let mut transformation = ffi::Transformation_new();
+        ffi::Transformation_mirror(transformation.pin_mut(), &axis.0);
         Self(transformation)
     }
 
@@ -709,7 +713,7 @@ impl Transformation {
 
 impl Clone for Transformation {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Transformation_clone(&self.0))
     }
 }
 
@@ -728,18 +732,18 @@ unsafe impl Send for Transformation {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Transformation {}
 
-pub struct Vector(pub(crate) Pin<Box<ffi_geom::Vector>>);
+pub struct Vector(pub(crate) cxx::UniquePtr<ffi::Vector>);
 
 impl Vector {
     #[must_use]
     pub fn new(x: f64, y: f64, z: f64) -> Self {
-        Self(ffi_geom::Vector::create(x, y, z).within_box())
+        Self(ffi::Vector_create(x, y, z))
     }
 }
 
 impl Clone for Vector {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Vector_clone(&self.0))
     }
 }
 
@@ -758,18 +762,18 @@ unsafe impl Send for Vector {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Vector {}
 
-pub struct CylindricalSurface(pub(crate) Pin<Box<ffi_geom::CylindricalSurface>>);
+pub struct CylindricalSurface(pub(crate) cxx::UniquePtr<ffi::CylindricalSurface>);
 
 impl CylindricalSurface {
     #[must_use]
     pub fn new(plane: &PlaneAxis, radius: f64) -> Self {
-        Self(ffi_geom::CylindricalSurface::create(&plane.0, radius).within_box())
+        Self(ffi::CylindricalSurface_create(&plane.0, radius))
     }
 }
 
 impl Clone for CylindricalSurface {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::CylindricalSurface_clone(&self.0))
     }
 }
 

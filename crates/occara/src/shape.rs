@@ -1,21 +1,28 @@
-use super::ffi::occara::shape as ffi_shape;
-use crate::geom;
-use autocxx::prelude::*;
+//! Shape module for geometric shapes and topological operations.
+//!
+//! # Panics
+//! Functions in this module may panic if the underlying C++ FFI layer returns null pointers,
+//! which would indicate a bug in the C++ bindings. In normal operation, these panics should never occur.
+
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::fallible_impl_from)]
+
+use crate::{ffi, geom};
 use std::fmt;
 use std::io::Write;
 use std::{fs::File, path::Path, pin::Pin};
 
-pub struct Vertex(pub(crate) Pin<Box<ffi_shape::Vertex>>);
+pub struct Vertex(pub(crate) cxx::UniquePtr<ffi::Vertex>);
 
 impl Vertex {
     #[must_use]
     pub fn from_point(point: &geom::Point) -> Self {
-        Self(ffi_shape::Vertex::create(&point.0.as_ref()).within_box())
+        Self(ffi::Vertex_create(&point.0))
     }
 
     #[must_use]
     pub fn point(&self) -> geom::Point {
-        geom::Point(self.0.point().within_box())
+        geom::Point(ffi::Vertex_point(&self.0))
     }
 
     #[must_use]
@@ -41,7 +48,7 @@ impl Vertex {
 
 impl Clone for Vertex {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Vertex_clone(&self.0))
     }
 }
 
@@ -71,9 +78,9 @@ unsafe impl Send for Vertex {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Vertex {}
 
-pub struct Shape(pub(crate) Pin<Box<ffi_shape::Shape>>);
+pub struct Shape(pub(crate) cxx::UniquePtr<ffi::Shape>);
 
-pub use crate::shape::ffi_shape::ShapeType;
+pub use crate::ffi::ShapeType;
 
 impl ShapeType {
     #[must_use]
@@ -95,73 +102,73 @@ impl ShapeType {
 impl Shape {
     #[must_use]
     pub fn fillet(&self) -> FilletBuilder {
-        FilletBuilder(ffi_shape::Shape::fillet(&self.0).within_box())
+        FilletBuilder(ffi::Shape_fillet(&self.0))
     }
 
     #[must_use]
     pub fn edges(&self) -> EdgeIterator {
-        EdgeIterator(ffi_shape::EdgeIterator::create(&self.0).within_box())
+        EdgeIterator(ffi::EdgeIterator_create(&self.0))
     }
 
     #[must_use]
     pub fn faces(&self) -> FaceIterator {
-        FaceIterator(ffi_shape::FaceIterator::create(&self.0).within_box())
+        FaceIterator(ffi::FaceIterator_create(&self.0))
     }
 
     #[must_use]
     pub fn fuse(&self, other: &Self) -> Self {
-        Self(self.0.fuse(&other.0).within_box())
+        Self(ffi::Shape_fuse(&self.0, &other.0))
     }
 
     #[must_use]
     pub fn subtract(&self, other: &Self) -> Self {
-        Self(self.0.subtract(&other.0).within_box())
+        Self(ffi::Shape_subtract(&self.0, &other.0))
     }
 
     #[must_use]
     pub fn intersect(&self, other: &Self) -> Self {
-        Self(self.0.intersect(&other.0).within_box())
+        Self(ffi::Shape_intersect(&self.0, &other.0))
     }
 
     #[must_use]
     pub fn shell(&self) -> ShellBuilder {
-        ShellBuilder(ffi_shape::ShellBuilder::create(&self.0).within_box())
+        ShellBuilder(ffi::ShellBuilder_create(&self.0))
     }
 
     #[must_use]
     pub fn cylinder(axis: &geom::PlaneAxis, radius: f64, height: f64) -> Self {
-        Self(ffi_shape::Shape::cylinder(&axis.0.as_ref(), radius, height).within_box())
+        Self(ffi::Shape_cylinder(&axis.0, radius, height))
     }
 
     #[must_use]
     pub fn mesh(&self) -> Mesh {
-        Mesh(ffi_shape::Shape::mesh(&self.0).within_box())
+        Mesh(ffi::Shape_mesh(&self.0))
     }
 
     #[must_use]
     pub fn shape_type(&self) -> ShapeType {
-        ffi_shape::Shape::shape_type(&self.0)
+        ffi::Shape_shape_type(&self.0).into()
     }
 
     #[must_use]
     pub fn is_null(&self) -> bool {
-        ffi_shape::Shape::is_null(&self.0)
+        ffi::Shape_is_null(&self.0)
     }
 
     #[must_use]
     pub fn is_closed(&self) -> bool {
-        ffi_shape::Shape::is_closed(&self.0)
+        ffi::Shape_is_closed(&self.0)
     }
 
     #[must_use]
     pub fn mass(&self) -> f64 {
-        ffi_shape::Shape::mass(&self.0)
+        ffi::Shape_mass(&self.0)
     }
 }
 
 impl Clone for Shape {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Shape_clone(&self.0))
     }
 }
 
@@ -189,15 +196,15 @@ unsafe impl Send for Shape {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Shape {}
 
-pub struct Mesh(pub(crate) Pin<Box<ffi_shape::Mesh>>);
+pub struct Mesh(pub(crate) cxx::UniquePtr<ffi::Mesh>);
 
 impl Mesh {
     #[must_use]
     pub fn indices(&self) -> Vec<usize> {
-        let mesh = self.0.as_ref();
+        let mesh = &*self.0;
         let mut indices = Vec::new();
-        for i in 0..mesh.indices_size() {
-            indices.push(mesh.indices_at(i));
+        for i in 0..ffi::Mesh_indices_size(mesh) {
+            indices.push(ffi::Mesh_indices_at(mesh, i));
         }
         indices
     }
@@ -205,10 +212,10 @@ impl Mesh {
     #[must_use]
     pub fn vertices(&self) -> Vec<geom::Point> {
         // FIXME: This is a temporary solution, this will be optimized soon
-        let mesh = self.0.as_ref();
+        let mesh = &*self.0;
         let mut vertices = Vec::new();
-        for i in 0..mesh.vertices_size() {
-            vertices.push(geom::Point(mesh.vertices_at(i).within_box()));
+        for i in 0..ffi::Mesh_vertices_size(mesh) {
+            vertices.push(geom::Point(ffi::Mesh_vertices_at(mesh, i)));
         }
         vertices
     }
@@ -250,9 +257,10 @@ impl Mesh {
 
 impl fmt::Debug for Mesh {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mesh = &*self.0;
         f.debug_struct("Mesh")
-            .field("vertices", &self.0.as_ref().vertices_size())
-            .field("indices", &self.0.as_ref().indices_size())
+            .field("vertices", &ffi::Mesh_vertices_size(mesh))
+            .field("indices", &ffi::Mesh_indices_size(mesh))
             .finish()
     }
 }
@@ -265,15 +273,23 @@ unsafe impl Send for Mesh {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Mesh {}
 
-pub struct EdgeIterator(pub(crate) Pin<Box<ffi_shape::EdgeIterator>>);
+pub struct EdgeIterator(pub(crate) cxx::UniquePtr<ffi::EdgeIterator>);
 
 impl Iterator for EdgeIterator {
     type Item = Edge;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let edge_iterator = self.0.as_mut();
-        if edge_iterator.more() {
-            Some(Edge(edge_iterator.next().within_box()))
+        // Check if we have more elements first
+        let has_more = {
+            let iter_ref = self.0.as_ref()?;
+            ffi::EdgeIterator_more(iter_ref)
+        };
+
+        if has_more {
+            let edge_ptr = ffi::EdgeIterator_next(self.0.pin_mut());
+            // Ensure the edge pointer is valid
+            edge_ptr.as_ref()?;
+            Some(Edge(edge_ptr))
         } else {
             None
         }
@@ -282,7 +298,7 @@ impl Iterator for EdgeIterator {
 
 impl Clone for EdgeIterator {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::EdgeIterator_clone(&self.0))
     }
 }
 
@@ -301,15 +317,14 @@ unsafe impl Send for EdgeIterator {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for EdgeIterator {}
 
-pub struct FaceIterator(pub(crate) Pin<Box<ffi_shape::FaceIterator>>);
+pub struct FaceIterator(pub(crate) cxx::UniquePtr<ffi::FaceIterator>);
 
 impl Iterator for FaceIterator {
     type Item = Face;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let face_iterator = self.0.as_mut();
-        if face_iterator.more() {
-            Some(Face(face_iterator.next().within_box()))
+        if ffi::FaceIterator_more(&self.0) {
+            Some(Face(ffi::FaceIterator_next(self.0.pin_mut())))
         } else {
             None
         }
@@ -318,7 +333,7 @@ impl Iterator for FaceIterator {
 
 impl Clone for FaceIterator {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::FaceIterator_clone(&self.0))
     }
 }
 
@@ -337,21 +352,21 @@ unsafe impl Send for FaceIterator {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for FaceIterator {}
 
-pub struct FilletBuilder(pub(crate) Pin<Box<ffi_shape::FilletBuilder>>);
+pub struct FilletBuilder(pub(crate) cxx::UniquePtr<ffi::FilletBuilder>);
 
 impl FilletBuilder {
     pub fn add(&mut self, radius: f64, edge: &Edge) {
-        self.0.as_mut().add_edge(radius, &edge.0);
+        ffi::FilletBuilder_add_edge(self.0.pin_mut(), radius, &edge.0);
     }
     #[must_use]
     pub fn build(&mut self) -> Shape {
-        Shape(self.0.as_mut().build().within_box())
+        Shape(ffi::FilletBuilder_build(self.0.pin_mut()))
     }
 }
 
 impl Clone for FilletBuilder {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::FilletBuilder_clone(&self.0))
     }
 }
 
@@ -370,34 +385,34 @@ unsafe impl Send for FilletBuilder {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for FilletBuilder {}
 
-pub struct ShellBuilder(pub(crate) Pin<Box<ffi_shape::ShellBuilder>>);
+pub struct ShellBuilder(pub(crate) cxx::UniquePtr<ffi::ShellBuilder>);
 
 impl ShellBuilder {
     pub fn faces_to_remove(&mut self, faces: &[&Face]) -> &mut Self {
         for face in faces {
-            self.0.as_mut().add_face_to_remove(&face.0);
+            ffi::ShellBuilder_add_face_to_remove(self.0.pin_mut(), &face.0);
         }
         self
     }
 
     pub fn tolerance(&mut self, tolerance: f64) -> &mut Self {
-        self.0.as_mut().set_tolerance(tolerance);
+        ffi::ShellBuilder_set_tolerance(self.0.pin_mut(), tolerance);
         self
     }
 
     pub fn offset(&mut self, offset: f64) -> &mut Self {
-        self.0.as_mut().set_offset(offset);
+        ffi::ShellBuilder_set_offset(self.0.pin_mut(), offset);
         self
     }
 
     pub fn build(&mut self) -> Shape {
-        Shape(self.0.as_mut().build().within_box())
+        Shape(ffi::ShellBuilder_build(self.0.pin_mut()))
     }
 }
 
 impl Clone for ShellBuilder {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::ShellBuilder_clone(&self.0))
     }
 }
 
@@ -416,7 +431,7 @@ unsafe impl Send for ShellBuilder {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for ShellBuilder {}
 
-pub struct Edge(pub(crate) Pin<Box<ffi_shape::Edge>>);
+pub struct Edge(pub(crate) cxx::UniquePtr<ffi::Edge>);
 
 impl Edge {
     #[must_use]
@@ -431,19 +446,19 @@ impl Edge {
 
     #[must_use]
     pub fn new_with_surface(curve: &geom::Curve2D, surface: &geom::Surface) -> Self {
-        Self(ffi_shape::Edge::from_2d_curve(&curve.0, &surface.0).within_box())
+        Self(ffi::Edge_from_2d_curve(&curve.0, &surface.0))
     }
 }
 
 impl Clone for Edge {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Edge_clone(&self.0))
     }
 }
 
 impl From<geom::TrimmedCurve> for Edge {
     fn from(curve: geom::TrimmedCurve) -> Self {
-        Self(ffi_shape::Edge::from_curve(&curve.0).within_box())
+        Self(ffi::Edge_from_curve(&curve.0))
     }
 }
 
@@ -462,23 +477,23 @@ unsafe impl Send for Edge {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Edge {}
 
-pub struct Face(pub(crate) Pin<Box<ffi_shape::Face>>);
+pub struct Face(pub(crate) cxx::UniquePtr<ffi::Face>);
 
 impl Face {
     #[must_use]
     pub fn extrude(&self, vec: &geom::Vector) -> Shape {
-        Shape(self.0.extrude(&vec.0).within_box())
+        Shape(ffi::Face_extrude(&self.0, &vec.0))
     }
 
     #[must_use]
     pub fn surface(&self) -> geom::Surface {
-        geom::Surface(self.0.surface().within_box())
+        geom::Surface(ffi::Face_surface(&self.0))
     }
 }
 
 impl Clone for Face {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Face_clone(&self.0))
     }
 }
 
@@ -497,35 +512,33 @@ unsafe impl Send for Face {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Face {}
 
-pub struct Wire(pub(crate) Pin<Box<ffi_shape::Wire>>);
+pub struct Wire(pub(crate) cxx::UniquePtr<ffi::Wire>);
 
 impl Wire {
     #[must_use]
     pub fn new(edges: &[&dyn AddableToWire]) -> Self {
-        moveit! {
-            let mut w = ffi_shape::WireBuilder::new();
-        }
+        let mut w = ffi::WireBuilder_new();
         for edge in edges {
-            edge.add_to_wire(w.as_mut());
+            edge.add_to_wire(w.pin_mut());
         }
-        Self(ffi_shape::Wire::create(w.as_mut()).within_box())
+        Self(ffi::Wire_create(w.pin_mut()))
     }
 
     #[must_use]
     pub fn face(&self) -> Face {
-        Face(self.0.face().within_box())
+        Face(ffi::Wire_face(&self.0))
     }
 
     #[must_use]
     pub fn build_curves_3d(mut self) -> Self {
-        ffi_shape::Wire::build_curves_3d(self.0.as_mut());
+        ffi::Wire_build_curves_3d(self.0.pin_mut());
         self
     }
 }
 
 impl Clone for Wire {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Wire_clone(&self.0))
     }
 }
 
@@ -546,56 +559,54 @@ unsafe impl Sync for Wire {}
 
 impl geom::Transformable for Wire {
     fn transform(&self, transformation: &geom::Transformation) -> Self {
-        let transformed_wire = self.0.transform(&transformation.0).within_box();
-        Self(transformed_wire)
+        Self(ffi::Wire_transform(&self.0, &transformation.0))
     }
 }
 
 pub trait AddableToWire {
-    fn add_to_wire(&self, maker: Pin<&mut ffi_shape::WireBuilder>);
+    fn add_to_wire(&self, maker: Pin<&mut ffi::WireBuilder>);
 }
 
 impl AddableToWire for Edge {
-    fn add_to_wire(&self, mut maker: Pin<&mut ffi_shape::WireBuilder>) {
-        maker.as_mut().add_edge(&self.0);
+    fn add_to_wire(&self, mut maker: Pin<&mut ffi::WireBuilder>) {
+        ffi::WireBuilder_add_edge(maker.as_mut(), &self.0);
     }
 }
 
 impl AddableToWire for Wire {
-    fn add_to_wire(&self, mut maker: Pin<&mut ffi_shape::WireBuilder>) {
-        maker.as_mut().add_wire(&self.0);
+    fn add_to_wire(&self, mut maker: Pin<&mut ffi::WireBuilder>) {
+        ffi::WireBuilder_add_wire(maker.as_mut(), &self.0);
     }
 }
 
-pub struct Loft(pub(crate) Pin<Box<ffi_shape::Loft>>);
+pub struct Loft(pub(crate) cxx::UniquePtr<ffi::Loft>);
 
 impl Loft {
     #[must_use]
     pub fn new_solid() -> Self {
-        let loft = ffi_shape::Loft::create_solid().within_box();
-        Self(loft)
+        Self(ffi::Loft_create_solid())
     }
 
     pub fn add_wires(&mut self, wire: &[&Wire]) -> &mut Self {
         for w in wire {
-            self.0.as_mut().add_wire(&w.0);
+            ffi::Loft_add_wire(self.0.pin_mut(), &w.0);
         }
         self
     }
 
     pub fn ensure_wire_compatibility(&mut self, check: bool) -> &mut Self {
-        self.0.as_mut().ensure_wire_compatibility(check);
+        ffi::Loft_ensure_wire_compatibility(self.0.pin_mut(), check);
         self
     }
 
     pub fn build(&mut self) -> Shape {
-        Shape(self.0.as_mut().build().within_box())
+        Shape(ffi::Loft_build(self.0.pin_mut()))
     }
 }
 
 impl Clone for Loft {
     fn clone(&self) -> Self {
-        Self(self.0.clone().within_box())
+        Self(ffi::Loft_clone(&self.0))
     }
 }
 
@@ -614,7 +625,7 @@ unsafe impl Send for Loft {}
 // C++ type is designed for thread-safe read operations.
 unsafe impl Sync for Loft {}
 
-pub struct Compound(pub(crate) Pin<Box<ffi_shape::Compound>>);
+pub struct Compound(pub(crate) cxx::UniquePtr<ffi::Compound>);
 
 impl Default for Compound {
     fn default() -> Self {
@@ -625,18 +636,18 @@ impl Default for Compound {
 impl Compound {
     #[must_use]
     pub fn builder() -> Self {
-        let mut a = ffi_shape::Compound::new().within_box();
-        a.as_mut().init();
+        let mut a = ffi::Compound_new();
+        ffi::Compound_init(a.pin_mut());
         Self(a)
     }
 
     pub fn add(&mut self, shape: &Shape) -> &mut Self {
-        self.0.as_mut().add_shape(&shape.0);
+        ffi::Compound_add_shape(self.0.pin_mut(), &shape.0);
         self
     }
 
     pub fn build(&mut self) -> Shape {
-        Shape(self.0.as_mut().build().within_box())
+        Shape(ffi::Compound_build(self.0.pin_mut()))
     }
 }
 
