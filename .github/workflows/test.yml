@@ -47,3 +47,32 @@ jobs:
         run: cargo build --verbose --workspace --all-features
       - name: Run tests
         run: cargo test --verbose --workspace --all-features -- --include-ignored
+
+  test-wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-make
+        run: cargo install cargo-make
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/*
+            !target/opencascade-sys
+          key: cargo-wasm-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache OpenCASCADE
+        uses: actions/cache@v4
+        with:
+          path: |
+            target/opencascade-sys/
+          key: occt-wasm-${{ runner.os }}-${{ hashFiles('crates/opencascade-sys/**') }}
+      - name: Run WASM tests
+        run: cargo make test-wasm
