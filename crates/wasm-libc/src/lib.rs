@@ -502,7 +502,7 @@ mod api {
 
     #[no_mangle]
     pub unsafe extern "C" fn __errno() -> i32 {
-        &mut ERRNO as *mut i32 as i32
+        &raw mut ERRNO as *mut i32 as i32
     }
 
     #[no_mangle]
