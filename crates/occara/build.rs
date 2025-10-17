@@ -45,12 +45,22 @@ fn main() -> miette::Result<()> {
     }
 
     // Generate cxx bindings
-    cxx_build::bridges(["src/ffi.rs"])
+    let mut bridge = cxx_build::bridges(["src/ffi.rs"]);
+    bridge
         .files(cpp_files)
         .std("c++20")
         .include("include")
-        .include(build.include_dir())
-        .compile("occara-cxx-bridge");
+        .include(build.include_dir());
+
+    // For WASM, enable exceptions to allow OpenCASCADE headers to compile.
+    // OpenCASCADE headers contain exception class definitions (with throw statements)
+    // that require -fexceptions, even though our runtime patches prevent exceptions
+    // from actually being thrown during normal execution.
+    if std::env::var("TARGET").unwrap() == "wasm32-unknown-unknown" {
+        bridge.flag_if_supported("-fexceptions");
+    }
+
+    bridge.compile("occara-cxx-bridge");
 
     println!("cargo:rerun-if-changed=src/ffi.rs");
 
