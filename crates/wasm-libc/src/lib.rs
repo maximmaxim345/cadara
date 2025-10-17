@@ -46,29 +46,48 @@ mod api {
 
     #[no_mangle]
     pub unsafe extern "C" fn malloc(size: usize) -> *mut u8 {
+        // Handle zero-size allocation
+        if size == 0 {
+            // Return a non-null pointer for zero-size allocations as per C standard
+            return ALIGN as *mut u8;
+        }
+
         // Check for overflow when adding ALIGN
         let total_size = match size.checked_add(ALIGN) {
             Some(size) => size,
-            None => return std::ptr::null_mut(),
+            None => {
+                error!("malloc: size overflow when adding ALIGN, size={}", size);
+                return std::ptr::null_mut();
+            }
         };
 
         let layout = match std::alloc::Layout::from_size_align(total_size, ALIGN) {
             Ok(layout) => layout,
-            Err(_) => return std::ptr::null_mut(),
+            Err(e) => {
+                error!(
+                    "malloc: failed to create layout, size={}, error={:?}",
+                    total_size, e
+                );
+                return std::ptr::null_mut();
+            }
         };
 
         let ptr = std::alloc::alloc(layout);
         if ptr.is_null() {
+            error!("malloc: allocation failed, size={}", total_size);
             return std::ptr::null_mut();
         }
 
         *(ptr as *mut usize) = size;
         // Safe offset calculation
         if (ptr as usize).checked_add(ALIGN).is_none() {
+            error!("malloc: offset calculation overflow");
             std::alloc::dealloc(ptr, layout);
             return std::ptr::null_mut();
         }
-        ptr.add(ALIGN)
+        let result = ptr.add(ALIGN);
+        trace!("malloc: allocated {} bytes at {:p}", size, result);
+        result
     }
 
     #[no_mangle]
