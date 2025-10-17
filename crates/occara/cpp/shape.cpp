@@ -166,17 +166,23 @@ Edge Edge::clone() const { return *this; }
 // EdgeIterator
 
 EdgeIterator EdgeIterator::create(const Shape &shape) {
-  return EdgeIterator{TopExp_Explorer(shape.shape, TopAbs_EDGE)};
+  EdgeIterator it;
+  it.explorer = std::make_shared<TopExp_Explorer>(shape.shape, TopAbs_EDGE);
+  return it;
 }
 
-EdgeIterator EdgeIterator::clone() const { return *this; }
+EdgeIterator EdgeIterator::clone() const {
+  EdgeIterator it;
+  it.explorer = std::make_shared<TopExp_Explorer>(*explorer);
+  return it;
+}
 
-bool EdgeIterator::more() const { return explorer.More(); }
+bool EdgeIterator::more() const { return explorer->More(); }
 
 Edge EdgeIterator::next() {
-  Edge edge{TopoDS::Edge(explorer.Current())};
+  Edge edge{TopoDS::Edge(explorer->Current())};
   // We ensure in rust that the next element exists before calling next
-  explorer.Next();
+  explorer->Next();
   return edge;
 }
 
@@ -195,17 +201,23 @@ geom::Surface Face::surface() const {
 // FaceIterator
 
 FaceIterator FaceIterator::create(const Shape &shape) {
-  return FaceIterator{TopExp_Explorer(shape.shape, TopAbs_FACE)};
+  FaceIterator it;
+  it.explorer = std::make_shared<TopExp_Explorer>(shape.shape, TopAbs_FACE);
+  return it;
 }
 
-FaceIterator FaceIterator::clone() const { return *this; }
+FaceIterator FaceIterator::clone() const {
+  FaceIterator it;
+  it.explorer = std::make_shared<TopExp_Explorer>(*explorer);
+  return it;
+}
 
-bool FaceIterator::more() const { return explorer.More(); }
+bool FaceIterator::more() const { return explorer->More(); }
 
 Face FaceIterator::next() {
-  Face face{TopoDS::Face(explorer.Current())};
+  Face face{TopoDS::Face(explorer->Current())};
   // We ensure in rust that the next element exists before calling next
-  explorer.Next();
+  explorer->Next();
   return face;
 }
 
