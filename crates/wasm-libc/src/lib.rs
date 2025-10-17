@@ -167,10 +167,29 @@ mod api {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn __cxa_allocate_exception() {}
+    pub unsafe extern "C" fn __cxa_allocate_exception(thrown_size: usize) -> *mut u8 {
+        // Allocate memory for the exception object
+        // This is a stub - exceptions won't actually work, but we need to return
+        // valid memory to avoid immediate crashes. The exception will be "thrown"
+        // in __cxa_throw which will abort.
+        malloc(thrown_size)
+    }
 
     #[no_mangle]
-    pub unsafe extern "C" fn __cxa_throw() {}
+    pub unsafe extern "C" fn __cxa_throw(
+        _thrown_exception: *mut u8,
+        _tinfo: *mut u8,
+        _dest: *mut u8,
+    ) -> ! {
+        // Exception handling is not yet implemented for WASM.
+        // According to OpenCASCADE documentation, exceptions should not be thrown
+        // during normal execution, but they're still present in the code.
+        error!(
+            "Exception thrown in WASM - this should not happen during normal OpenCASCADE execution"
+        );
+        error!("If you see this, there may be an error in the CAD operations");
+        process::abort();
+    }
 
     #[no_mangle]
     pub unsafe extern "C" fn __cxa_atexit(a: i32, b: i32, c: i32) -> i32 {
