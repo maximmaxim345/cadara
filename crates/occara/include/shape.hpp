@@ -70,7 +70,7 @@ struct ShellBuilder {
 };
 
 // This is equal to TopAbs_ShapeEnum
-enum class ShapeType {
+enum class ShapeType : uint32_t {
   Compound,
   CompoundSolid,
   Solid,
@@ -110,7 +110,7 @@ struct Edge {
 };
 
 struct EdgeIterator {
-  TopExp_Explorer explorer;
+  std::shared_ptr<TopExp_Explorer> explorer;
 
   static EdgeIterator create(const Shape &shape);
   EdgeIterator clone() const;
@@ -129,7 +129,7 @@ struct Face {
 };
 
 struct FaceIterator {
-  TopExp_Explorer explorer;
+  std::shared_ptr<TopExp_Explorer> explorer;
 
   static FaceIterator create(const Shape &shape);
   FaceIterator clone() const;
