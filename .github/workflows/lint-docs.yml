@@ -35,7 +35,7 @@ jobs:
         with:
           path: |
             target/opencascade-sys/
-          key: occt-${{ runner.os }}-stable-${{ hashFiles('crates/opencascade-sys/**') }}
+          key: occt-${{ runner.os }}-${{ hashFiles('crates/opencascade-sys/**') }}
       - name: Check documentation
         env:
           RUSTDOCFLAGS: -D warnings
