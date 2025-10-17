@@ -3,10 +3,13 @@ use std::sync::Arc;
 use std::thread;
 use wasm_bindgen_test::*;
 
-#[test]
+#[wasm_bindgen_test(unsupported = test)]
 fn test_simple_edge_iteration() {
     use occara::geom::{Direction, Point};
     use occara::shape::Shape;
+
+    #[cfg(target_arch = "wasm32")]
+    wasm_libc::init();
 
     println!("Creating simple cylinder...");
     let axis = Point::new(0.0, 0.0, 0.0).plane_axis_with(&Direction::z());
@@ -33,8 +36,11 @@ fn test_simple_edge_iteration() {
     println!("Found {} edges on cylinder", count);
 }
 
-#[test]
+#[wasm_bindgen_test(unsupported = test)]
 fn test_make_bottle_cpp_only() {
+    #[cfg(target_arch = "wasm32")]
+    wasm_libc::init();
+
     const WIDTH: f64 = 50.0;
     const HEIGHT: f64 = 70.0;
     const THICKNESS: f64 = 30.0;
@@ -46,10 +52,13 @@ fn test_make_bottle_cpp_only() {
     assert!(mass > 6900.0 && mass < 7000.0); // Expected ~6960
 }
 
-#[test]
+#[wasm_bindgen_test(unsupported = test)]
 fn test_make_bottle_rust_minimal() {
     use occara::geom::{Direction, Point, Transformation, Vector};
     use occara::shape::{Edge, Wire};
+
+    #[cfg(target_arch = "wasm32")]
+    wasm_libc::init();
 
     const WIDTH: f64 = 50.0;
     const HEIGHT: f64 = 70.0;
@@ -146,11 +155,11 @@ fn test_make_bottle() {
     assert!(error_cpp_rust.join().unwrap() < EPSILON);
 }
 
-#[wasm_bindgen_test]
-#[allow(dead_code)]
+#[wasm_bindgen_test(unsupported = test)]
 fn test_make_bottle_wasm() {
-    // TODO(wasm32): This test fails, since exceptions are broken
+    #[cfg(target_arch = "wasm32")]
     wasm_libc::init();
+
     const WIDTH: f64 = 50.0;
     const HEIGHT: f64 = 70.0;
     const THICKNESS: f64 = 30.0;

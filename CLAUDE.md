@@ -40,7 +40,7 @@ cargo run -p cadara           # Run the main application (opens GUI window)
 cargo build --release         # Build release version
 ```
 
-**WASM Development (Experimental):**
+**WASM Development:**
 ```bash
 cargo make dev                # Build WASM (dev) and start server on :8080
 cargo make debug              # Build WASM with debug info and serve
@@ -48,7 +48,7 @@ cargo make build-wasm-dev     # Build WASM target only (development)
 cargo make test-wasm          # Run WASM-specific tests
 ```
 
-WASM support is experimental and not yet complete.
+WASM support is now functional with full testing enabled. Tests run in both native and WASM contexts. Only run `cargo make test-wasm` if specifically requested or when working on WASM-related changes.
 
 ### Running Single Tests
 
@@ -141,9 +141,9 @@ The `project` crate provides comprehensive project management with version contr
 
 Provides Rust access to OpenCASCADE B-Rep kernel:
 - C++ wrapper layer (parse-able subset of C++) for performance-critical code
-- Rust bindings generated via `autocxx`
+- Rust bindings generated via `cxx`
 - Safe, idiomatic Rust API layer on top
-- Error handling via C++ exception catching (not yet fully implemented)
+- WASM support with specialized build configuration
 
 ### Important Build Details
 
@@ -162,7 +162,7 @@ Provides Rust access to OpenCASCADE B-Rep kernel:
 ### Working with OpenCASCADE
 
 - occara is incomplete - add functionality incrementally as needed
-- Exceptions must be caught in C++ layer (autocxx doesn't support them)
+- Exceptions must never be thrown since WASM doesn't support them
 - See `crates/occara/src/make_bottle.rs` for complete usage example
 
 ### Module Development
