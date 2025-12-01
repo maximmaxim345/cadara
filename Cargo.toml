@@ -48,7 +48,7 @@ autocxx = "0.27"
 autocxx-build = "0.27"
 
 miette = { version = "7", features = ["fancy"] }
-criterion = { version = "0.7", features = ["html_reports"] }
+criterion = { version = "0.8", features = ["html_reports"] }
 serde_json = "1.0"
 erased-serde = "0.4"
 lazy_static = "1.4"
