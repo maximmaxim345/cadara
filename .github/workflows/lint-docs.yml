@@ -16,11 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Cache Cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/
@@ -31,7 +31,7 @@ jobs:
             !target/opencascade-sys
           key: cargo-docs-${{ hashFiles('**/Cargo.lock') }}
       - name: Load OpenCASCADE Cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             target/opencascade-sys/
