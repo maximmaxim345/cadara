@@ -30,14 +30,14 @@ modeling-workspace = { path = "crates/modeling-workspace" }
 modeling-module = { path = "crates/modeling-module" }
 wasm-libc = { path = "crates/wasm-libc" }
 
-iced = { version = "0.13", features = ["advanced", "webgl", "tokio"] }
+iced = { version = "0.14", features = ["advanced", "webgl", "tokio"] }
 tracing-subscriber = "0.3"
 thiserror = "2.0"
 dyn-clone = "1.0"
-uuid = { version = "1.16", features = ["v4", "serde", "js"] }
+uuid = { version = "1.20", features = ["v4", "serde", "js"] }
 serde = { version = "1.0", features = ["derive", "alloc", "rc"] }
-bytemuck = "1.22"
-glam = { version = "0.30", features = ["bytemuck"] }
+bytemuck = "1.25"
+glam = { version = "0.31", features = ["bytemuck"] }
 walkdir = "2.4"
 paste = "1.0"
 
@@ -48,7 +48,7 @@ autocxx = "0.27"
 autocxx-build = "0.27"
 
 miette = { version = "7", features = ["fancy"] }
-criterion = { version = "0.7", features = ["html_reports"] }
+criterion = { version = "0.8", features = ["html_reports"] }
 serde_json = "1.0"
 erased-serde = "0.4"
 lazy_static = "1.4"
