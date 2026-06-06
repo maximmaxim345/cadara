@@ -178,7 +178,7 @@ WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR="$(pwd)/target/wasm-libcxx/wasm32-unknown-unkn
 cd crates/cadara
 rustup run nightly wasm-pack build --target web --no-typescript --dev
 '''
-install_crate = "wasm-pack"
+install_crate = { crate_name = "wasm-pack", binary = "wasm-pack", test_arg = "--version" }
 
 [tasks.build-wasm-debug]
 description = "Build WASM target (with debug info)"
@@ -190,7 +190,7 @@ WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR="$(pwd)/target/wasm-libcxx/wasm32-unknown-unkn
 . $WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR/env.sh # shell2batch: call target\wasm-libcxx\wasm32-unknown-unknown-libcxx\env.bat
 wasm-bindgen target/wasm32-unknown-unknown/debug/cadara_lib.wasm --out-dir crates/cadara/pkg --target web --keep-debug
 '''
-install_crate = "wasm-bindgen-cli"
+install_crate = { crate_name = "wasm-bindgen-cli", binary = "wasm-bindgen", test_arg = "--version" }
 
 [tasks.build-wasm-release]
 description = "Build WASM target (release)"
@@ -203,12 +203,12 @@ WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR="$(pwd)/target/wasm-libcxx/wasm32-unknown-unkn
 cd crates/cadara
 rustup run nightly wasm-pack build --target web --no-typescript
 '''
-install_crate = "wasm-pack"
+install_crate = { crate_name = "wasm-pack", binary = "wasm-pack", test_arg = "--version" }
 
 [tasks.serve]
 description = "Serve the WASM application"
 workspace = false
-install_crate = "simple-http-server"
+install_crate = { crate_name = "simple-http-server", binary = "simple-http-server", test_arg = "--help" }
 command = "simple-http-server"
 args = ["--nocache", "-i", "-p", "8080", "-c=wasm,js", "crates/cadara"]
 
@@ -238,7 +238,7 @@ WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR="$(pwd)/target/wasm-libcxx/wasm32-unknown-unkn
 cd crates/occara
 rustup run nightly wasm-pack test --node
 '''
-install_crate = "wasm-pack"
+install_crate = { crate_name = "wasm-pack", binary = "wasm-pack", test_arg = "--version" }
 
 [tasks.help]
 description = "Display help information about available tasks"
