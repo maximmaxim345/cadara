@@ -1552,7 +1552,7 @@ impl ComputeGraph {
 
                     // Store the results of the node, indexed by (node handle, output name)
                     if let Some(a) = computed_results.get_mut(&current_node.handle) {
-                        for (cache, output) in a.outputs.iter_mut().zip(output_values.into_iter()) {
+                        for (cache, output) in a.outputs.iter_mut().zip(output_values) {
                             cache.changed = match (&cache.value, &output) {
                                 (NodeOutput::Opaque(_any1), NodeOutput::Opaque(_any2)) => true,
                                 (NodeOutput::Comparable(any1), NodeOutput::Comparable(any2)) => {
