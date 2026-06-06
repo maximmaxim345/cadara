@@ -7,6 +7,7 @@ use occara::{
 
 #[test]
 fn test_thread_safety() {
+    wasm_libc::init();
     // This is a basic test for verifying that this library is probably thread safe.
     // Since all wrapper types function roughly in the same way, we will only test `Mesh` here.
     // This test passes while using valgrind.

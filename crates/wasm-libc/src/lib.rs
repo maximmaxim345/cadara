@@ -464,6 +464,11 @@ mod api {
     }
     static mut ERRNO: i32 = 0;
 
+    // Bundled libc omits the `__sF` array that `stdin`/`stdout`/`stderr` resolve to.
+    // The stdio stubs ignore the stream pointer, so room for three `FILE` entries suffices.
+    #[no_mangle]
+    pub static mut __sF: [u64; 48] = [0; 48];
+
     #[no_mangle]
     pub unsafe extern "C" fn abort() {
         error!("abort called");
