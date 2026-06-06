@@ -158,6 +158,20 @@ Provides Rust access to OpenCASCADE B-Rep kernel:
 - Clippy warnings are treated as errors in CI
 - Use `#[warn(clippy::nursery)]` and `#[warn(clippy::pedantic)]` in crates
 - Documentation warnings are errors
+- Formatting is default `rustfmt` (no `rustfmt.toml`). Run `cargo fmt`
+- Every crate `lib.rs` opens with the same lint header:
+  ```rust
+  #![warn(clippy::nursery)]
+  #![warn(clippy::pedantic)]
+  #![allow(clippy::module_name_repetitions)]
+  #![allow(clippy::cognitive_complexity)]
+  ```
+- **Errors**: use `thiserror` with one error enum *per fallible operation* (e.g. `ComputeError`, `ConnectError`, `AddError`), not a single crate-wide error. `#[error("…")]` messages are full, capitalized sentences. `anyhow` is only for internal dynamic-node code, never the public library surface.
+- **`expect()` messages** state the invariant being relied on (`.expect("already checked above")`), not "should never happen"
+- **Tests** live in `tests/` integration directories, split by concern (`caching.rs`, `thread_safety.rs`, `undo_redo.rs`). Do **not** add inline `#[cfg(test)] mod tests`; the repo has none. Shared fixtures go in `tests/common/`. Runnable doctests in crate-level `//!` docs are encouraged.
+- **Thread safety is a load-bearing invariant**: public types are generally `Send + Sync`, and crates exposing shared/concurrent types (`computegraph`, `project`, `occara`) carry a `tests/thread_safety.rs`. Add one when introducing such a type.
+- **Dependencies** are gated by `cargo-deny` (`deny.toml`) in CI. The project is AGPLv3 and only licenses on the allowlist pass. A new dependency with an unlisted license fails CI; add it to `deny.toml` or pick another crate.
+- Common derives are `Debug`, `Clone`, `PartialEq`, `Serialize`, `Deserialize`. Prefer one file per concept in a crate.
 
 ### Working with OpenCASCADE
 
@@ -173,7 +187,7 @@ When creating a new module:
    - Define `Args` type for transactions (must be `Serialize + Deserialize + Clone + Debug + PartialEq + Hash`)
    - Implement deterministic `apply(&mut self, args: Self::Args)` method
    - Implement `undo_history_name(args: &Self::Args) -> String`
-3. Implement `Module` trait with a **unique UUID** (use `uuid!()` macro)
+3. Implement `Module` trait with a **unique UUID**: generate a fresh one with a tool (e.g. `uuidgen`), then embed the literal via the `uuid!()` macro
 4. Register module in `ModuleRegistry` before creating project views
 5. See `crates/modeling-module` for a complete example
 
@@ -199,6 +213,37 @@ When creating custom nodes:
 4. Input parameter names become port names (e.g., `param1` → `node.input_param1()`)
 5. Output types implementing `PartialEq` will be cached (use `-> !` to opt out)
 6. Connect nodes with `graph.connect(from_port, to_port)`
+
+## Contribution Conventions
+
+### Agent Restrictions
+
+- **Do not open issues or pull requests.** You may *draft* them with the `-w`/`--web` flag (e.g. `gh pr create -w`, `gh issue create -w`) when explicitly asked, which opens the draft for the user to review and submit. You never submit it yourself.
+- **Do not create comments on GitHub** (issue comments, PR comments, or review comments).
+- **Do not push changes** to any branch without the user's explicit permission. Asking you to open a PR (e.g. via `gh pr create -w`) counts as permission for the single push that PR requires. It is a one-time allowance, not standing consent. Every later push needs its own explicit permission.
+
+### Commits
+
+- **Conventional Commits with a scope**: `type(scope): description`
+- Types in use: `feat fix refactor chore docs test ci build`
+- **Scope is the crate folder name** (`viewport`, `occara`, `computegraph`, `project`, `wasm-libc`, …) or `ci`/`docs`. Omit the scope only for genuinely cross-cutting changes (`build:`, `chore:`)
+- A change spanning crates may list **multiple comma-separated scopes**: `refactor(module,project): rename data section types`
+- Backtick identifiers in the subject: ``refactor(computegraph): remove `compute_with_context` ``
+- Subject-only by default, imperative mood. Add a body only when the *why* isn't obvious from the diff
+- Split work into **atomic commits**: keep refactor commits separate from feature commits, each commit must compile
+
+### Pull Requests
+
+- **PR title must pass semantic-PR lint**: same `type(scope): description` format. The scope must be a crate name or `ci`/`docs` or CI fails
+- PR titles follow the same backtick-for-identifiers rule as commit subjects: ``feat(project): add `TrackedProjectView` ``
+- **Branch naming**: `type/kebab-description` (e.g. `feat/cache-scene-graph`, `fix/wasm-exceptions`, `refactor/move-from-autocxx-to-cxx`)
+- **Description**: short plain prose, 2 to 4 sentences, no template. What it does, then why or what else it fixes, then known limitations or how-to-test. Link issues with `Closes #N` (or inline `#N` for remaining work). `chore`/`docs` PRs may have an empty body; `feat`/`refactor` PRs should have one
+- CI **blocks autosquash commits** (`fixup!`/`squash!`). Clean up history *before* pushing
+
+### Merging
+
+- PRs merge as **merge commits with feature-branch history preserved** (not squashed, not rebased)
+- Every individual commit therefore lands on `main`, so keep each one clean and atomic, not just the PR as a whole
 
 ## Key Examples & Learning Resources
 
