@@ -1,6 +1,8 @@
 name: Build and Test
 
 on:
+  push:
+    branches: [main]
   pull_request:
 
 env:
@@ -38,12 +40,16 @@ jobs:
             target/*
             !target/opencascade-sys
           key: cargo-${{ runner.os }}-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-${{ matrix.toolchain }}-
       - name: Cache OpenCASCADE
         uses: actions/cache@v4
         with:
           path: |
             target/opencascade-sys/
           key: occt-${{ runner.os }}-${{ hashFiles('crates/opencascade-sys/**') }}
+          restore-keys: |
+            occt-${{ runner.os }}-
       - name: Build
         run: cargo build --verbose --workspace --all-features
       - name: Run tests
@@ -69,11 +75,15 @@ jobs:
             target/*
             !target/opencascade-sys
           key: cargo-wasm-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-wasm-${{ runner.os }}-
       - name: Cache OpenCASCADE
         uses: actions/cache@v4
         with:
           path: |
             target/opencascade-sys/
           key: occt-wasm-${{ runner.os }}-${{ hashFiles('crates/opencascade-sys/**') }}
+          restore-keys: |
+            occt-wasm-${{ runner.os }}-
       - name: Run WASM tests
         run: cargo make test-wasm
