@@ -1,7 +1,6 @@
 use computegraph::node;
-use iced::widget::shader;
 use project::TrackedDataView;
-use viewport::{ProjectState, ViewportEvent};
+use viewport::{ErasedPrimitive, ProjectState, ViewportEvent};
 
 use super::{
     rendering::{MeshData, RenderPrimitive, Vertex},
@@ -47,7 +46,7 @@ fn run(&self, shape: &occara::shape::Shape) -> MeshData {
 pub struct RenderNode {}
 
 #[node(RenderNode -> !)]
-fn run(&self, state: &ViewportState, mesh: &MeshData) -> Box<dyn shader::Primitive> {
+fn run(&self, state: &ViewportState, mesh: &MeshData) -> Box<dyn ErasedPrimitive> {
     // TODO: remove cloning to reduce overhead once computegraph allows that
     Box::new(RenderPrimitive {
         state: (*state).clone(),
@@ -70,7 +69,7 @@ fn run(
     let mut state = (*state).clone();
     let _data_view: TrackedDataView<modeling_module::ModelingModule> =
         project.open_data_by_id(self.data_uuid).unwrap();
-    if let shader::Event::Mouse(m) = event.event {
+    if let iced::Event::Mouse(m) = &event.event {
         match m {
             iced::mouse::Event::ButtonPressed(iced::mouse::Button::Left) => {
                 state.l_button_pressed = true;
@@ -85,6 +84,7 @@ fn run(
                 state.r_button_pressed = false;
             }
             iced::mouse::Event::CursorMoved { position } => {
+                let position = *position;
                 if state.l_button_pressed {
                     let c = (position - state.cursor_position) * -0.01;
                     state.camera.pan(c.x, c.y);

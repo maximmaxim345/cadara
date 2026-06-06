@@ -1,7 +1,6 @@
-use iced::widget::shader::{
-    self,
-    wgpu::{self, util::DeviceExt, DepthStencilState, RenderPassDepthStencilAttachment},
-};
+use iced::wgpu::{self, util::DeviceExt, DepthStencilState, RenderPassDepthStencilAttachment};
+use iced::widget::shader;
+use viewport::ErasedPrimitive;
 
 use super::{
     camera::{Camera, CameraUniform},
@@ -44,7 +43,7 @@ pub struct MeshData {
     pub id: uuid::Uuid,
 }
 
-impl shader::Primitive for RenderPrimitive {
+impl ErasedPrimitive for RenderPrimitive {
     fn prepare(
         &self,
         device: &wgpu::Device,
@@ -55,20 +54,24 @@ impl shader::Primitive for RenderPrimitive {
         viewport: &shader::Viewport,
     ) {
         if !storage.has::<RenderPipeline>() {
-            storage.store(RenderPipeline::new(
+            storage.store::<RenderPipeline, _>(RenderPipeline::new(
                 device,
                 queue,
                 format,
                 viewport.physical_size(),
             ));
         }
-        let pipeline = storage.get_mut::<RenderPipeline>().unwrap();
+        let pipeline = storage
+            .get_mut::<RenderPipeline>()
+            .expect("RenderPipeline stored above")
+            .downcast_mut::<RenderPipeline>()
+            .expect("storage entry is RenderPipeline");
         pipeline.update(
             device,
             queue,
             *bounds,
             viewport.physical_size(),
-            viewport.scale_factor() as f32,
+            viewport.scale_factor(),
             self,
             &self.mesh,
         );
@@ -81,7 +84,11 @@ impl shader::Primitive for RenderPrimitive {
         target: &wgpu::TextureView,
         clip_bounds: &iced::Rectangle<u32>,
     ) {
-        let pipeline = storage.get::<RenderPipeline>().unwrap();
+        let pipeline = storage
+            .get::<RenderPipeline>()
+            .expect("RenderPipeline stored in prepare")
+            .downcast_ref::<RenderPipeline>()
+            .expect("storage entry is RenderPipeline");
 
         pipeline.render(encoder, target, *clip_bounds);
     }
@@ -111,6 +118,15 @@ unsafe impl Send for RenderPipeline {}
 
 #[cfg(target_arch = "wasm32")]
 unsafe impl Sync for RenderPipeline {}
+
+impl shader::Pipeline for RenderPipeline {
+    // Only satisfies the `P: Pipeline` bound on `Storage::store`. The real instance is
+    // constructed in `ErasedPrimitive::prepare` with the actual viewport size and stored
+    // directly, so this path is never reached.
+    fn new(_device: &wgpu::Device, _queue: &wgpu::Queue, _format: wgpu::TextureFormat) -> Self {
+        unreachable!("RenderPipeline is stored manually from ErasedPrimitive::prepare")
+    }
+}
 
 impl RenderPipeline {
     fn new(
@@ -167,12 +183,14 @@ impl RenderPipeline {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
                 buffers: &[Vertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: "fs_main",
+                entry_point: Some("fs_main"),
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
                 targets: &[Some(wgpu::ColorTargetState {
                     format,
                     blend: None,
@@ -189,6 +207,7 @@ impl RenderPipeline {
             }),
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
+            cache: None,
         });
 
         let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -296,6 +315,7 @@ impl RenderPipeline {
             label: None,
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: target,
+                depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Load,
