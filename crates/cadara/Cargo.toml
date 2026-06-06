@@ -14,7 +14,7 @@ publish = false
 [dependencies]
 iced.workspace = true
 tracing-subscriber.workspace = true
-getrandom.workspace = true          # Required for building the "js" feature for wasm builds
+getrandom.workspace = true          # Required for the wasm_js backend on wasm builds
 viewport.workspace = true
 workspace.workspace = true
 modeling-workspace.workspace = true
