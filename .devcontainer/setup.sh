@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
-apt update
-apt install -y cmake ninja-build
+apt-get update
+apt-get install -y cmake ninja-build clang lld llvm
 rustup install nightly # Required for wasm/c interop
 rustup +nightly target add wasm32-unknown-unknown
 

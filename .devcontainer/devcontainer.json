@@ -2,9 +2,7 @@
   "name": "Rust WASM Development",
   "image": "rust:latest",
   "features": {
-    "ghcr.io/devcontainers/features/node:1": {},
-    "ghcr.io/devcontainers/features/rust:1": {},
-    "ghcr.io/devcontainers-community/features/llvm:3": {}
+    "ghcr.io/devcontainers/features/node:1": {}
   },
   "postCreateCommand": "bash .devcontainer/setup.sh",
   "forwardPorts": [
