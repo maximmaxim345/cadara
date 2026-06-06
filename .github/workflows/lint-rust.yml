@@ -6,6 +6,8 @@ permissions:
   checks: write
 
 on:
+  push:
+    branches: [main]
   pull_request:
 
 env:
@@ -33,7 +35,6 @@ jobs:
   lint:
     name: Run Clippy
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -52,18 +53,26 @@ jobs:
             target/*
             !target/opencascade-sys
           key: cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-clippy-
       - name: Load OpenCASCADE Cache
         uses: actions/cache/restore@v4
         with:
           path: |
             target/opencascade-sys/
           key: occt-${{ runner.os }}-${{ hashFiles('crates/opencascade-sys/**') }}
+          restore-keys: |
+            occt-${{ runner.os }}-
       - name: Run clippy
+        if: ${{ github.event_name == 'pull_request' }}
         uses: giraffate/clippy-action@v1
         with:
           reporter: "github-pr-review"
           clippy_flags: "--workspace --tests --benches"
           github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Warm clippy cache
+        if: ${{ github.event_name == 'push' }}
+        run: cargo clippy --workspace --tests --benches
 
   typos-cli:
     name: Check for typos

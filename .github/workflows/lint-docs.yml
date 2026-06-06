@@ -1,6 +1,8 @@
 name: Lint Rust Documentation
 
 on:
+  push:
+    branches: [main]
   pull_request:
 
 env:
@@ -30,12 +32,16 @@ jobs:
             target/*
             !target/opencascade-sys
           key: cargo-docs-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-docs-
       - name: Load OpenCASCADE Cache
         uses: actions/cache/restore@v4
         with:
           path: |
             target/opencascade-sys/
           key: occt-${{ runner.os }}-${{ hashFiles('crates/opencascade-sys/**') }}
+          restore-keys: |
+            occt-${{ runner.os }}-
       - name: Check documentation
         env:
           RUSTDOCFLAGS: -D warnings
