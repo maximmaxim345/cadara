@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
 use computegraph::{node, ComputeGraph};
-use iced::widget::shader::{wgpu, Primitive};
+use iced::wgpu;
+use iced::widget::shader;
 use viewport::{
-    RenderNodePorts, SceneGraph, SceneGraphBuilder, UpdateNodePorts, ViewportCache, ViewportEvent,
-    ViewportPipeline,
+    ErasedPrimitive, RenderNodePorts, SceneGraph, SceneGraphBuilder, UpdateNodePorts,
+    ViewportCache, ViewportEvent, ViewportPipeline,
 };
 
 #[derive(Clone, PartialEq)]
@@ -12,22 +13,22 @@ pub struct State {}
 
 #[derive(Debug)]
 pub struct SomePrimitive();
-impl Primitive for SomePrimitive {
+impl ErasedPrimitive for SomePrimitive {
     fn prepare(
         &self,
         _device: &wgpu::Device,
         _queue: &wgpu::Queue,
         _format: wgpu::TextureFormat,
-        _storage: &mut iced::widget::shader::Storage,
+        _storage: &mut shader::Storage,
         _bounds: &iced::Rectangle,
-        _viewport: &iced::widget::shader::Viewport,
+        _viewport: &shader::Viewport,
     ) {
     }
 
     fn render(
         &self,
         _encoder: &mut wgpu::CommandEncoder,
-        _storage: &iced::widget::shader::Storage,
+        _storage: &shader::Storage,
         _target: &wgpu::TextureView,
         _clip_bounds: &iced::Rectangle<u32>,
     ) {
@@ -44,7 +45,7 @@ fn run(&self) -> State {
 #[derive(Debug, Clone, PartialEq)]
 pub struct RenderNode();
 #[node(RenderNode -> !)]
-fn run(&self, _state: &State) -> Box<dyn Primitive> {
+fn run(&self, _state: &State) -> Box<dyn ErasedPrimitive> {
     Box::new(SomePrimitive())
 }
 

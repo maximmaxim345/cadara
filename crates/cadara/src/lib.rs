@@ -143,7 +143,8 @@ pub fn run_cadara() {
     #[cfg(not(target_arch = "wasm32"))]
     tracing_subscriber::fmt::init();
 
-    iced::application("CADara", App::update, App::view)
+    iced::application(App::new, App::update, App::view)
+        .title("CADara")
         .subscription(App::subscription)
         .run()
         .unwrap();

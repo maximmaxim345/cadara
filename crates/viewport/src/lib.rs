@@ -47,12 +47,37 @@
 //! the output and graph from the previous plugin. The final [`computegraph::ComputeGraph`] returned by the last plugin
 //! is than executed by the viewport to render to the screen.
 
+use iced::wgpu;
 use iced::widget::shader;
 use project::ProjectView;
-use shader::wgpu;
 use std::sync::{Arc, Mutex};
 
 mod pipeline;
+
+/// Object-safe rendering primitive produced by scene graph render nodes.
+///
+/// iced 0.14's [`shader::Primitive`] has an associated `Pipeline` type and is not object-safe,
+/// so the scene graph passes this erased trait through the compute graph instead. The viewport
+/// adapts it to a concrete [`shader::Primitive`] via [`ShaderPrimitive`].
+pub trait ErasedPrimitive: std::fmt::Debug + Send + Sync + 'static {
+    fn prepare(
+        &self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        format: wgpu::TextureFormat,
+        storage: &mut shader::Storage,
+        bounds: &iced::Rectangle,
+        viewport: &shader::Viewport,
+    );
+
+    fn render(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        storage: &shader::Storage,
+        target: &wgpu::TextureView,
+        clip_bounds: &iced::Rectangle<u32>,
+    );
+}
 
 #[doc(inline)]
 pub use pipeline::{
@@ -63,7 +88,7 @@ pub use pipeline::{
 
 #[derive(Debug)]
 pub struct ViewportEvent {
-    pub event: shader::Event,
+    pub event: iced::Event,
     pub bounds: iced::Rectangle,
     pub cursor: iced::advanced::mouse::Cursor,
 }
@@ -107,16 +132,12 @@ impl<Message> shader::Program<Message> for Viewport {
     fn update(
         &self,
         state: &mut Self::State,
-        event: shader::Event,
+        event: &iced::Event,
         bounds: iced::Rectangle,
         cursor: iced::advanced::mouse::Cursor,
-        _shell: &mut iced::advanced::Shell<'_, Message>,
-    ) -> (
-        iced::advanced::graphics::core::event::Status,
-        Option<Message>,
-    ) {
+    ) -> Option<shader::Action<Message>> {
         let event = ViewportEvent {
-            event,
+            event: event.clone(),
             bounds,
             cursor,
         };
@@ -128,7 +149,7 @@ impl<Message> shader::Program<Message> for Viewport {
                 self.project_view_version,
             )
             .unwrap();
-        (iced::advanced::graphics::core::event::Status::Ignored, None)
+        None
     }
 
     fn draw(
@@ -165,13 +186,45 @@ pub struct ShaderPrimitive {
     pub project_view_version: u64,
 }
 
+/// Holds the format and per-primitive [`shader::Storage`] for [`ShaderPrimitive`].
+///
+/// iced 0.14 owns pipeline storage per concrete `Primitive` type, but scene graph render nodes
+/// produce dynamic [`ErasedPrimitive`]s that manage their own storage. This pipeline keeps a
+/// nested [`shader::Storage`] those erased primitives can store their pipelines in.
+pub struct ShaderPipeline {
+    format: wgpu::TextureFormat,
+    storage: shader::Storage,
+}
+
+impl std::fmt::Debug for ShaderPipeline {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ShaderPipeline")
+            .field("format", &self.format)
+            .finish_non_exhaustive()
+    }
+}
+
+impl shader::Pipeline for ShaderPipeline {
+    fn new(_device: &wgpu::Device, _queue: &wgpu::Queue, format: wgpu::TextureFormat) -> Self {
+        Self {
+            format,
+            storage: shader::Storage::default(),
+        }
+    }
+
+    fn trim(&mut self) {
+        self.storage.trim();
+    }
+}
+
 impl shader::Primitive for ShaderPrimitive {
+    type Pipeline = ShaderPipeline;
+
     fn prepare(
         &self,
+        pipeline: &mut Self::Pipeline,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        format: wgpu::TextureFormat,
-        storage: &mut shader::Storage,
         bounds: &iced::Rectangle,
         viewport: &shader::Viewport,
     ) {
@@ -183,13 +236,20 @@ impl shader::Primitive for ShaderPrimitive {
                 self.project_view_version,
             )
             .unwrap();
-        a.prepare(device, queue, format, storage, bounds, viewport);
+        a.prepare(
+            device,
+            queue,
+            pipeline.format,
+            &mut pipeline.storage,
+            bounds,
+            viewport,
+        );
     }
 
     fn render(
         &self,
+        pipeline: &Self::Pipeline,
         encoder: &mut wgpu::CommandEncoder,
-        storage: &shader::Storage,
         target: &wgpu::TextureView,
         clip_bounds: &iced::Rectangle<u32>,
     ) {
@@ -201,6 +261,6 @@ impl shader::Primitive for ShaderPrimitive {
                 self.project_view_version,
             )
             .unwrap();
-        a.render(encoder, storage, target, clip_bounds);
+        a.render(encoder, &pipeline.storage, target, clip_bounds);
     }
 }

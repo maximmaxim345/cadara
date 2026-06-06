@@ -76,7 +76,7 @@ pub struct RenderNodePorts<T> {
     // state in
     pub state_in: InputPort<T>,
     // primitive out
-    pub primitive_out: OutputPort<Box<dyn iced::widget::shader::Primitive>>,
+    pub primitive_out: OutputPort<Box<dyn crate::ErasedPrimitive>>,
 }
 
 #[derive(Clone)]
@@ -94,7 +94,7 @@ pub struct SceneGraph {
     pub graph: ComputeGraph,
     init_state: OutputPortUntyped,
     render_state_in: InputPortUntyped,
-    render_primitive_out: OutputPort<Box<dyn iced::widget::shader::Primitive>>,
+    render_primitive_out: OutputPort<Box<dyn crate::ErasedPrimitive>>,
     update_event_in: InputPort<ViewportEvent>,
     update_state_in: InputPortUntyped,
     update_state_out: OutputPortUntyped,
@@ -759,7 +759,7 @@ impl ViewportPipeline {
         state: &mut ViewportPipelineState,
         project_view: Arc<ProjectView>,
         project_view_version: u64,
-    ) -> Result<Box<dyn iced::widget::shader::Primitive>, ExecuteError> {
+    ) -> Result<Box<dyn crate::ErasedPrimitive>, ExecuteError> {
         let mut cache_metadata = state.scenegraph_cache.metadata.take().unwrap_or_default();
         if let Some(prev_project_view) = &state.prev_project_view {
             if state.scenegraph_cache.version != project_view_version {
