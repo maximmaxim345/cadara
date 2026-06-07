@@ -4,7 +4,7 @@ use computegraph::{node, ComputeGraph};
 use iced::wgpu;
 use iced::widget::shader;
 use viewport::{
-    ErasedPrimitive, RenderNodePorts, SceneGraph, SceneGraphBuilder, UpdateNodePorts,
+    ErasedPrimitive, ProjectState, RenderNodePorts, SceneGraph, SceneGraphBuilder, UpdateNodePorts,
     ViewportCache, ViewportEvent, ViewportPipeline,
 };
 
@@ -54,6 +54,36 @@ pub struct UpdateNode();
 #[node(UpdateNode)]
 fn run(&self, state: &State, _event: &ViewportEvent) -> State {
     (*state).clone()
+}
+
+/// A plugin that consumes a [`ProjectState`], so its pipeline node shows up in
+/// the cache metadata.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProjectAwarePlugin;
+
+#[node(ProjectAwarePlugin -> (scene, output))]
+fn run(&self, _project: &ProjectState) -> (SceneGraph, usize) {
+    let mut graph = ComputeGraph::default();
+    let init_state_node = graph.add_node(InitState(), "init".to_string()).unwrap();
+    let render_node = graph.add_node(RenderNode(), "render".to_string()).unwrap();
+    let update_node = graph.add_node(UpdateNode(), "update".to_string()).unwrap();
+    (
+        SceneGraphBuilder {
+            graph,
+            initial_state: init_state_node.output(),
+            render_node: RenderNodePorts {
+                state_in: render_node.input_state(),
+                primitive_out: render_node.output(),
+            },
+            update_node: UpdateNodePorts {
+                state_in: update_node.input_state(),
+                event_in: update_node.input_event(),
+                state_out: update_node.output(),
+            },
+        }
+        .into(),
+        1,
+    )
 }
 
 #[derive(Debug, Clone, PartialEq)]
