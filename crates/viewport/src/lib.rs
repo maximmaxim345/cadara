@@ -82,8 +82,8 @@ pub trait ErasedPrimitive: std::fmt::Debug + Send + Sync + 'static {
 #[doc(inline)]
 pub use pipeline::{
     DynamicViewportPlugin, ExecuteError, PipelineAddError, ProjectState, RenderNodePorts,
-    SceneGraph, SceneGraphBuilder, UpdateNodePorts, ViewportCache, ViewportPipeline,
-    ViewportPlugin, ViewportPluginValidationError,
+    SceneGraph, SceneGraphBuilder, UpdateNodePorts, ViewportCache, ViewportCacheStats,
+    ViewportPipeline, ViewportPlugin, ViewportPluginValidationError,
 };
 
 #[derive(Debug)]

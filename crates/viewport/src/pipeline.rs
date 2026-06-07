@@ -151,6 +151,15 @@ pub struct ViewportCache {
     metadata: Option<CacheMetadata>,
 }
 
+/// Occupancy snapshot of a [`ViewportCache`], for debug and introspection UIs.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ViewportCacheStats {
+    /// Nodes holding a memoized output in the computation cache.
+    pub computation_entries: usize,
+    /// Nodes carrying project-aware cache metadata.
+    pub metadata_nodes: Vec<String>,
+}
+
 impl ViewportCache {
     /// Drops the computation cache and metadata.
     ///
@@ -160,6 +169,19 @@ impl ViewportCache {
     fn clear(&mut self) {
         *self.cache.lock().unwrap() = ComputationCache::default();
         self.metadata = None;
+    }
+
+    /// Returns the current cache occupancy.
+    #[must_use]
+    #[expect(clippy::missing_panics_doc, reason = "only panics with poisoned lock")]
+    pub fn stats(&self) -> ViewportCacheStats {
+        ViewportCacheStats {
+            computation_entries: self.cache.lock().unwrap().len(),
+            metadata_nodes: self
+                .metadata
+                .as_ref()
+                .map_or_else(Vec::new, |m| m.keys().cloned().collect()),
+        }
     }
 }
 
