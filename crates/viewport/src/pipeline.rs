@@ -6,7 +6,7 @@ use computegraph::{
 use project::{CacheValidator, ProjectView, TrackedProjectView};
 use std::{
     any::TypeId,
-    collections::BTreeMap,
+    collections::{BTreeMap, HashSet},
     sync::{Arc, Mutex},
 };
 
@@ -149,6 +149,40 @@ pub struct ViewportCache {
     cache: Mutex<ComputationCache>,
     version: u64,
     metadata: Option<CacheMetadata>,
+}
+
+/// Occupancy snapshot of a [`ViewportCache`], for debug and introspection UIs.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ViewportCacheStats {
+    /// Nodes holding a memoized output in the computation cache.
+    pub computation_entries: usize,
+    /// Nodes carrying project-aware cache metadata.
+    pub metadata_nodes: Vec<String>,
+}
+
+impl ViewportCache {
+    /// Drops the computation cache and metadata.
+    ///
+    /// `compute_with` only prunes cache entries for absent nodes while computing,
+    /// so an empty pipeline (which never computes) would otherwise retain both maps
+    /// from its last non-empty state indefinitely.
+    fn clear(&mut self) {
+        *self.cache.lock().unwrap() = ComputationCache::default();
+        self.metadata = None;
+    }
+
+    /// Returns the current cache occupancy.
+    #[must_use]
+    #[expect(clippy::missing_panics_doc, reason = "only panics with poisoned lock")]
+    pub fn stats(&self) -> ViewportCacheStats {
+        ViewportCacheStats {
+            computation_entries: self.cache.lock().unwrap().len(),
+            metadata_nodes: self
+                .metadata
+                .as_ref()
+                .map_or_else(Vec::new, |m| m.keys().cloned().collect()),
+        }
+    }
 }
 
 #[derive(Default, Debug)]
@@ -380,13 +414,27 @@ fn initialize_access_tracking(
     access_recorders
 }
 
-fn update_cache_metadata(metadata: &mut CacheMetadata, access_recorders: &AccessRecorders) {
+fn update_cache_metadata(
+    metadata: &mut CacheMetadata,
+    access_recorders: &AccessRecorders,
+    active_node_names: Option<&HashSet<String>>,
+) {
     let access_recorders = std::mem::take(&mut *(access_recorders.lock().unwrap()));
     // Freeze and collect all access recorder data.
     let mut access_data: BTreeMap<_, _> = access_recorders
         .into_iter()
         .map(|(node_name, (recorder, version))| (node_name, (recorder.freeze(), version)))
         .collect();
+
+    // Drop metadata for nodes no longer in the graph.
+    if let Some(active_nodes) = active_node_names {
+        // Pipeline nodes: explicit list, independent of ProjectState usage.
+        metadata.retain(|node_name, _| active_nodes.contains(node_name));
+    } else {
+        // Scene graph nodes: access_data holds every node tracked this computation,
+        // so anything missing was removed. Metadata only ever holds tracked nodes.
+        metadata.retain(|node_name, _| access_data.contains_key(node_name));
+    }
 
     // Update metadata for nodes that already existed.
     for (node_name, (existing_validator, existing_version)) in metadata.iter_mut() {
@@ -640,6 +688,12 @@ impl ViewportPipeline {
         project_view_version: u64,
         cache: &mut ViewportCache,
     ) -> Result<SceneGraph, ExecuteError> {
+        // Empty pipeline never computes, so prune the stale cache eagerly.
+        if self.is_empty() {
+            cache.clear();
+            return Err(ExecuteError::EmptyPipeline);
+        }
+
         let mut cache_metadata = cache.metadata.take().unwrap_or_default();
         if let Some(prev_project_view) = &cache.prev_project_view {
             if cache.version != project_view_version {
@@ -678,7 +732,21 @@ impl ViewportPipeline {
         let mut cache_metadata =
             Arc::try_unwrap(cache_metadata).expect("we dropped ctx, which had the only other copy");
 
-        update_cache_metadata(&mut cache_metadata, &access_recorders);
+        // Collect active node names from the pipeline (both main nodes and cache nodes)
+        let active_node_names: HashSet<String> = self
+            .nodes
+            .iter()
+            .flat_map(|n| {
+                let cache_name = format!("{}_cache", n.node.node_name);
+                vec![n.node.node_name.clone(), cache_name]
+            })
+            .collect();
+
+        update_cache_metadata(
+            &mut cache_metadata,
+            &access_recorders,
+            Some(&active_node_names),
+        );
 
         cache.metadata = Some(cache_metadata);
 
@@ -746,7 +814,7 @@ impl ViewportPipeline {
         let mut cache_metadata =
             Arc::try_unwrap(cache_metadata).expect("we dropped ctx, which had the only other copy");
 
-        update_cache_metadata(&mut cache_metadata, &access_recorders);
+        update_cache_metadata(&mut cache_metadata, &access_recorders, None);
 
         state.scenegraph_cache.metadata = Some(cache_metadata);
 
@@ -817,7 +885,7 @@ impl ViewportPipeline {
         let mut cache_metadata =
             Arc::try_unwrap(cache_metadata).expect("we dropped ctx, which had the only other copy");
 
-        update_cache_metadata(&mut cache_metadata, &access_recorders);
+        update_cache_metadata(&mut cache_metadata, &access_recorders, None);
 
         state.scenegraph_cache.metadata = Some(cache_metadata);
 

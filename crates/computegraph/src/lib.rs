@@ -810,6 +810,18 @@ impl ComputationCache {
     pub fn new() -> Self {
         Self::default()
     }
+
+    /// Number of nodes holding a cached output.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.node.len()
+    }
+
+    /// Returns `true` if no node output is cached.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.node.is_empty()
+    }
 }
 
 /// Options to customize [`ComputeGraph::compute_with`].
