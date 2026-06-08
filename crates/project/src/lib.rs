@@ -162,8 +162,6 @@ mod project;
 mod tracked;
 mod user;
 
-use branch::BranchId;
-use checkpoint::CheckpointId;
 use document::Document;
 use log::{error, warn};
 use module_data::{
@@ -174,9 +172,10 @@ use serde::de::DeserializeSeed;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
-use user::SessionId;
 
 // Public reexports
+pub use branch::BranchId;
+pub use checkpoint::CheckpointId;
 pub use data::DataId;
 pub use data::DataView;
 pub use data::PlannedData;
@@ -191,6 +190,7 @@ pub use tracked::CacheValidator;
 pub use tracked::TrackedDataView;
 pub use tracked::TrackedDocumentView;
 pub use tracked::TrackedProjectView;
+pub use user::SessionId;
 pub use user::UserId;
 
 /// Facilitates the deserialization of a [`Project`] from a serialized format.

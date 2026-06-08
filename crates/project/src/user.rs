@@ -51,6 +51,7 @@ impl SessionId {
     ///
     /// Before use, this must first be registered in [`crate::ProjectLogEntry::NewSession`].
     #[must_use]
+    #[allow(clippy::new_without_default, reason = "SessionId must be registered before use; no sensible default")]
     pub fn new() -> Self {
         Self(Uuid::new_v4())
     }
