@@ -620,6 +620,25 @@ impl Project {
         self.session = None;
     }
 
+    /// Current branch this replica is editing on.
+    #[must_use]
+    pub const fn current_branch(&self) -> BranchId {
+        self.branch
+    }
+
+    /// Current session id, if a session has been allocated by `apply_changes`.
+    #[must_use]
+    pub const fn current_session(&self) -> Option<SessionId> {
+        self.session
+    }
+
+    /// Locally switch to `branch`. Does not touch the log; future
+    /// `NewSession` entries tag with the new branch.
+    pub fn switch_branch(&mut self, branch: BranchId) {
+        self.branch = branch;
+        self.reset_session();
+    }
+
     /// Apply the changes recorded using the [`ChangeBuilder`] to this project.
     ///
     /// After applying the changes, use [`Project::create_view`] to see the new state
