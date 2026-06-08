@@ -158,12 +158,13 @@ mod checkpoint;
 mod data;
 mod document;
 mod module_data;
+mod oplog;
 mod project;
 mod tracked;
 mod user;
 
 use document::Document;
-use log::{error, warn};
+use log::error;
 use module_data::{
     ErasedDataTransactionArgs, ErasedSessionData, ErasedSessionDataTransactionArgs,
     ErasedSharedDataTransactionArgs, ErasedUserDataTransactionArgs, ModuleId, MODULE_REGISTRY,
@@ -184,6 +185,7 @@ pub use document::DocumentView;
 pub use document::Path;
 pub use document::PlannedDocument;
 pub use module_data::ModuleRegistry;
+pub use oplog::{LogEntry, LogPayload};
 pub use project::ProjectView;
 pub use tracked::AccessRecorder;
 pub use tracked::CacheValidator;
