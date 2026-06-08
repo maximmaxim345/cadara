@@ -4,7 +4,7 @@
 
 use crate::branch::BranchId;
 use crate::oplog::{LogEntry, LogPayload};
-use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, VecDeque};
 
 /// Walk a session's entries (already lamport-sorted) and return the indices
 /// (into `entries`) whose effect is currently active.
@@ -56,27 +56,40 @@ pub fn op_is_visible(
     if op_branch == view_branch {
         return true;
     }
-    // BFS from view_branch over reverse-merge edges. Every hop
-    // along the chain must satisfy op_lamport < merge_lamport (the op was
-    // already on the source branch when that merge happened) AND
-    // merge_lamport <= as_of. The hop ending at op_branch is the one that
-    // imports the op.
-    let mut frontier: VecDeque<BranchId> = VecDeque::new();
-    frontier.push_back(view_branch);
-    let mut seen: HashSet<BranchId> = HashSet::new();
-    seen.insert(view_branch);
+    // BFS over reverse-merge edges starting from view_branch. Each BFS state
+    // carries the branch and an upper bound on the next hop's lamport: the
+    // lamport of the merge that landed us on this branch. The first hop is
+    // bounded by `as_of + 1`, so the gate `merge_lamport < upper_bound` plus
+    // `merge_lamport <= as_of` collapse into a single comparison.
+    //
+    // The op must already be present on each source branch at the moment the
+    // merge ran, so we also gate `op_lamport < merge_lamport` at every hop.
+    // The last hop imports the op when `from == op_branch`.
+    let initial_bound = as_of.saturating_add(1);
+    let mut frontier: VecDeque<(BranchId, u64)> = VecDeque::new();
+    frontier.push_back((view_branch, initial_bound));
+    // Track the highest upper bound each branch has been visited with. A new
+    // visit is only worth enqueuing if it raises that bound, since a larger
+    // bound strictly expands the set of merges reachable from there.
+    let mut best_bound: HashMap<BranchId, u64> = HashMap::new();
+    best_bound.insert(view_branch, initial_bound);
 
-    while let Some(branch) = frontier.pop_front() {
+    while let Some((branch, upper_bound)) = frontier.pop_front() {
         if let Some(merges) = live_merges_by_into.get(&branch) {
             for &(from, merge_lamport) in merges {
-                if merge_lamport > as_of || op_lamport >= merge_lamport {
+                if merge_lamport >= upper_bound {
+                    continue;
+                }
+                if op_lamport >= merge_lamport {
                     continue;
                 }
                 if from == op_branch {
                     return true;
                 }
-                if seen.insert(from) {
-                    frontier.push_back(from);
+                let prev = best_bound.get(&from).copied().unwrap_or(0);
+                if merge_lamport > prev {
+                    best_bound.insert(from, merge_lamport);
+                    frontier.push_back((from, merge_lamport));
                 }
             }
         }

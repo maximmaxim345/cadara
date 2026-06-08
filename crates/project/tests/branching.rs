@@ -203,3 +203,63 @@ fn undo_of_merge_branch_hides_imported_ops() {
     project.apply_changes(cb, &reg).unwrap();
     assert_eq!(read_num(&project, &reg, main, data_id), 9);
 }
+
+#[test]
+fn multi_hop_merge_respects_per_hop_snapshot_order() {
+    let (mut project, reg) = fresh_project();
+    let main = project.current_branch();
+    let feature = BranchId::new();
+    let hot = BranchId::new();
+
+    // Setup: one document with one data on main.
+    let mut cb = ChangeBuilder::from(&project);
+    let view = project.create_view(&reg).unwrap();
+    let doc = *view.create_document(&mut cb, "/d".try_into().unwrap());
+    project.apply_changes(cb, &reg).unwrap();
+
+    let mut cb = ChangeBuilder::from(&project);
+    let view = project.create_view(&reg).unwrap();
+    let data_id = *view
+        .open_document(doc)
+        .unwrap()
+        .create_data::<MinimalTestModule>(&mut cb);
+    project.apply_changes(cb, &reg).unwrap();
+
+    // Bring main's setup into feature and hot so each branch has the data.
+    project.switch_branch(feature);
+    let mut cb = ChangeBuilder::from(&project);
+    cb.merge_branch(main, feature);
+    project.apply_changes(cb, &reg).unwrap();
+
+    project.switch_branch(hot);
+    let mut cb = ChangeBuilder::from(&project);
+    cb.merge_branch(main, hot);
+    project.apply_changes(cb, &reg).unwrap();
+
+    // hot edits the data.
+    let mut cb = ChangeBuilder::from(&project);
+    let view = project.create_view(&reg).unwrap();
+    view.open_data_by_id::<MinimalTestModule>(data_id)
+        .unwrap()
+        .apply_persistent(42, &mut cb);
+    project.apply_changes(cb, &reg).unwrap();
+
+    // Merge feature -> main FIRST (feature has no edits from hot yet).
+    project.switch_branch(main);
+    let mut cb = ChangeBuilder::from(&project);
+    cb.merge_branch(feature, main);
+    project.apply_changes(cb, &reg).unwrap();
+
+    // Then merge hot -> feature (introducing hot's edit into feature).
+    project.switch_branch(feature);
+    let mut cb = ChangeBuilder::from(&project);
+    cb.merge_branch(hot, feature);
+    project.apply_changes(cb, &reg).unwrap();
+
+    // Main should still see the default value: hot's edit got into feature
+    // AFTER feature was merged into main, so main never absorbed it.
+    assert_eq!(read_num(&project, &reg, main, data_id), 0);
+
+    // Feature should see hot's edit, since hot was merged into feature last.
+    assert_eq!(read_num(&project, &reg, feature, data_id), 42);
+}
