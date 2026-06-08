@@ -60,3 +60,51 @@ fn test_deserialize_unknown_module_json() {
     let deserializer = &mut serde_json::Deserializer::from_str(&json);
     assert!(seed.deserialize(deserializer).is_err());
 }
+
+#[test]
+fn project_with_undo_redo_mergebranch_round_trips() {
+    let mut reg = ModuleRegistry::new();
+    reg.register::<MinimalTestModule>();
+    let mut project = Project::new();
+
+    let mut cb = ChangeBuilder::from(&project);
+    let view = project.create_view(&reg).unwrap();
+    let doc = *view.create_document(&mut cb, "/d".try_into().unwrap());
+    project.apply_changes(cb, &reg).unwrap();
+
+    let mut cb = ChangeBuilder::from(&project);
+    let view = project.create_view(&reg).unwrap();
+    let data_id = *view
+        .open_document(doc)
+        .unwrap()
+        .create_data::<MinimalTestModule>(&mut cb);
+    project.apply_changes(cb, &reg).unwrap();
+
+    let mut cb = ChangeBuilder::from(&project);
+    let view = project.create_view(&reg).unwrap();
+    view.open_data_by_id::<MinimalTestModule>(data_id)
+        .unwrap()
+        .apply_persistent(7, &mut cb);
+    cb.undo();
+    cb.redo();
+    cb.merge_branch(BranchId::new(), project.current_branch());
+    project.apply_changes(cb, &reg).unwrap();
+
+    let json = serde_json::to_string(&project).unwrap();
+    let seed = ProjectDeserializer { registry: &reg };
+    let deserializer = &mut serde_json::Deserializer::from_str(&json);
+    let round_tripped = seed.deserialize(deserializer).unwrap();
+
+    let a = project.create_view(&reg).unwrap();
+    let b = round_tripped.create_view(&reg).unwrap();
+    assert_eq!(
+        a.open_data_by_id::<MinimalTestModule>(data_id)
+            .unwrap()
+            .persistent
+            .num,
+        b.open_data_by_id::<MinimalTestModule>(data_id)
+            .unwrap()
+            .persistent
+            .num,
+    );
+}
