@@ -42,6 +42,10 @@ pub enum LogPayload {
     /// the log before any other entry referring to its `SessionId`.
     NewSession { user: UserId, branch: BranchId },
     /// Named position in the log. Display/audit only.
+    // Future: rich metadata (title, description, author note) could live in a
+    // dedicated `CheckpointModule` whose persistent data is a
+    // `HashMap<CheckpointId, CheckpointInfo>`, matching the existing module
+    // pattern. The id stays opaque; modules attach the rest.
     Checkpoint(CheckpointId),
     /// Declare a one-shot snapshot import of `from` into `into`. Undoable.
     MergeBranch { from: BranchId, into: BranchId },
