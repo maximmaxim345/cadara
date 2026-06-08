@@ -157,6 +157,7 @@ mod branch;
 mod checkpoint;
 mod data;
 mod document;
+mod merge;
 mod module_data;
 mod oplog;
 mod project;
@@ -175,6 +176,7 @@ use std::fmt::Debug;
 
 // Public reexports
 pub use branch::BranchId;
+pub use merge::MergeError;
 pub use checkpoint::CheckpointId;
 pub use data::DataId;
 pub use data::DataView;
