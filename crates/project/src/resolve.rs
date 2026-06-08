@@ -1,4 +1,6 @@
-//! Pure resolvers for Layers 1 and 2 of the CRDT design.
+//! Pure resolvers for layers 1 and 2 of the project's CRDT architecture.
+//!
+//! See the crate-level docs for what the layers are.
 
 use crate::branch::BranchId;
 use crate::oplog::{LogEntry, LogPayload};
@@ -6,6 +8,11 @@ use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 
 /// Walk a session's entries (already lamport-sorted) and return the indices
 /// (into `entries`) whose effect is currently active.
+///
+/// Undo and Redo are inherently scoped to the issuing session: this function
+/// receives only one session's entries, so an `Undo` entry can only target
+/// `Changes` or `MergeBranch` entries from the same session. Multi-user safety
+/// (one user's undo can't touch another's edits) follows for free.
 ///
 /// Only `Changes` and `MergeBranch` payloads occupy the active/redo
 /// bookkeeping. `Undo` and `Redo` mutate that bookkeeping. Other payloads
@@ -49,7 +56,7 @@ pub fn op_is_visible(
     if op_branch == view_branch {
         return true;
     }
-    // BFS from view_branch over reverse-merge edges. Per the spec, EVERY hop
+    // BFS from view_branch over reverse-merge edges. Every hop
     // along the chain must satisfy op_lamport < merge_lamport (the op was
     // already on the source branch when that merge happened) AND
     // merge_lamport <= as_of. The hop ending at op_branch is the one that

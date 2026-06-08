@@ -32,6 +32,26 @@
 //!   undo/redo.
 //! - **[`TrackedProjectView`]:** A tracked version of a [`ProjectView`] allowing implicit dependency tracking
 //!
+//! ## CRDT Architecture
+//!
+//! The project's log is structured in three layers:
+//!
+//! 1. **Convergent op log.** [`Project`] holds a [`Vec<LogEntry>`](LogEntry),
+//!    where each entry carries a totally-ordered `(lamport, session)` key.
+//!    Two replicas that have seen the same set of entries produce identical
+//!    state after sort, regardless of merge order. [`Project::merge_remote`]
+//!    is the convergence primitive.
+//! 2. **Resolved op stream.** A pure function of layer 1: walks each session's
+//!    entries in lamport order, applying its `Undo`/`Redo` entries to figure
+//!    out which of its `Changes` and `MergeBranch` entries are currently
+//!    "active", and filters by branch visibility. No public type; lives inside
+//!    [`Project::create_view_at`].
+//! 3. **Materialized view.** [`ProjectView`], built by replaying the resolved
+//!    stream through [`module::DataSection::apply`].
+//!
+//! Each layer is a pure function over the layer below; views are recomputed
+//! on demand and cached by callers (see [`TrackedProjectView`]).
+//!
 //! ## Usage
 //!
 //! 1. **Create a new `Project`:**
