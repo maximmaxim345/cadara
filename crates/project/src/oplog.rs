@@ -4,10 +4,6 @@
 //! Replicas that have seen the same set of entries produce identical
 //! `Vec<LogEntry>` after sort by `(lamport, session)`.
 
-// Transitional: types in this file are consumed starting in the schema-migration task.
-#![allow(dead_code)]
-#![allow(clippy::redundant_pub_crate)]
-
 use crate::branch::BranchId;
 use crate::checkpoint::CheckpointId;
 use crate::module_data::{
@@ -95,11 +91,18 @@ pub enum Change {
 ///
 /// `SessionTransaction` and `SharedTransaction` are applied to in-memory
 /// shared/session state at `apply_changes` time without going into the log.
+// Only used within this crate; pub(crate) is the right visibility but
+// clippy's redundant_pub_crate fires inside a private module.
+#[allow(clippy::redundant_pub_crate)]
 #[derive(Clone, Debug)]
 pub(crate) enum PendingChange {
     Change(Change),
+    // Wired up in a follow-up task; producers do not exist yet.
+    #[allow(dead_code)]
     Undo,
+    #[allow(dead_code)]
     Redo,
+    #[allow(dead_code)]
     MergeBranch { from: BranchId, into: BranchId },
     SessionTransaction {
         id: DataId,

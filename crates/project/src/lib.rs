@@ -11,7 +11,7 @@
 //! - **Data Persistence:** Supports serialization and deserialization of `Project` data, ensuring that project information
 //!   can be saved and loaded reliably.
 //! - **Change Tracking and Version Control:** Implements a robust change tracking system based on a chronological log of
-//!   `ProjectLogEntry`. This enables features like:
+//!   `LogEntry`. This enables features like:
 //!     - Persistent undo/redo functionality.
 //!     - Git-like version control with branching and merging.
 //! - **Extensibility through Modules:** Allows users to define custom data types and behaviors by implementing the `module::Module`
@@ -165,10 +165,8 @@ mod user;
 
 use document::Document;
 use log::error;
-use module_data::{
-    ErasedDataTransactionArgs, ErasedSessionData, ErasedSessionDataTransactionArgs,
-    ErasedSharedDataTransactionArgs, ErasedUserDataTransactionArgs, ModuleId, MODULE_REGISTRY,
-};
+use module_data::{ErasedSessionData, ModuleId, MODULE_REGISTRY};
+use oplog::PendingChange;
 use serde::de::DeserializeSeed;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
@@ -185,7 +183,7 @@ pub use document::DocumentView;
 pub use document::Path;
 pub use document::PlannedDocument;
 pub use module_data::ModuleRegistry;
-pub use oplog::{LogEntry, LogPayload};
+pub use oplog::{Change, LogEntry, LogPayload};
 pub use project::ProjectView;
 pub use tracked::AccessRecorder;
 pub use tracked::CacheValidator;
@@ -231,26 +229,6 @@ where
     }
 }
 
-/// A single change to be applied to the [`Project`].
-#[derive(Clone, Debug)]
-enum PendingChange {
-    Change(Change),
-    SessionTransaction {
-        id: DataId,
-        /// Stores the [`module::DataSection::Args`] for [`module::Module::SessionData`].
-        ///
-        /// The [`module::Module`] is equal to in the last [`Change::CreateData`] with the same [`DataId`].
-        args: ErasedSessionDataTransactionArgs,
-    },
-    SharedTransaction {
-        id: DataId,
-        /// Stores the [`module::DataSection::Args`] for [`module::Module::SharedData`].
-        ///
-        /// The [`module::Module`] is equal to in the last [`Change::CreateData`] with the same [`DataId`].
-        args: ErasedSharedDataTransactionArgs,
-    },
-}
-
 /// Like [`Path`], but also allowing the Root folder
 #[derive(PartialEq, PartialOrd, Eq, Ord, Clone, Debug, Deserialize, Serialize)]
 pub enum FolderPath {
@@ -263,93 +241,6 @@ pub enum FolderTarget {
     Root,
     Path(Path),
     OneBack,
-}
-
-/// A single change persistently applied to the [`Project`].
-#[derive(Clone, Serialize, Deserialize, Debug)]
-enum Change {
-    CreateDocument {
-        id: DocumentId,
-        /// Path of the document as it will be shown to the user.
-        ///
-        /// In case a Document with the given `path` already exists,
-        /// this `path` will automatically be renamed with [`Path::increment_name_suffix`]
-        /// as many times as necessary to avoid duplicates.
-        path: Path,
-    },
-    /// This will delete the document and all data contained in it.
-    DeleteDocument(DocumentId),
-    // rename the document without changing its location.
-    RenameDocument {
-        id: DocumentId,
-        new_name: String,
-    },
-    // Move the document to another location, keeping its name.
-    MoveDocument {
-        id: DocumentId,
-        new_folder: FolderPath,
-    },
-    // All containing folders/documents to a new location.
-    MoveFolder {
-        old_path: Path,
-        new_path: FolderTarget,
-    },
-    CreateData {
-        id: DataId,
-        module: ModuleId,
-        owner: Option<DocumentId>,
-    },
-    DeleteData(DataId),
-    MoveData {
-        id: DataId,
-        new_owner: Option<DocumentId>,
-    },
-    Transaction {
-        // Id of the Data this Transaction should be applied to.
-        //
-        // If `id` does not exist yet or was deleted, this Transaction will be ignored.
-        id: DataId,
-        /// Stores the [`module::DataSection::Args`] for [`module::Module::PersistentData`].
-        ///
-        /// The [`module::Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
-        args: ErasedDataTransactionArgs,
-    },
-    UserTransaction {
-        // Id of the Data this Transaction should be applied to.
-        //
-        // If `id` does not exist yet or was deleted, this Transaction will be ignored.
-        id: DataId,
-        /// Stores the [`module::DataSection::Args`] for [`module::Module::PersistentUserData`].
-        ///
-        /// The [`module::Module`] is equal to in the last [`Self::CreateData`] with the same [`DataId`].
-        args: ErasedUserDataTransactionArgs,
-    },
-}
-
-/// Entry in the log stored in [`Project`]
-#[derive(Clone, Serialize, Deserialize, Debug)]
-// TODO: add data for Ord
-enum ProjectLogEntry {
-    Changes {
-        session: SessionId,
-        changes: Vec<Change>,
-    },
-    /// Tells that the a [`Self::Changes`] before this entry (with the same [`SessionId`]) should be ignored
-    Undo { session: SessionId },
-    /// Tells that a [`Self::Undo`] before this entry (with the same [`SessionId`]) should be ignored
-    Redo { session: SessionId },
-    /// Registers a new [`SessionId`] to associate it with editing of the given user.
-    ///
-    /// All sessions happening on the same branch must also be registered with the same [`BranchId`].
-    ///
-    /// Any in [`Project::log`] used [`SessionId`] must be previously registered using this entry.
-    NewSession {
-        user: UserId,
-        branch: BranchId,
-        new_session: SessionId,
-    },
-    /// Add a named identifier to this position in the [`Project::log`].
-    CheckPoint(CheckpointId),
 }
 
 /// Record changes to be applied to a [`Project`].
@@ -511,7 +402,7 @@ pub struct Project {
     lamport_clock: u64,
     /// Chronological list of entries required to rebuild the entire [`ProjectView`] excluding
     /// shared and session data
-    log: Vec<ProjectLogEntry>,
+    log: Vec<LogEntry>,
     /// [`HashMap`] with all [`module::Module::SharedData`] (of this user) in this project.
     #[serde(skip)]
     shared_data: HashMap<DataId, module_data::ErasedSharedData>,
@@ -587,11 +478,11 @@ impl Project {
     pub fn create_view(&self, reg: &ModuleRegistry) -> Result<ProjectView, ProjectViewError> {
         let mut data = HashMap::new();
         let mut documents = HashMap::new();
-        let mut sessions = HashMap::new();
+        let mut sessions: HashMap<SessionId, UserId> = HashMap::new();
 
-        for log_entry in &self.log {
-            match log_entry {
-                ProjectLogEntry::Changes { session, changes } => {
+        for entry in &self.log {
+            match &entry.payload {
+                LogPayload::Changes(changes) => {
                     for change in changes {
                         apply_change(
                             change,
@@ -599,22 +490,18 @@ impl Project {
                             &mut documents,
                             &sessions,
                             self.user,
-                            *session,
+                            entry.session,
                             reg,
                         )?;
                     }
                 }
-                // TODO: implement and Test undo/redo
-                ProjectLogEntry::Undo { session: _ } => todo!("undo/redo is not supported yet"),
-                ProjectLogEntry::Redo { session: _ } => todo!("undo/redo is not supported yet"),
-                ProjectLogEntry::NewSession {
-                    user,
-                    new_session,
-                    branch: _,
-                } => {
-                    sessions.insert(*new_session, *user);
+                LogPayload::NewSession { user, .. } => {
+                    sessions.insert(entry.session, *user);
                 }
-                ProjectLogEntry::CheckPoint(_) => {}
+                LogPayload::Checkpoint(_)
+                | LogPayload::Undo
+                | LogPayload::Redo
+                | LogPayload::MergeBranch { .. } => {}
             }
         }
 
@@ -694,102 +581,97 @@ impl Project {
         // Technically the project could change in the meantime by other ChangeBuilders,
         // but due to multi-user support, we nevertheless need to support that.
 
-        let session = *self.session.get_or_insert_with(|| {
-            let new_session = SessionId::new();
-            self.log.push(ProjectLogEntry::NewSession {
-                user: self.user,
-                branch: self.branch,
-                new_session,
-            });
-            new_session
-        });
-
-        // Verify all changes first
+        // Verify all module references first.
         for change in &cb.changes {
-            match change {
-                PendingChange::Change(c) => match c {
-                    Change::CreateDocument { id: _, path: _ }
-                    | Change::DeleteDocument(_)
-                    | Change::RenameDocument { id: _, new_name: _ }
-                    | Change::MoveDocument {
-                        id: _,
-                        new_folder: _,
-                    }
-                    | Change::MoveFolder {
-                        old_path: _,
-                        new_path: _,
-                    }
-                    | Change::DeleteData(_)
-                    | Change::MoveData {
-                        id: _,
-                        new_owner: _,
-                    } => {}
-                    Change::CreateData {
-                        id: _,
-                        module,
-                        owner: _,
-                    } => {
-                        if !reg.0.contains_key(module) {
-                            return Err(ApplyError::UnknownModule(*module));
-                        }
-                    }
-                    Change::Transaction { id: _, args } => {
-                        if !reg.0.contains_key(&args.module) {
-                            return Err(ApplyError::UnknownModule(args.module));
-                        }
-                    }
-                    Change::UserTransaction { id: _, args } => {
-                        if !reg.0.contains_key(&args.module) {
-                            return Err(ApplyError::UnknownModule(args.module));
-                        }
-                    }
-                },
-                PendingChange::SessionTransaction { id: _, args } => {
-                    if !reg.0.contains_key(&args.module) {
-                        return Err(ApplyError::UnknownModule(args.module));
+            let module = match change {
+                PendingChange::Change(Change::CreateData { module, .. }) => Some(*module),
+                PendingChange::Change(Change::Transaction { args, .. }) => Some(args.module),
+                PendingChange::Change(Change::UserTransaction { args, .. }) => Some(args.module),
+                PendingChange::SessionTransaction { args, .. } => Some(args.module),
+                PendingChange::SharedTransaction { args, .. } => Some(args.module),
+                _ => None,
+            };
+            if let Some(module) = module {
+                if !reg.0.contains_key(&module) {
+                    return Err(ApplyError::UnknownModule(module));
+                }
+            }
+        }
+
+        let session = self.ensure_session();
+
+        let mut grouped: Vec<Change> = Vec::new();
+        let mut tail_payloads: Vec<LogPayload> = Vec::new();
+
+        for pc in cb.changes {
+            match pc {
+                PendingChange::Change(c) => grouped.push(c),
+                PendingChange::Undo => tail_payloads.push(LogPayload::Undo),
+                PendingChange::Redo => tail_payloads.push(LogPayload::Redo),
+                PendingChange::MergeBranch { from, into } => {
+                    tail_payloads.push(LogPayload::MergeBranch { from, into });
+                }
+                PendingChange::SessionTransaction { id, args } => {
+                    let entry = reg.0.get(&args.module).expect("already checked above");
+                    let data = self
+                        .session_data
+                        .entry(id)
+                        .or_insert_with(|| (entry.init_session_data)());
+                    if let Err(err) = (entry.apply_session_data_transaction)(data, &args) {
+                        error!("Failed to apply SessionData Transaction: {err}");
                     }
                 }
-                PendingChange::SharedTransaction { id: _, args } => {
-                    if !reg.0.contains_key(&args.module) {
-                        return Err(ApplyError::UnknownModule(args.module));
+                PendingChange::SharedTransaction { id, args } => {
+                    let entry = reg.0.get(&args.module).expect("already checked above");
+                    let data = self
+                        .shared_data
+                        .entry(id)
+                        .or_insert_with(|| (entry.init_shared_data)());
+                    if let Err(err) = (entry.apply_shared_data_transaction)(data, &args) {
+                        error!("Failed to apply SharedData Transaction: {err}");
                     }
                 }
             }
         }
 
-        // Now apply the changes
-        let changes = cb
-            .changes
-            .into_iter()
-            .filter_map(|change| match change {
-                PendingChange::Change(change) => Some(change),
-                PendingChange::SessionTransaction { id, args } => {
-                    let reg = reg.0.get(&args.module).expect("already checked above");
-                    let data = self
-                        .session_data
-                        .entry(id)
-                        .or_insert_with(|| (reg.init_session_data)());
-                    if let Err(err) = (reg.apply_session_data_transaction)(data, &args) {
-                        error!("Failed to apply SessionData Transaction: {err}");
-                    }
-                    None
-                }
-                PendingChange::SharedTransaction { id, args } => {
-                    let reg = reg.0.get(&args.module).expect("already checked above");
-                    let data = self
-                        .shared_data
-                        .entry(id)
-                        .or_insert_with(|| (reg.init_shared_data)());
-                    if let Err(err) = (reg.apply_shared_data_transaction)(data, &args) {
-                        error!("Failed to apply SharedData Transaction: {err}");
-                    }
-                    None
-                }
-            })
-            .collect();
+        if !grouped.is_empty() {
+            let head = self.new_entry(session, LogPayload::Changes(grouped));
+            self.log.push(head);
+        }
+        for payload in tail_payloads {
+            let entry = self.new_entry(session, payload);
+            self.log.push(entry);
+        }
 
-        self.log.push(ProjectLogEntry::Changes { session, changes });
         Ok(())
+    }
+
+    fn ensure_session(&mut self) -> SessionId {
+        if let Some(s) = self.session {
+            return s;
+        }
+        let new_session = SessionId::new();
+        let entry = self.new_entry(
+            new_session,
+            LogPayload::NewSession {
+                user: self.user,
+                branch: self.branch,
+            },
+        );
+        self.log.push(entry);
+        self.session = Some(new_session);
+        new_session
+    }
+
+    fn new_entry(&mut self, session: SessionId, payload: LogPayload) -> LogEntry {
+        let lamport = self.lamport_clock;
+        self.lamport_clock += 1;
+        LogEntry {
+            lamport,
+            session,
+            wall_clock: Some(std::time::SystemTime::now()),
+            payload,
+        }
     }
 }
 
