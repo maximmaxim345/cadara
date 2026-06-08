@@ -619,6 +619,25 @@ impl Project {
         Self::default()
     }
 
+    /// Fork a second in-memory replica that shares this project's uuid and
+    /// log snapshot, but starts with a fresh user and no session.
+    ///
+    /// For multi-user test fixtures only. Real replicas come from disk or sync.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn clone_for_test_replica(&self) -> Self {
+        Self {
+            user: UserId::new(),
+            session: None,
+            branch: self.branch,
+            lamport_clock: self.lamport_clock,
+            log: self.log.clone(),
+            shared_data: HashMap::new(),
+            session_data: HashMap::new(),
+            uuid: self.uuid,
+        }
+    }
+
     /// Start a fresh session for subsequent changes.
     ///
     /// Call this before a new editing context (new device or new test scope) so
