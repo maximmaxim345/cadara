@@ -608,15 +608,21 @@ impl Project {
         Self::default()
     }
 
-    /// Fork a second in-memory replica that shares this project's uuid and
-    /// log snapshot, but starts with a fresh user and no session.
+    /// Fork a new replica from this project, suitable for editing on another
+    /// device or under a different user identity.
     ///
-    /// For multi-user test fixtures only. Real replicas come from disk or sync.
-    #[doc(hidden)]
+    /// The fork shares this project's `uuid` and full log snapshot, but starts
+    /// with no active session. The next `apply_changes` on the fork opens a
+    /// fresh session for `user`. Shared and session data (which are per-replica
+    /// in-memory state) are NOT carried over.
+    ///
+    /// The shared `uuid` is load-bearing: [`Project::merge_remote`] requires
+    /// the two replicas to agree on it, so only replicas produced via
+    /// `fork_replica` (or round-tripped through serde) can be merged back.
     #[must_use]
-    pub fn clone_for_test_replica(&self) -> Self {
+    pub fn fork_replica(&self, user: UserId) -> Self {
         Self {
-            user: UserId::new(),
+            user,
             session: None,
             branch: self.branch,
             lamport_clock: self.lamport_clock,

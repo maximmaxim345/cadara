@@ -1,7 +1,7 @@
 mod common;
 
 use common::*;
-use project::{ChangeBuilder, ModuleRegistry, Project};
+use project::{ChangeBuilder, ModuleRegistry, Project, UserId};
 
 fn setup() -> (Project, project::DataId, ModuleRegistry) {
     let mut reg = ModuleRegistry::new();
@@ -45,8 +45,8 @@ fn edit(p: &mut Project, reg: &ModuleRegistry, data_id: project::DataId, val: i3
 #[test]
 fn three_replicas_in_cycle_all_converge() {
     let (mut a, data_id, reg) = setup();
-    let mut b = a.clone_for_test_replica();
-    let mut c = a.clone_for_test_replica();
+    let mut b = a.fork_replica(UserId::new());
+    let mut c = a.fork_replica(UserId::new());
 
     edit(&mut a, &reg, data_id, 1);
     edit(&mut b, &reg, data_id, 2);
@@ -73,7 +73,7 @@ fn concurrent_edits_lww_by_lamport_session() {
     // otherwise b's mandatory NewSession bumps its edit's lamport above a's,
     // and the (lamport, session_id) tiebreaker never engages.
     a.reset_session();
-    let mut b = a.clone_for_test_replica();
+    let mut b = a.fork_replica(UserId::new());
 
     edit(&mut a, &reg, data_id, 100);
     edit(&mut b, &reg, data_id, 200);
@@ -102,7 +102,7 @@ fn concurrent_edits_lww_by_lamport_session() {
 #[test]
 fn session_a_undo_does_not_affect_session_b() {
     let (mut a, data_id, reg) = setup();
-    let mut b = a.clone_for_test_replica();
+    let mut b = a.fork_replica(UserId::new());
 
     edit(&mut a, &reg, data_id, 5);
     edit(&mut b, &reg, data_id, 9);

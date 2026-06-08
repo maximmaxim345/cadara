@@ -1,7 +1,7 @@
 mod common;
 
 use common::*;
-use project::{ChangeBuilder, ModuleRegistry, Project};
+use project::{ChangeBuilder, ModuleRegistry, Project, UserId};
 
 /// Reach into the serialized log to inspect lamport values.
 ///
@@ -55,7 +55,7 @@ fn merge_remote_advances_clock_past_max_remote_lamport() {
     a.apply_changes(cb, &reg).unwrap();
 
     // Fork.
-    let mut b = a.clone_for_test_replica();
+    let mut b = a.fork_replica(UserId::new());
 
     // B advances its clock by applying many local ops.
     for i in 0..10 {
