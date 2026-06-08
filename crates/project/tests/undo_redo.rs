@@ -30,17 +30,18 @@ fn run_sequence(seq: &[i32]) -> i32 {
     project.reset_session();
 
     for &v in seq {
-        let mut cb = ChangeBuilder::from(&project);
-        let view = project.create_view(&reg).unwrap();
         match v {
-            0 => cb.undo(),
-            -1 => cb.redo(),
-            n => view
-                .open_data_by_id::<MinimalTestModule>(data_id)
-                .unwrap()
-                .apply_persistent(n, &mut cb),
+            0 => project.undo(),
+            -1 => project.redo(),
+            n => {
+                let mut cb = ChangeBuilder::from(&project);
+                let view = project.create_view(&reg).unwrap();
+                view.open_data_by_id::<MinimalTestModule>(data_id)
+                    .unwrap()
+                    .apply_persistent(n, &mut cb);
+                project.apply_changes(cb, &reg).unwrap();
+            }
         }
-        project.apply_changes(cb, &reg).unwrap();
     }
 
     let view = project.create_view(&reg).unwrap();

@@ -85,10 +85,10 @@ fn project_with_undo_redo_mergebranch_round_trips() {
     view.open_data_by_id::<MinimalTestModule>(data_id)
         .unwrap()
         .apply_persistent(7, &mut cb);
-    cb.undo();
-    cb.redo();
-    cb.merge_branch(BranchId::new(), project.current_branch());
     project.apply_changes(cb, &reg).unwrap();
+    project.undo();
+    project.redo();
+    project.merge_branch(BranchId::new(), project.current_branch());
 
     let json = serde_json::to_string(&project).unwrap();
     let seed = ProjectDeserializer { registry: &reg };

@@ -101,12 +101,6 @@ pub enum Change {
 #[derive(Clone, Debug)]
 pub(crate) enum PendingChange {
     Change(Change),
-    Undo,
-    Redo,
-    MergeBranch {
-        from: BranchId,
-        into: BranchId,
-    },
     SessionTransaction {
         id: DataId,
         args: ErasedSessionDataTransactionArgs,

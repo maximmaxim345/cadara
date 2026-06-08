@@ -372,22 +372,6 @@ impl ChangeBuilder {
             Ok(())
         }
     }
-
-    /// Record an `Undo` for the current session. Resolved at `create_view`.
-    pub fn undo(&mut self) {
-        self.changes.push(PendingChange::Undo);
-    }
-
-    /// Record a `Redo` for the current session. Resolved at `create_view`.
-    pub fn redo(&mut self) {
-        self.changes.push(PendingChange::Redo);
-    }
-
-    /// Record a one-shot snapshot merge from `from` into `into`.
-    /// Undoable like any other session-scoped op.
-    pub fn merge_branch(&mut self, from: BranchId, into: BranchId) {
-        self.changes.push(PendingChange::MergeBranch { from, into });
-    }
 }
 
 /// Project in the `CADara` application.
@@ -717,7 +701,7 @@ impl Project {
                 PendingChange::Change(Change::UserTransaction { args, .. }) => Some(args.module),
                 PendingChange::SessionTransaction { args, .. } => Some(args.module),
                 PendingChange::SharedTransaction { args, .. } => Some(args.module),
-                _ => None,
+                PendingChange::Change(_) => None,
             };
             if let Some(module) = module {
                 if !reg.0.contains_key(&module) {
@@ -729,16 +713,9 @@ impl Project {
         let session = self.ensure_session();
 
         let mut grouped: Vec<Change> = Vec::new();
-        let mut tail_payloads: Vec<LogPayload> = Vec::new();
-
         for pc in cb.changes {
             match pc {
                 PendingChange::Change(c) => grouped.push(c),
-                PendingChange::Undo => tail_payloads.push(LogPayload::Undo),
-                PendingChange::Redo => tail_payloads.push(LogPayload::Redo),
-                PendingChange::MergeBranch { from, into } => {
-                    tail_payloads.push(LogPayload::MergeBranch { from, into });
-                }
                 PendingChange::SessionTransaction { id, args } => {
                     let entry = reg.0.get(&args.module).expect("already checked above");
                     let data = self
@@ -766,12 +743,39 @@ impl Project {
             let head = self.new_entry(session, LogPayload::Changes(grouped));
             self.log.push(head);
         }
-        for payload in tail_payloads {
-            let entry = self.new_entry(session, payload);
-            self.log.push(entry);
-        }
 
         Ok(())
+    }
+
+    /// Record an `Undo` for the current session.
+    ///
+    /// Cancels the most recent live `Changes` or `MergeBranch` entry emitted by
+    /// this session, per the spec's per-session undo/redo algorithm. Has no
+    /// effect on other sessions' entries.
+    pub fn undo(&mut self) {
+        let session = self.ensure_session();
+        let entry = self.new_entry(session, LogPayload::Undo);
+        self.log.push(entry);
+    }
+
+    /// Record a `Redo` for the current session.
+    ///
+    /// Restores the most recently undone entry by this session (LIFO from the
+    /// per-session redo buffer).
+    pub fn redo(&mut self) {
+        let session = self.ensure_session();
+        let entry = self.new_entry(session, LogPayload::Redo);
+        self.log.push(entry);
+    }
+
+    /// Record a snapshot-import merge of `from` into `into`.
+    ///
+    /// Undoable like any other session-scoped op. See the spec's visibility
+    /// rule for what becomes visible from `into` after this merge.
+    pub fn merge_branch(&mut self, from: BranchId, into: BranchId) {
+        let session = self.ensure_session();
+        let entry = self.new_entry(session, LogPayload::MergeBranch { from, into });
+        self.log.push(entry);
     }
 
     fn ensure_session(&mut self) -> SessionId {

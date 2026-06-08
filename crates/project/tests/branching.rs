@@ -45,9 +45,7 @@ fn edits_on_unmerged_branch_invisible_from_main() {
     let feature = BranchId::new();
 
     // Fork: give feature visibility of main's current state.
-    let mut cb = ChangeBuilder::from(&project);
-    cb.merge_branch(main, feature);
-    project.apply_changes(cb, &reg).unwrap();
+    project.merge_branch(main, feature);
 
     project.switch_branch(feature);
     let mut cb = ChangeBuilder::from(&project);
@@ -81,9 +79,7 @@ fn merge_branch_imports_snapshot() {
     project.apply_changes(cb, &reg).unwrap();
 
     // Fork: give feature visibility of main's current state.
-    let mut cb = ChangeBuilder::from(&project);
-    cb.merge_branch(main, feature);
-    project.apply_changes(cb, &reg).unwrap();
+    project.merge_branch(main, feature);
 
     project.switch_branch(feature);
     let mut cb = ChangeBuilder::from(&project);
@@ -94,9 +90,7 @@ fn merge_branch_imports_snapshot() {
     project.apply_changes(cb, &reg).unwrap();
 
     project.switch_branch(main);
-    let mut cb = ChangeBuilder::from(&project);
-    cb.merge_branch(feature, main);
-    project.apply_changes(cb, &reg).unwrap();
+    project.merge_branch(feature, main);
 
     assert_eq!(read_num(&project, &reg, main, data_id), 7);
 }
@@ -120,9 +114,7 @@ fn edits_after_merge_not_visible_until_re_merge() {
     project.apply_changes(cb, &reg).unwrap();
 
     // Fork: give feature visibility of main's current state.
-    let mut cb = ChangeBuilder::from(&project);
-    cb.merge_branch(main, feature);
-    project.apply_changes(cb, &reg).unwrap();
+    project.merge_branch(main, feature);
 
     project.switch_branch(feature);
     let mut cb = ChangeBuilder::from(&project);
@@ -133,9 +125,7 @@ fn edits_after_merge_not_visible_until_re_merge() {
     project.apply_changes(cb, &reg).unwrap();
 
     project.switch_branch(main);
-    let mut cb = ChangeBuilder::from(&project);
-    cb.merge_branch(feature, main);
-    project.apply_changes(cb, &reg).unwrap();
+    project.merge_branch(feature, main);
 
     project.switch_branch(feature);
     let mut cb = ChangeBuilder::from(&project);
@@ -148,9 +138,7 @@ fn edits_after_merge_not_visible_until_re_merge() {
     assert_eq!(read_num(&project, &reg, main, data_id), 5);
 
     project.switch_branch(main);
-    let mut cb = ChangeBuilder::from(&project);
-    cb.merge_branch(feature, main);
-    project.apply_changes(cb, &reg).unwrap();
+    project.merge_branch(feature, main);
     assert_eq!(read_num(&project, &reg, main, data_id), 11);
 }
 
@@ -173,9 +161,7 @@ fn undo_of_merge_branch_hides_imported_ops() {
     project.apply_changes(cb, &reg).unwrap();
 
     // Fork: give feature visibility of main's current state.
-    let mut cb = ChangeBuilder::from(&project);
-    cb.merge_branch(main, feature);
-    project.apply_changes(cb, &reg).unwrap();
+    project.merge_branch(main, feature);
 
     project.switch_branch(feature);
     let mut cb = ChangeBuilder::from(&project);
@@ -188,19 +174,13 @@ fn undo_of_merge_branch_hides_imported_ops() {
     // Reset session so undo targets only the merge, not the CreateDocument/CreateData setup.
     project.switch_branch(main);
     project.reset_session();
-    let mut cb = ChangeBuilder::from(&project);
-    cb.merge_branch(feature, main);
-    project.apply_changes(cb, &reg).unwrap();
+    project.merge_branch(feature, main);
     assert_eq!(read_num(&project, &reg, main, data_id), 9);
 
-    let mut cb = ChangeBuilder::from(&project);
-    cb.undo();
-    project.apply_changes(cb, &reg).unwrap();
+    project.undo();
     assert_eq!(read_num(&project, &reg, main, data_id), 0);
 
-    let mut cb = ChangeBuilder::from(&project);
-    cb.redo();
-    project.apply_changes(cb, &reg).unwrap();
+    project.redo();
     assert_eq!(read_num(&project, &reg, main, data_id), 9);
 }
 
@@ -227,14 +207,10 @@ fn multi_hop_merge_respects_per_hop_snapshot_order() {
 
     // Bring main's setup into feature and hot so each branch has the data.
     project.switch_branch(feature);
-    let mut cb = ChangeBuilder::from(&project);
-    cb.merge_branch(main, feature);
-    project.apply_changes(cb, &reg).unwrap();
+    project.merge_branch(main, feature);
 
     project.switch_branch(hot);
-    let mut cb = ChangeBuilder::from(&project);
-    cb.merge_branch(main, hot);
-    project.apply_changes(cb, &reg).unwrap();
+    project.merge_branch(main, hot);
 
     // hot edits the data.
     let mut cb = ChangeBuilder::from(&project);
@@ -246,15 +222,11 @@ fn multi_hop_merge_respects_per_hop_snapshot_order() {
 
     // Merge feature -> main FIRST (feature has no edits from hot yet).
     project.switch_branch(main);
-    let mut cb = ChangeBuilder::from(&project);
-    cb.merge_branch(feature, main);
-    project.apply_changes(cb, &reg).unwrap();
+    project.merge_branch(feature, main);
 
     // Then merge hot -> feature (introducing hot's edit into feature).
     project.switch_branch(feature);
-    let mut cb = ChangeBuilder::from(&project);
-    cb.merge_branch(hot, feature);
-    project.apply_changes(cb, &reg).unwrap();
+    project.merge_branch(hot, feature);
 
     // Main should still see the default value: hot's edit got into feature
     // AFTER feature was merged into main, so main never absorbed it.

@@ -107,9 +107,7 @@ fn session_a_undo_does_not_affect_session_b() {
     edit(&mut a, &reg, data_id, 5);
     edit(&mut b, &reg, data_id, 9);
 
-    let mut cb = ChangeBuilder::from(&a);
-    cb.undo();
-    a.apply_changes(cb, &reg).unwrap();
+    a.undo();
     assert_eq!(
         read(&a, &reg, data_id),
         0,
