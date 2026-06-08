@@ -22,4 +22,12 @@ fn test_send_sync() {
     assert_send_sync::<TrackedProjectView>();
     assert_send_sync::<TrackedDocumentView<'_>>();
     assert_send_sync::<TrackedDataView<'_, MinimalTestModule>>();
+
+    assert_send_sync::<MergeError>();
+    assert_send_sync::<LogEntry>();
+    assert_send_sync::<LogPayload>();
+    assert_send_sync::<Change>();
+    assert_send_sync::<BranchId>();
+    assert_send_sync::<SessionId>();
+    assert_send_sync::<CheckpointId>();
 }

@@ -18,7 +18,6 @@ pub struct BranchId(Uuid);
 impl BranchId {
     /// Creates a new random branch identifier.
     #[must_use]
-    #[expect(dead_code)]
     pub fn new() -> Self {
         Self(Uuid::new_v4())
     }
