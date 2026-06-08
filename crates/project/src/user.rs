@@ -42,7 +42,7 @@ impl Default for UserId {
 ///   multiple simultaneous sessions with separate undo/redo history.
 /// - merging multiple branches of the same user will not have spooky effects due to
 ///   incorrectly associated undo/redo commands.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct SessionId(Uuid);
 

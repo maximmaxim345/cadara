@@ -481,9 +481,37 @@ impl Project {
         let mut documents = HashMap::new();
         let mut sessions: HashMap<SessionId, UserId> = HashMap::new();
 
-        for entry in &self.log {
+        // Sort by (lamport, session) — equivalent to insertion order today, but
+        // explicit so the function stays correct after merge_remote.
+        let mut ordered: Vec<&LogEntry> = self.log.iter().collect();
+        ordered.sort_by_key(|e| (e.lamport, e.session));
+
+        // First pass: register sessions so apply_change can resolve UserTransaction.
+        for entry in &ordered {
+            if let LogPayload::NewSession { user, .. } = entry.payload {
+                sessions.insert(entry.session, user);
+            }
+        }
+
+        // Second pass: per-session active set via the resolver.
+        let mut by_session: HashMap<SessionId, Vec<&LogEntry>> = HashMap::new();
+        for entry in &ordered {
+            by_session.entry(entry.session).or_default().push(entry);
+        }
+        let mut active_key: std::collections::HashSet<(u64, SessionId)> =
+            std::collections::HashSet::new();
+        for session_entries in by_session.values() {
+            for i in resolve::per_session_active_set(session_entries) {
+                let e = session_entries[i];
+                active_key.insert((e.lamport, e.session));
+            }
+        }
+
+        // Third pass: walk in global order, apply active Changes only.
+        for entry in &ordered {
+            let active = active_key.contains(&(entry.lamport, entry.session));
             match &entry.payload {
-                LogPayload::Changes(changes) => {
+                LogPayload::Changes(changes) if active => {
                     for change in changes {
                         apply_change(
                             change,
@@ -496,13 +524,15 @@ impl Project {
                         )?;
                     }
                 }
-                LogPayload::NewSession { user, .. } => {
-                    sessions.insert(entry.session, *user);
-                }
-                LogPayload::Checkpoint(_)
+                LogPayload::Changes(_)
                 | LogPayload::Undo
                 | LogPayload::Redo
-                | LogPayload::MergeBranch { .. } => {}
+                | LogPayload::NewSession { .. }
+                | LogPayload::Checkpoint(_)
+                | LogPayload::MergeBranch { .. } => {
+                    // Either inactive Changes (skipped), or no view-time effect.
+                    // MergeBranch becomes meaningful in Task 13.
+                }
             }
         }
 

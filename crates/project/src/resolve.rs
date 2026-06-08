@@ -11,7 +11,6 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 /// Only `Changes` and `MergeBranch` payloads occupy the active/redo
 /// bookkeeping. `Undo` and `Redo` mutate that bookkeeping. Other payloads
 /// (`NewSession`, `Checkpoint`) are ignored at this layer.
-#[allow(dead_code, reason = "consumed by create_view in the next task")]
 pub fn per_session_active_set(entries: &[&LogEntry]) -> BTreeSet<usize> {
     let mut active: BTreeSet<usize> = BTreeSet::new();
     let mut redo_buf: Vec<usize> = Vec::new();
