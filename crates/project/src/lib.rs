@@ -503,8 +503,8 @@ impl Project {
         let mut sessions: HashMap<SessionId, UserId> = HashMap::new();
         let mut session_branch: HashMap<SessionId, BranchId> = HashMap::new();
 
-        // Sort by (lamport, session) — equivalent to insertion order today, but
-        // explicit so the function stays correct after merge_remote.
+        // TODO: keep self.log sorted on write so views can skip this O(N log N) sort.
+        // merge_remote could use a 2-pointer merge between sorted halves.
         let mut ordered: Vec<&LogEntry> = self.log.iter().filter(|e| e.lamport <= as_of).collect();
         ordered.sort_by_key(|e| (e.lamport, e.session));
 
