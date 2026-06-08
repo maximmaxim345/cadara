@@ -598,6 +598,16 @@ impl Project {
         Self::default()
     }
 
+    /// Start a fresh session for subsequent changes.
+    ///
+    /// Call this before a new editing context (new device or new test scope) so
+    /// the next [`Project::apply_changes`] opens a new session rather than
+    /// continuing the current one.
+    #[allow(clippy::missing_const_for_fn)]
+    pub fn reset_session(&mut self) {
+        self.session = None;
+    }
+
     /// Apply the changes recorded using the [`ChangeBuilder`] to this project.
     ///
     /// After applying the changes, use [`Project::create_view`] to see the new state
