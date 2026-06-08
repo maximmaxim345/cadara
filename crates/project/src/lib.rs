@@ -360,6 +360,12 @@ impl ChangeBuilder {
     pub fn redo(&mut self) {
         self.changes.push(PendingChange::Redo);
     }
+
+    /// Record a one-shot snapshot merge from `from` into `into`.
+    /// Undoable like any other session-scoped op.
+    pub fn merge_branch(&mut self, from: BranchId, into: BranchId) {
+        self.changes.push(PendingChange::MergeBranch { from, into });
+    }
 }
 
 /// Project in the `CADara` application.
@@ -479,9 +485,9 @@ impl Project {
 
     /// Creates a [`ProjectView`] scoped to a branch and a Lamport-clock cutoff.
     ///
-    /// Only log entries with `lamport <= as_of` are included. Branch filtering is a
-    /// no-op until Task 13 wires `compute_visible_branches`; the parameter is
-    /// accepted here to establish the API surface.
+    /// Only log entries with `lamport <= as_of` are included. Each op is
+    /// further gated by the per-op branch visibility rule (see
+    /// [`resolve::op_is_visible`]).
     ///
     /// # Errors
     /// Returns an error if a required module is not found in the registry.
@@ -513,49 +519,50 @@ impl Project {
             }
         }
 
-        // Branch filter is a no-op until Task 13.
-        let _ = branch;
-        let _ = &session_branch;
-
         // Second pass: per-session active set via the resolver.
-        let mut by_session: HashMap<SessionId, Vec<&LogEntry>> = HashMap::new();
-        for entry in &ordered {
-            by_session.entry(entry.session).or_default().push(entry);
-        }
-        let mut active_key: std::collections::HashSet<(u64, SessionId)> =
-            std::collections::HashSet::new();
-        for session_entries in by_session.values() {
-            for i in resolve::per_session_active_set(session_entries) {
-                let e = session_entries[i];
-                active_key.insert((e.lamport, e.session));
-            }
-        }
+        let active_key = compute_active_keys(&ordered);
 
-        // Third pass: walk in global order, apply active Changes only.
+        // Build the live MergeBranch adjacency for branch visibility.
+        let live_merges: Vec<&LogEntry> = ordered
+            .iter()
+            .copied()
+            .filter(|e| {
+                matches!(e.payload, LogPayload::MergeBranch { .. })
+                    && active_key.contains(&(e.lamport, e.session))
+            })
+            .collect();
+        let merges_idx = resolve::live_merges_index(&live_merges);
+
+        // Third pass: walk in global order, apply active+visible Changes only.
         for entry in &ordered {
             let active = active_key.contains(&(entry.lamport, entry.session));
-            match &entry.payload {
-                LogPayload::Changes(changes) if active => {
-                    for change in changes {
-                        apply_change(
-                            change,
-                            &mut data,
-                            &mut documents,
-                            &sessions,
-                            self.user,
-                            entry.session,
-                            reg,
-                        )?;
-                    }
+            if let LogPayload::Changes(changes) = &entry.payload {
+                if !active {
+                    continue;
                 }
-                LogPayload::Changes(_)
-                | LogPayload::Undo
-                | LogPayload::Redo
-                | LogPayload::NewSession { .. }
-                | LogPayload::Checkpoint(_)
-                | LogPayload::MergeBranch { .. } => {
-                    // Either inactive Changes (skipped), or no view-time effect.
-                    // MergeBranch becomes meaningful in Task 13.
+                let op_branch = match session_branch.get(&entry.session) {
+                    Some(b) => *b,
+                    None => continue,
+                };
+                if !resolve::op_is_visible(
+                    entry.lamport,
+                    op_branch,
+                    branch,
+                    as_of,
+                    &merges_idx,
+                ) {
+                    continue;
+                }
+                for change in changes {
+                    apply_change(
+                        change,
+                        &mut data,
+                        &mut documents,
+                        &sessions,
+                        self.user,
+                        entry.session,
+                        reg,
+                    )?;
                 }
             }
         }
@@ -755,6 +762,23 @@ impl Project {
             payload,
         }
     }
+}
+
+/// Group entries by session and union their per-session active sets into a
+/// global `(lamport, session)` key set.
+fn compute_active_keys(ordered: &[&LogEntry]) -> std::collections::HashSet<(u64, SessionId)> {
+    let mut by_session: HashMap<SessionId, Vec<&LogEntry>> = HashMap::new();
+    for entry in ordered {
+        by_session.entry(entry.session).or_default().push(entry);
+    }
+    let mut active_key = std::collections::HashSet::new();
+    for session_entries in by_session.values() {
+        for i in resolve::per_session_active_set(session_entries) {
+            let e = session_entries[i];
+            active_key.insert((e.lamport, e.session));
+        }
+    }
+    active_key
 }
 
 /// Apply a single `Change` to the in-progress view state.

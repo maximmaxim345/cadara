@@ -99,7 +99,6 @@ pub(crate) enum PendingChange {
     Change(Change),
     Undo,
     Redo,
-    #[allow(dead_code)]
     MergeBranch { from: BranchId, into: BranchId },
     SessionTransaction {
         id: DataId,

@@ -2,8 +2,7 @@
 
 use crate::branch::BranchId;
 use crate::oplog::{LogEntry, LogPayload};
-use crate::user::SessionId;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 
 /// Walk a session's entries (already lamport-sorted) and return the indices
 /// (into `entries`) whose effect is currently active.
@@ -38,22 +37,54 @@ pub fn per_session_active_set(entries: &[&LogEntry]) -> BTreeSet<usize> {
     active
 }
 
-/// Compute the set of branches transitively merged into `view_branch` as of
-/// `as_of`, considering only `MergeBranch` entries that are *live* under each
-/// originating session's per-session resolution.
-///
-/// Placeholder: this is wired up in Task 13. For now, returns the singleton
-/// containing `view_branch`.
-#[allow(dead_code, reason = "consumed by create_view in the next task")]
-pub fn compute_visible_branches(
-    log: &[LogEntry],
+/// Returns true if op `(op_lamport, op_branch)` is visible from `view_branch`
+/// at view time `as_of`, given an index of live `MergeBranch` entries.
+pub fn op_is_visible(
+    op_lamport: u64,
+    op_branch: BranchId,
     view_branch: BranchId,
     as_of: u64,
-    session_branch: &HashMap<SessionId, BranchId>,
-    live_merges: &[&LogEntry],
-) -> HashSet<BranchId> {
-    let _ = (log, as_of, session_branch, live_merges);
-    let mut visible = HashSet::new();
-    visible.insert(view_branch);
-    visible
+    live_merges_by_into: &HashMap<BranchId, Vec<(BranchId, u64)>>,
+) -> bool {
+    if op_branch == view_branch {
+        return true;
+    }
+    // BFS from view_branch over reverse-merge edges. Per the spec, EVERY hop
+    // along the chain must satisfy op_lamport < merge_lamport (the op was
+    // already on the source branch when that merge happened) AND
+    // merge_lamport <= as_of. The hop ending at op_branch is the one that
+    // imports the op.
+    let mut frontier: VecDeque<BranchId> = VecDeque::new();
+    frontier.push_back(view_branch);
+    let mut seen: HashSet<BranchId> = HashSet::new();
+    seen.insert(view_branch);
+
+    while let Some(branch) = frontier.pop_front() {
+        if let Some(merges) = live_merges_by_into.get(&branch) {
+            for &(from, merge_lamport) in merges {
+                if merge_lamport > as_of || op_lamport >= merge_lamport {
+                    continue;
+                }
+                if from == op_branch {
+                    return true;
+                }
+                if seen.insert(from) {
+                    frontier.push_back(from);
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Build the `into -> [(from, merge_lamport)]` adjacency from a slice of
+/// live `MergeBranch` log entries.
+pub fn live_merges_index(live: &[&LogEntry]) -> HashMap<BranchId, Vec<(BranchId, u64)>> {
+    let mut out: HashMap<BranchId, Vec<(BranchId, u64)>> = HashMap::new();
+    for entry in live {
+        if let LogPayload::MergeBranch { from, into } = entry.payload {
+            out.entry(into).or_default().push((from, entry.lamport));
+        }
+    }
+    out
 }
