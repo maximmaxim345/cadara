@@ -467,41 +467,55 @@ pub enum ApplyError {
 }
 
 impl Project {
-    /// Creates a new [`ProjectView`] by replaying the project's change history.
+    /// Creates a [`ProjectView`] of the current branch at the latest point in time.
     ///
-    /// # Description
-    /// Reconstructs the current state of the project by applying all logged changes
-    /// in chronological order, creating a consistent view of:
-    /// - All documents and their metadata
-    /// - All persistent data associated with modules
-    /// - Current document structure and relationships
-    ///
-    /// # Arguments
-    /// * `reg` - The [`ModuleRegistry`] containing all module implementations that were
-    ///   ever used in the project
-    ///
-    /// # Returns
-    /// Returns a [`ProjectView`] representing the current state of the project.
+    /// Delegates to [`Project::create_view_at`] with default branch and no time cutoff.
     ///
     /// # Errors
-    /// Returns an error if:
-    /// - A required module is not found in the registry
+    /// Returns an error if a required module is not found in the registry.
     pub fn create_view(&self, reg: &ModuleRegistry) -> Result<ProjectView, ProjectViewError> {
+        self.create_view_at(reg, self.branch, u64::MAX)
+    }
+
+    /// Creates a [`ProjectView`] scoped to a branch and a Lamport-clock cutoff.
+    ///
+    /// Only log entries with `lamport <= as_of` are included. Branch filtering is a
+    /// no-op until Task 13 wires `compute_visible_branches`; the parameter is
+    /// accepted here to establish the API surface.
+    ///
+    /// # Errors
+    /// Returns an error if a required module is not found in the registry.
+    pub fn create_view_at(
+        &self,
+        reg: &ModuleRegistry,
+        branch: BranchId,
+        as_of: u64,
+    ) -> Result<ProjectView, ProjectViewError> {
         let mut data = HashMap::new();
         let mut documents = HashMap::new();
         let mut sessions: HashMap<SessionId, UserId> = HashMap::new();
+        let mut session_branch: HashMap<SessionId, BranchId> = HashMap::new();
 
         // Sort by (lamport, session) — equivalent to insertion order today, but
         // explicit so the function stays correct after merge_remote.
-        let mut ordered: Vec<&LogEntry> = self.log.iter().collect();
+        let mut ordered: Vec<&LogEntry> = self
+            .log
+            .iter()
+            .filter(|e| e.lamport <= as_of)
+            .collect();
         ordered.sort_by_key(|e| (e.lamport, e.session));
 
         // First pass: register sessions so apply_change can resolve UserTransaction.
         for entry in &ordered {
-            if let LogPayload::NewSession { user, .. } = entry.payload {
+            if let LogPayload::NewSession { user, branch: b } = entry.payload {
                 sessions.insert(entry.session, user);
+                session_branch.insert(entry.session, b);
             }
         }
+
+        // Branch filter is a no-op until Task 13.
+        let _ = branch;
+        let _ = &session_branch;
 
         // Second pass: per-session active set via the resolver.
         let mut by_session: HashMap<SessionId, Vec<&LogEntry>> = HashMap::new();
@@ -548,13 +562,12 @@ impl Project {
 
         for (id, session_data) in &self.session_data {
             match data.get_mut(id) {
-                Some(data) if data.module == session_data.module => {
-                    if let Err(err) =
-                        (reg.0
-                            .get(&session_data.module)
-                            .ok_or(ProjectViewError::UnknownModule(session_data.module))?
-                            .replace_session_data)(data, session_data)
-                    {
+                Some(d) if d.module == session_data.module => {
+                    let entry = reg
+                        .0
+                        .get(&session_data.module)
+                        .ok_or(ProjectViewError::UnknownModule(session_data.module))?;
+                    if let Err(err) = (entry.replace_session_data)(d, session_data) {
                         error!("Failed to replace Data::session with SessionData: {err}");
                     }
                 }
@@ -567,13 +580,12 @@ impl Project {
 
         for (id, shared_data) in &self.shared_data {
             match data.get_mut(id) {
-                Some(data) if data.module == shared_data.module => {
-                    if let Err(err) =
-                        (reg.0
-                            .get(&shared_data.module)
-                            .ok_or(ProjectViewError::UnknownModule(shared_data.module))?
-                            .replace_shared_data)(data, shared_data)
-                    {
+                Some(d) if d.module == shared_data.module => {
+                    let entry = reg
+                        .0
+                        .get(&shared_data.module)
+                        .ok_or(ProjectViewError::UnknownModule(shared_data.module))?;
+                    if let Err(err) = (entry.replace_shared_data)(d, shared_data) {
                         error!("Failed to replace Data::shared with SharedData: {err}");
                     }
                 }
