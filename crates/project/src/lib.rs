@@ -160,6 +160,7 @@ mod document;
 mod module_data;
 mod oplog;
 mod project;
+mod resolve;
 mod tracked;
 mod user;
 
