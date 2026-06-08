@@ -176,7 +176,6 @@ use std::fmt::Debug;
 
 // Public reexports
 pub use branch::BranchId;
-pub use merge::MergeError;
 pub use checkpoint::CheckpointId;
 pub use data::DataId;
 pub use data::DataView;
@@ -185,6 +184,7 @@ pub use document::DocumentId;
 pub use document::DocumentView;
 pub use document::Path;
 pub use document::PlannedDocument;
+pub use merge::MergeError;
 pub use module_data::ModuleRegistry;
 pub use oplog::{Change, LogEntry, LogPayload};
 pub use project::ProjectView;
@@ -488,8 +488,7 @@ impl Project {
     /// Creates a [`ProjectView`] scoped to a branch and a Lamport-clock cutoff.
     ///
     /// Only log entries with `lamport <= as_of` are included. Each op is
-    /// further gated by the per-op branch visibility rule (see
-    /// [`resolve::op_is_visible`]).
+    /// further gated by the per-op branch visibility check.
     ///
     /// # Errors
     /// Returns an error if a required module is not found in the registry.
@@ -506,11 +505,7 @@ impl Project {
 
         // Sort by (lamport, session) — equivalent to insertion order today, but
         // explicit so the function stays correct after merge_remote.
-        let mut ordered: Vec<&LogEntry> = self
-            .log
-            .iter()
-            .filter(|e| e.lamport <= as_of)
-            .collect();
+        let mut ordered: Vec<&LogEntry> = self.log.iter().filter(|e| e.lamport <= as_of).collect();
         ordered.sort_by_key(|e| (e.lamport, e.session));
 
         // First pass: register sessions so apply_change can resolve UserTransaction.
@@ -546,13 +541,7 @@ impl Project {
                     Some(b) => *b,
                     None => continue,
                 };
-                if !resolve::op_is_visible(
-                    entry.lamport,
-                    op_branch,
-                    branch,
-                    as_of,
-                    &merges_idx,
-                ) {
+                if !resolve::op_is_visible(entry.lamport, op_branch, branch, as_of, &merges_idx) {
                     continue;
                 }
                 for change in changes {
@@ -808,7 +797,10 @@ fn compute_active_keys(ordered: &[&LogEntry]) -> std::collections::HashSet<(u64,
 /// builds. `session_user_map` maps a `SessionId` to the `UserId` that
 /// owns it (populated from `NewSession` entries). `viewer` is the user
 /// the view is being constructed for; this gates `UserTransaction`.
-#[allow(clippy::too_many_arguments, reason = "all params are distinct view-building state; no natural grouping")]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "all params are distinct view-building state; no natural grouping"
+)]
 fn apply_change(
     change: &Change,
     data: &mut HashMap<DataId, module_data::ErasedData>,
@@ -829,9 +821,7 @@ fn apply_change(
                 }
             }
         }
-        Change::RenameDocument { .. }
-        | Change::MoveDocument { .. }
-        | Change::MoveFolder { .. } => {
+        Change::RenameDocument { .. } | Change::MoveDocument { .. } | Change::MoveFolder { .. } => {
             // Pre-existing TODO: folder support. Intentionally no-op.
         }
         Change::CreateData { id, module, owner } => {

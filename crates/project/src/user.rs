@@ -35,7 +35,7 @@ impl Default for UserId {
 /// Unique identifier to associate changes with the origin.
 ///
 /// We don't directly associate project changes to a [`UserId`], but to a
-/// [`SessionId`] registered to it through [`crate::ProjectLogEntry::NewSession`].
+/// [`SessionId`] registered to it through [`crate::LogPayload::NewSession`].
 ///
 /// This has two main advantages:
 /// - undo/redo will be limited to a single session, meaning: A single user can have
@@ -49,9 +49,12 @@ pub struct SessionId(Uuid);
 impl SessionId {
     /// Create a new random unique identifier of a Session.
     ///
-    /// Before use, this must first be registered in [`crate::ProjectLogEntry::NewSession`].
+    /// Before use, this must first be registered in [`crate::LogPayload::NewSession`].
     #[must_use]
-    #[allow(clippy::new_without_default, reason = "SessionId must be registered before use; no sensible default")]
+    #[allow(
+        clippy::new_without_default,
+        reason = "SessionId must be registered before use; no sensible default"
+    )]
     pub fn new() -> Self {
         Self(Uuid::new_v4())
     }

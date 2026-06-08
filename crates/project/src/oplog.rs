@@ -15,7 +15,7 @@ use crate::{DataId, DocumentId, FolderPath, FolderTarget, Path};
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
-/// Single entry in [`Project::log`](crate::Project::log).
+/// Single entry in the project's log.
 ///
 /// Replicas converge by sorting their union by `(lamport, session)`.
 /// `wall_clock` is display-only and never read by replay; see the CRDT design spec.
@@ -99,7 +99,10 @@ pub(crate) enum PendingChange {
     Change(Change),
     Undo,
     Redo,
-    MergeBranch { from: BranchId, into: BranchId },
+    MergeBranch {
+        from: BranchId,
+        into: BranchId,
+    },
     SessionTransaction {
         id: DataId,
         args: ErasedSessionDataTransactionArgs,

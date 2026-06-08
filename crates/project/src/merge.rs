@@ -21,11 +21,7 @@ impl Project {
     /// Returns `MergeError::DifferentProject` if the replicas have different uuids.
     /// Returns `MergeError::UnknownModule` if the remote log references a module
     /// not present in `reg`.
-    pub fn merge_remote(
-        &mut self,
-        other: &Self,
-        reg: &ModuleRegistry,
-    ) -> Result<(), MergeError> {
+    pub fn merge_remote(&mut self, other: &Self, reg: &ModuleRegistry) -> Result<(), MergeError> {
         if !self.is_same_source_as(other) {
             return Err(MergeError::DifferentProject);
         }
@@ -38,11 +34,8 @@ impl Project {
 
         // Dedup by (lamport, session): the same op from both replicas is
         // byte-identical.
-        let have: HashSet<(u64, SessionId)> = self
-            .log
-            .iter()
-            .map(|e| (e.lamport, e.session))
-            .collect();
+        let have: HashSet<(u64, SessionId)> =
+            self.log.iter().map(|e| (e.lamport, e.session)).collect();
 
         let mut max_remote = self.lamport_clock.saturating_sub(1);
         for e in &other.log {
