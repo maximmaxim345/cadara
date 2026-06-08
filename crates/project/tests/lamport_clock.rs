@@ -91,3 +91,15 @@ fn empty_change_builder_does_not_advance_clock_or_log() {
 
     assert!(lamports_of(&project).is_empty());
 }
+
+#[test]
+fn merge_empty_remote_does_not_advance_clock() {
+    let mut reg = ModuleRegistry::new();
+    reg.register::<MinimalTestModule>();
+    let mut a = Project::new();
+    let b = a.fork_replica(UserId::new());
+
+    a.merge_remote(&b, &reg).unwrap();
+
+    assert!(lamports_of(&a).is_empty());
+}

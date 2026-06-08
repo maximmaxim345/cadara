@@ -37,17 +37,15 @@ impl Project {
         let have: HashSet<(u64, SessionId)> =
             self.log.iter().map(|e| (e.lamport, e.session)).collect();
 
-        let mut max_remote = self.lamport_clock.saturating_sub(1);
         for e in &other.log {
             if !have.contains(&(e.lamport, e.session)) {
                 self.log.push(e.clone());
             }
-            if e.lamport > max_remote {
-                max_remote = e.lamport;
-            }
         }
 
-        self.lamport_clock = self.lamport_clock.max(max_remote + 1);
+        if let Some(m) = other.log.iter().map(|e| e.lamport).max() {
+            self.lamport_clock = self.lamport_clock.max(m + 1);
+        }
         Ok(())
     }
 }
