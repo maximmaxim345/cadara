@@ -584,8 +584,6 @@ impl Project {
     /// # Errors
     /// Returns an error if:
     /// - A required module is not found in the registry
-    #[expect(clippy::too_many_lines)]
-    #[expect(clippy::cognitive_complexity)]
     pub fn create_view(&self, reg: &ModuleRegistry) -> Result<ProjectView, ProjectViewError> {
         let mut data = HashMap::new();
         let mut documents = HashMap::new();
@@ -595,102 +593,15 @@ impl Project {
             match log_entry {
                 ProjectLogEntry::Changes { session, changes } => {
                     for change in changes {
-                        match change {
-                            Change::CreateDocument { id, path: _ } => {
-                                documents.insert(*id, Document::default());
-                            }
-                            Change::DeleteDocument(document_id) => {
-                                if let Some((_, document)) = documents.remove_entry(document_id) {
-                                    for data_id in &document.data {
-                                        data.remove(data_id);
-                                    }
-                                }
-                            }
-                            Change::RenameDocument { id: _, new_name: _ }
-                            | Change::MoveDocument {
-                                id: _,
-                                new_folder: _,
-                            }
-                            | Change::MoveFolder {
-                                old_path: _,
-                                new_path: _,
-                            } => {
-                                // TODO: implement and test folder support, including views to traverse them
-                            }
-                            Change::CreateData { id, module, owner } => {
-                                data.insert(
-                                    *id,
-                                    (reg.0
-                                        .get(module)
-                                        .ok_or(ProjectViewError::UnknownModule(*module))?
-                                        .init_data)(),
-                                );
-                                if let Some(owner) = owner {
-                                    documents
-                                        .entry(*owner)
-                                        .or_insert_with(Default::default)
-                                        .data
-                                        .push(*id);
-                                }
-                            }
-                            Change::DeleteData(id) => {
-                                data.remove(id);
-                            }
-                            Change::MoveData { id, new_owner } => {
-                                for document in documents.values_mut() {
-                                    document.data.retain(|data_id| data_id != id);
-                                }
-                                if let Some(new_owner) = new_owner {
-                                    if let Some(doc) = documents.get_mut(new_owner) {
-                                        doc.data.push(*id);
-                                    } else {
-                                        error!("Can not move data to non existent document");
-                                    }
-                                }
-                            }
-                            Change::Transaction { id, args } => {
-                                let reg = reg
-                                    .0
-                                    .get(&args.module)
-                                    .ok_or(ProjectViewError::UnknownModule(args.module))?;
-                                match data.get_mut(id) {
-                                    Some(data) if data.module == args.module => {
-                                        if let Err(err) = (reg.apply_data_transaction)(data, args) {
-                                            error!("Failed to apply Transaction: {err}");
-                                        }
-                                    }
-                                    Some(_) => {
-                                        error!(
-                                            "Data and DataArgs of {id} do not have the same Module type"
-                                        );
-                                    }
-                                    None => {}
-                                }
-                            }
-                            Change::UserTransaction { id, args } => {
-                                if let Some(user) = sessions.get(session) {
-                                    if self.user == *user {
-                                        let reg = reg
-                                            .0
-                                            .get(&args.module)
-                                            .ok_or(ProjectViewError::UnknownModule(args.module))?;
-                                        match data.get_mut(id) {
-                                            Some(data) if data.module == args.module => {
-                                                if let Err(err) =
-                                                    (reg.apply_user_data_transaction)(data, args)
-                                                {
-                                                    error!("Failed to apply Transaction: {err}");
-                                                }
-                                            }
-                                            Some(_) => {
-                                                error!("UserData and UserDataArgs of {id} do not have the same Module type");
-                                            }
-                                            None => {}
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        apply_change(
+                            change,
+                            &mut data,
+                            &mut documents,
+                            &sessions,
+                            self.user,
+                            *session,
+                            reg,
+                        )?;
                     }
                 }
                 // TODO: implement and Test undo/redo
@@ -880,4 +791,107 @@ impl Project {
         self.log.push(ProjectLogEntry::Changes { session, changes });
         Ok(())
     }
+}
+
+/// Apply a single `Change` to the in-progress view state.
+///
+/// `data` and `documents` are the running per-id maps that `create_view`
+/// builds. `session_user_map` maps a `SessionId` to the `UserId` that
+/// owns it (populated from `NewSession` entries). `viewer` is the user
+/// the view is being constructed for; this gates `UserTransaction`.
+#[allow(clippy::too_many_arguments, reason = "all params are distinct view-building state; no natural grouping")]
+fn apply_change(
+    change: &Change,
+    data: &mut HashMap<DataId, module_data::ErasedData>,
+    documents: &mut HashMap<DocumentId, Document>,
+    session_user_map: &HashMap<SessionId, UserId>,
+    viewer: UserId,
+    issuing_session: SessionId,
+    reg: &ModuleRegistry,
+) -> Result<(), ProjectViewError> {
+    match change {
+        Change::CreateDocument { id, path: _ } => {
+            documents.insert(*id, Document::default());
+        }
+        Change::DeleteDocument(document_id) => {
+            if let Some((_, document)) = documents.remove_entry(document_id) {
+                for data_id in &document.data {
+                    data.remove(data_id);
+                }
+            }
+        }
+        Change::RenameDocument { .. }
+        | Change::MoveDocument { .. }
+        | Change::MoveFolder { .. } => {
+            // Pre-existing TODO: folder support. Intentionally no-op.
+        }
+        Change::CreateData { id, module, owner } => {
+            data.insert(
+                *id,
+                (reg.0
+                    .get(module)
+                    .ok_or(ProjectViewError::UnknownModule(*module))?
+                    .init_data)(),
+            );
+            if let Some(owner) = owner {
+                documents.entry(*owner).or_default().data.push(*id);
+            }
+        }
+        Change::DeleteData(id) => {
+            data.remove(id);
+        }
+        Change::MoveData { id, new_owner } => {
+            for document in documents.values_mut() {
+                document.data.retain(|data_id| data_id != id);
+            }
+            if let Some(new_owner) = new_owner {
+                if let Some(doc) = documents.get_mut(new_owner) {
+                    doc.data.push(*id);
+                } else {
+                    error!("Can not move data to non existent document");
+                }
+            }
+        }
+        Change::Transaction { id, args } => {
+            let entry = reg
+                .0
+                .get(&args.module)
+                .ok_or(ProjectViewError::UnknownModule(args.module))?;
+            match data.get_mut(id) {
+                Some(d) if d.module == args.module => {
+                    if let Err(err) = (entry.apply_data_transaction)(d, args) {
+                        error!("Failed to apply Transaction: {err}");
+                    }
+                }
+                Some(_) => {
+                    error!("Data and DataArgs of {id} do not have the same Module type");
+                }
+                None => {}
+            }
+        }
+        Change::UserTransaction { id, args } => {
+            if let Some(user) = session_user_map.get(&issuing_session) {
+                if viewer == *user {
+                    let entry = reg
+                        .0
+                        .get(&args.module)
+                        .ok_or(ProjectViewError::UnknownModule(args.module))?;
+                    match data.get_mut(id) {
+                        Some(d) if d.module == args.module => {
+                            if let Err(err) = (entry.apply_user_data_transaction)(d, args) {
+                                error!("Failed to apply Transaction: {err}");
+                            }
+                        }
+                        Some(_) => {
+                            error!(
+                                "UserData and UserDataArgs of {id} do not have the same Module type"
+                            );
+                        }
+                        None => {}
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }
