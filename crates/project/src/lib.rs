@@ -706,6 +706,11 @@ impl Project {
         // Technically the project could change in the meantime by other ChangeBuilders,
         // but due to multi-user support, we nevertheless need to support that.
 
+        // Nothing to record: skip session allocation and log writes entirely.
+        if cb.changes.is_empty() {
+            return Ok(());
+        }
+
         // Verify all module references first.
         for change in &cb.changes {
             let module = match change {

@@ -79,3 +79,15 @@ fn merge_remote_advances_clock_past_max_remote_lamport() {
     let a_max = lamports_of(&a).into_iter().max().unwrap();
     assert!(a_max > b_max, "a_max={a_max} should exceed b_max={b_max}");
 }
+
+#[test]
+fn empty_change_builder_does_not_advance_clock_or_log() {
+    let mut reg = ModuleRegistry::new();
+    reg.register::<MinimalTestModule>();
+    let mut project = Project::new();
+
+    let cb = ChangeBuilder::from(&project);
+    project.apply_changes(cb, &reg).unwrap();
+
+    assert!(lamports_of(&project).is_empty());
+}
