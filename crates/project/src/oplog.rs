@@ -97,10 +97,7 @@ pub enum Change {
 #[derive(Clone, Debug)]
 pub(crate) enum PendingChange {
     Change(Change),
-    // Wired up in a follow-up task; producers do not exist yet.
-    #[allow(dead_code)]
     Undo,
-    #[allow(dead_code)]
     Redo,
     #[allow(dead_code)]
     MergeBranch { from: BranchId, into: BranchId },

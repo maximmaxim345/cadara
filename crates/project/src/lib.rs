@@ -350,6 +350,16 @@ impl ChangeBuilder {
             Ok(())
         }
     }
+
+    /// Record an `Undo` for the current session. Resolved at `create_view`.
+    pub fn undo(&mut self) {
+        self.changes.push(PendingChange::Undo);
+    }
+
+    /// Record a `Redo` for the current session. Resolved at `create_view`.
+    pub fn redo(&mut self) {
+        self.changes.push(PendingChange::Redo);
+    }
 }
 
 /// Project in the `CADara` application.
