@@ -507,6 +507,8 @@ pub struct Project {
     ///
     /// By default, this is `main`.
     branch: BranchId,
+    /// Lamport clock for ordering log entries.
+    lamport_clock: u64,
     /// Chronological list of entries required to rebuild the entire [`ProjectView`] excluding
     /// shared and session data
     log: Vec<ProjectLogEntry>,
@@ -528,6 +530,7 @@ impl Default for Project {
             user: UserId::default(),
             session: Option::default(),
             branch: BranchId::default(),
+            lamport_clock: 0,
             log: Vec::default(),
             shared_data: HashMap::default(),
             session_data: HashMap::default(),
