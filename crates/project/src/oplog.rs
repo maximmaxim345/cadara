@@ -18,7 +18,7 @@ use std::time::SystemTime;
 /// Single entry in the project's log.
 ///
 /// Replicas converge by sorting their union by `(lamport, session)`.
-/// `wall_clock` is display-only and never read by replay; see the CRDT design spec.
+/// `wall_clock` is display-only and never read by replay.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LogEntry {
     pub(crate) lamport: u64,
