@@ -108,3 +108,28 @@ fn project_with_undo_redo_mergebranch_round_trips() {
             .num,
     );
 }
+
+#[test]
+fn project_uuid_round_trips_through_serde() {
+    // The real observable property: a deserialized replica can be merged back
+    // into the original. merge_remote returns DifferentProject if the uuid
+    // didn't survive the round-trip.
+    let mut reg = ModuleRegistry::new();
+    reg.register::<MinimalTestModule>();
+    let mut project = Project::new();
+
+    let mut cb = ChangeBuilder::from(&project);
+    let view = project.create_view(&reg).unwrap();
+    let _ = view.create_document(&mut cb, "/d".try_into().unwrap());
+    project.apply_changes(cb, &reg).unwrap();
+
+    let json = serde_json::to_string(&project).unwrap();
+    let seed = ProjectDeserializer { registry: &reg };
+    let deserializer = &mut serde_json::Deserializer::from_str(&json);
+    let round_tripped = seed.deserialize(deserializer).unwrap();
+
+    let mut a = project;
+    let b = round_tripped;
+    a.merge_remote(&b, &reg)
+        .expect("uuids should match after serde round-trip");
+}

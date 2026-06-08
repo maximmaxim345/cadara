@@ -449,8 +449,6 @@ pub struct Project {
     #[serde(skip)]
     session_data: HashMap<DataId, ErasedSessionData>,
     /// Unique identifier to associate a project with its views and [`ChangeBuilder`]s
-    #[serde(skip)]
-    #[serde(default = "uuid::Uuid::new_v4")]
     uuid: uuid::Uuid,
 }
 
