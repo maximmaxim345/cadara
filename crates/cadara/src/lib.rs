@@ -45,6 +45,7 @@ impl App {
                 modeling_module::persistent_data::Create {
                     id: uuid::Uuid::new_v4(),
                     before: None,
+                    name: "demo".into(),
                     operation: modeling_module::operation::ModelingOperation::Sketch(
                         modeling_module::operation::sketch::Sketch::default(),
                     ),
@@ -86,6 +87,7 @@ impl App {
                             modeling_module::persistent_data::Create {
                                 id: uuid::Uuid::new_v4(),
                                 before: None,
+                                name: "grow".into(),
                                 operation: modeling_module::operation::ModelingOperation::Grow,
                             },
                         ),

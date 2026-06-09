@@ -1,9 +1,9 @@
-use crate::operation::ModelingOperation;
+use crate::operation::extrude::ExtrudeChange;
+use crate::operation::fillet::FilletChange;
+use crate::operation::sketch::{SketchChange, SketchPrimitive};
+use crate::operation::{ModelingOperation, Operation};
 use module::DataSection;
-use occara::{
-    geom::{Point, Vector},
-    shape::{Edge, Wire},
-};
+use occara::shape::{Compound, Shape};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -19,18 +19,56 @@ pub struct PersistentData {
     steps: Vec<Step>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+impl PersistentData {
+    #[must_use]
+    pub fn steps(&self) -> &[Step] {
+        &self.steps
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ModelingTransaction {
+    Create(Create),
+    Delete(Delete),
+    Rename(Rename),
+    Reorder(Reorder),
+    EditSketch {
+        step_id: Uuid,
+        change: SketchChange,
+    },
+    EditExtrude {
+        step_id: Uuid,
+        change: ExtrudeChange,
+    },
+    EditFillet {
+        step_id: Uuid,
+        change: FilletChange,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Create {
     pub id: Uuid,
     pub before: Option<Uuid>,
+    pub name: String,
     pub operation: ModelingOperation,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub enum ModelingTransaction {
-    Create(Create),
-    Update,
-    Delete,
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Delete {
+    pub id: Uuid,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Rename {
+    pub id: Uuid,
+    pub new_name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Reorder {
+    pub id: Uuid,
+    pub before: Option<Uuid>,
 }
 
 impl DataSection for PersistentData {
@@ -39,61 +77,115 @@ impl DataSection for PersistentData {
     fn apply(&mut self, args: Self::Args) {
         match args {
             ModelingTransaction::Create(c) => {
-                self.steps.push(Step {
-                    id: c.id,
-                    name: "new operation".to_string(),
-                    operation: c.operation,
-                });
+                if self.steps.iter().any(|s| s.id == c.id) {
+                    return;
+                }
+                let pos = c
+                    .before
+                    .and_then(|a| self.steps.iter().position(|s| s.id == a))
+                    .unwrap_or(self.steps.len());
+                self.steps.insert(
+                    pos,
+                    Step {
+                        id: c.id,
+                        name: c.name,
+                        operation: c.operation,
+                    },
+                );
             }
-            ModelingTransaction::Update => todo!(),
-            ModelingTransaction::Delete => todo!(),
+            ModelingTransaction::Delete(Delete { id }) => {
+                self.steps.retain(|s| s.id != id);
+            }
+            ModelingTransaction::Rename(Rename { id, new_name }) => {
+                if let Some(s) = self.steps.iter_mut().find(|s| s.id == id) {
+                    s.name = new_name;
+                }
+            }
+            ModelingTransaction::Reorder(Reorder { id, before }) => {
+                let Some(from) = self.steps.iter().position(|s| s.id == id) else {
+                    return;
+                };
+                let item = self.steps.remove(from);
+                let to = before
+                    .and_then(|a| self.steps.iter().position(|s| s.id == a))
+                    .unwrap_or(self.steps.len());
+                self.steps.insert(to, item);
+            }
+            ModelingTransaction::EditSketch { step_id, change } => {
+                if let Some(s) = self.steps.iter_mut().find(|s| s.id == step_id) {
+                    if let ModelingOperation::Sketch(ref mut op) = s.operation {
+                        op.apply_change(change);
+                    }
+                }
+            }
+            ModelingTransaction::EditExtrude { step_id, change } => {
+                if let Some(s) = self.steps.iter_mut().find(|s| s.id == step_id) {
+                    if let ModelingOperation::Extrude(ref mut op) = s.operation {
+                        op.apply_change(change);
+                    }
+                }
+            }
+            ModelingTransaction::EditFillet { step_id, change } => {
+                if let Some(s) = self.steps.iter_mut().find(|s| s.id == step_id) {
+                    if let ModelingOperation::Fillet(ref mut op) = s.operation {
+                        op.apply_change(change);
+                    }
+                }
+            }
         }
     }
 
-    fn undo_history_name(_args: &Self::Args) -> String {
-        String::new()
+    fn undo_history_name(args: &Self::Args) -> String {
+        match args {
+            ModelingTransaction::Create(_) => "Create".into(),
+            ModelingTransaction::Delete(_) => "Delete".into(),
+            ModelingTransaction::Rename(_) => "Rename".into(),
+            ModelingTransaction::Reorder(_) => "Reorder".into(),
+            ModelingTransaction::EditSketch { change, .. } => sketch_undo_name(change),
+            ModelingTransaction::EditExtrude { change, .. } => extrude_undo_name(change),
+            ModelingTransaction::EditFillet { change, .. } => fillet_undo_name(change),
+        }
     }
 }
 
 impl PersistentData {
-    /// # Panics
-    /// Panics if filleting the box fails, which should not happen for the fixed 0.2 radius used here.
+    /// Placeholder. The real walk lands in Task 8.
     #[must_use]
-    pub fn shape(&self) -> occara::shape::Shape {
-        let mut scale = 1.0;
-        for _ in self
-            .steps
-            .iter()
-            .filter(|s| matches!(s.operation, ModelingOperation::Grow))
-        {
-            scale *= 1.02;
-        }
-
-        for _ in self
-            .steps
-            .iter()
-            .filter(|s| matches!(s.operation, ModelingOperation::Shrink))
-        {
-            scale /= 1.02;
-        }
-        let wire = {
-            let p1 = Point::new(0.0, 0.0, 0.0);
-            let p2 = Point::new(0.0, scale, 0.0);
-            let p3 = Point::new(scale, scale, 0.0);
-            let p4 = Point::new(scale, 0.0, 0.0);
-            Wire::new(&[
-                &Edge::line(&p1, &p2),
-                &Edge::line(&p2, &p3),
-                &Edge::line(&p3, &p4),
-                &Edge::line(&p4, &p1),
-            ])
-        };
-        let b = wire.face().extrude(&Vector::new(0.0, 0.0, scale));
-
-        let mut f = b.fillet();
-        for e in b.edges() {
-            f.add(0.2, &e);
-        }
-        f.build().expect("box fillet radius is valid")
+    pub fn shape(&self) -> Shape {
+        let mut c = Compound::builder();
+        c.build()
     }
+}
+
+fn sketch_undo_name(c: &SketchChange) -> String {
+    match c {
+        SketchChange::SetPlane(_) => "Set plane",
+        SketchChange::AddPrimitive { primitive, .. } => match primitive {
+            SketchPrimitive::Line(_) => "Add line",
+            SketchPrimitive::Circle(_) => "Add circle",
+            SketchPrimitive::Arc(_) => "Add arc",
+        },
+        SketchChange::DeletePrimitive { .. } => "Del primitive",
+        SketchChange::ReorderPrimitive { .. } => "Move primitive",
+        SketchChange::EditPrimitive { .. } => "Edit primitive",
+    }
+    .into()
+}
+
+fn extrude_undo_name(c: &ExtrudeChange) -> String {
+    match c {
+        ExtrudeChange::SetSketchId(_) => "Set sketch",
+        ExtrudeChange::SetDepth(_) => "Set depth",
+        ExtrudeChange::SetDirection(_) => "Set direction",
+        ExtrudeChange::SetMode(_) => "Set mode",
+    }
+    .into()
+}
+
+fn fillet_undo_name(c: &FilletChange) -> String {
+    match c {
+        FilletChange::SetRadius(_) => "Set radius",
+        FilletChange::SetTarget(_) => "Set target",
+    }
+    .into()
 }
