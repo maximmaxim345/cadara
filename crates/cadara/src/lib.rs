@@ -46,7 +46,7 @@ impl App {
                     id: uuid::Uuid::new_v4(),
                     before: None,
                     operation: modeling_module::operation::ModelingOperation::Sketch(
-                        modeling_module::operation::sketch::Sketch,
+                        modeling_module::operation::sketch::Sketch::default(),
                     ),
                 },
             ),
