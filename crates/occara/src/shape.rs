@@ -449,6 +449,11 @@ impl Edge {
     }
 
     #[must_use]
+    pub fn circle(center: &geom::Point, normal: &geom::Direction, radius: f64) -> Self {
+        Self(ffi::Edge_circle(&center.0, &normal.0, radius))
+    }
+
+    #[must_use]
     pub fn line(p1: &geom::Point, p2: &geom::Point) -> Self {
         geom::TrimmedCurve::line(p1, p2).into()
     }
@@ -492,6 +497,11 @@ impl Face {
     #[must_use]
     pub fn extrude(&self, vec: &geom::Vector) -> Shape {
         Shape(ffi::Face_extrude(&self.0, &vec.0))
+    }
+
+    #[must_use]
+    pub fn edges(&self) -> EdgeIterator {
+        EdgeIterator(ffi::EdgeIterator_create_from_face(&self.0))
     }
 
     #[must_use]

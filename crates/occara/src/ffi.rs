@@ -308,10 +308,14 @@ pub mod ffi {
         fn Edge_clone(edge: &Edge) -> UniquePtr<Edge>;
         #[namespace = "occara::shape"]
         fn Edge_from_2d_curve(curve: &Curve2D, surface: &Surface) -> UniquePtr<Edge>;
+        #[namespace = "occara::shape"]
+        fn Edge_circle(center: &Point, normal: &Direction, radius: f64) -> UniquePtr<Edge>;
 
         // EdgeIterator functions
         #[namespace = "occara::shape"]
         fn EdgeIterator_create(shape: &Shape) -> UniquePtr<EdgeIterator>;
+        #[namespace = "occara::shape"]
+        fn EdgeIterator_create_from_face(face: &Face) -> UniquePtr<EdgeIterator>;
         #[namespace = "occara::shape"]
         fn EdgeIterator_clone(edge_iterator: &EdgeIterator) -> UniquePtr<EdgeIterator>;
         #[namespace = "occara::shape"]
