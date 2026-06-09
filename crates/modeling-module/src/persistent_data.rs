@@ -1,10 +1,12 @@
-use crate::operation::extrude::ExtrudeChange;
-use crate::operation::fillet::FilletChange;
-use crate::operation::sketch::{SketchChange, SketchPrimitive};
+use crate::operation::extrude::{Extrude, ExtrudeChange, ExtrudeDirection, ExtrudeMode};
+use crate::operation::fillet::{Fillet, FilletChange, FilletTarget};
+use crate::operation::sketch::{Plane, Point2D, Sketch, SketchChange, SketchPrimitive};
 use crate::operation::{ModelingOperation, Operation};
 use module::DataSection;
-use occara::shape::{Compound, Shape};
+use occara::geom::{Direction, Point, Vector};
+use occara::shape::{Compound, Edge, Face, Shape, Wire};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -149,11 +151,159 @@ impl DataSection for PersistentData {
 }
 
 impl PersistentData {
-    /// Placeholder. The real walk lands in Task 8.
     #[must_use]
     pub fn shape(&self) -> Shape {
-        let mut c = Compound::builder();
-        c.build()
+        let mut state = WalkState::new();
+        for step in &self.steps {
+            state.apply(step);
+        }
+        state.body
+    }
+}
+
+struct WalkState {
+    body: Shape,
+    sketch_outputs: HashMap<Uuid, (Face, Plane)>,
+}
+
+impl WalkState {
+    fn new() -> Self {
+        Self {
+            body: Compound::builder().build(),
+            sketch_outputs: HashMap::new(),
+        }
+    }
+
+    fn apply(&mut self, step: &Step) {
+        match &step.operation {
+            ModelingOperation::Sketch(s) => self.apply_sketch(step.id, s),
+            ModelingOperation::Extrude(e) => self.apply_extrude(e),
+            ModelingOperation::Fillet(f) => self.apply_fillet(f),
+        }
+    }
+
+    fn apply_sketch(&mut self, step_id: Uuid, sketch: &Sketch) {
+        let edges: Vec<Edge> = sketch
+            .primitives
+            .iter()
+            .map(|(_, p)| build_edge(p, sketch.plane))
+            .collect();
+        if edges.is_empty() {
+            return;
+        }
+        let edge_refs: Vec<&Edge> = edges.iter().collect();
+        let trait_refs: Vec<&dyn occara::shape::AddableToWire> = edge_refs
+            .iter()
+            .map(|e| *e as &dyn occara::shape::AddableToWire)
+            .collect();
+        let wire = Wire::new(&trait_refs);
+        let face = wire.face();
+        self.sketch_outputs.insert(step_id, (face, sketch.plane));
+    }
+
+    fn apply_extrude(&mut self, e: &Extrude) {
+        let Some((face, plane)) = self.sketch_outputs.get(&e.sketch_id) else {
+            return;
+        };
+        let normal = plane_normal(*plane);
+        let extrusion = match e.direction {
+            ExtrudeDirection::Normal => face.extrude(&scaled_vector(&normal, e.depth)),
+            ExtrudeDirection::Reversed => face.extrude(&scaled_vector(&normal, -e.depth)),
+            ExtrudeDirection::Symmetric => {
+                let half = e.depth / 2.0;
+                let up = face.extrude(&scaled_vector(&normal, half));
+                let down = face.extrude(&scaled_vector(&normal, -half));
+                up.fuse(&down)
+            }
+        };
+        self.body = match e.mode {
+            ExtrudeMode::Add => {
+                if body_is_empty(&self.body) {
+                    extrusion
+                } else {
+                    self.body.fuse(&extrusion)
+                }
+            }
+            ExtrudeMode::Subtract => {
+                if body_is_empty(&self.body) {
+                    return;
+                }
+                self.body.subtract(&extrusion)
+            }
+        };
+    }
+
+    fn apply_fillet(&mut self, f: &Fillet) {
+        let edges: Vec<Edge> = self.body.edges().collect();
+        let chosen: Vec<Edge> = match &f.target {
+            FilletTarget::WholeBody => edges,
+            FilletTarget::Face(face_ref) => {
+                let Some(face) = self.body.faces().nth(face_ref.index) else {
+                    return;
+                };
+                face.edges().collect()
+            }
+            FilletTarget::Edges(refs) => refs
+                .iter()
+                .filter_map(|er| edges.get(er.index).cloned())
+                .collect(),
+        };
+        if chosen.is_empty() {
+            return;
+        }
+        let mut builder = self.body.fillet();
+        for edge in &chosen {
+            builder.add(f.radius, edge);
+        }
+        if let Ok(filleted) = builder.build() {
+            self.body = filleted;
+        }
+    }
+}
+
+fn body_is_empty(shape: &Shape) -> bool {
+    shape.faces().next().is_none()
+}
+
+fn plane_normal(plane: Plane) -> Direction {
+    match plane {
+        Plane::XY => Direction::z(),
+        Plane::YZ => Direction::x(),
+        Plane::XZ => Direction::y(),
+    }
+}
+
+fn scaled_vector(d: &Direction, s: f64) -> Vector {
+    let (dx, dy, dz) = d.get_components();
+    Vector::new(dx * s, dy * s, dz * s)
+}
+
+fn lift(plane: Plane, p: Point2D) -> Point {
+    match plane {
+        Plane::XY => Point::new(p.x, p.y, 0.0),
+        Plane::YZ => Point::new(0.0, p.x, p.y),
+        Plane::XZ => Point::new(p.x, 0.0, p.y),
+    }
+}
+
+fn build_edge(prim: &SketchPrimitive, plane: Plane) -> Edge {
+    match prim {
+        SketchPrimitive::Line(l) => {
+            let a = lift(plane, l.from);
+            let b = lift(plane, l.to);
+            Edge::line(&a, &b)
+        }
+        SketchPrimitive::Circle(c) => {
+            let center = lift(plane, c.center);
+            let normal = plane_normal(plane);
+            Edge::circle(&center, &normal, c.radius)
+        }
+        SketchPrimitive::Arc(a) => {
+            let p1 = lift(plane, a.from);
+            let p2 = lift(plane, a.through);
+            let p3 = lift(plane, a.to);
+            Edge::arc_of_circle(&p1, &p2, &p3)
+        }
     }
 }
 

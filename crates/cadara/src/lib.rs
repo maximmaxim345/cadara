@@ -3,18 +3,24 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::cognitive_complexity)]
 
-use iced::{time, Subscription};
+use modeling_module::operation::{
+    extrude::{Extrude, ExtrudeDirection, ExtrudeMode},
+    fillet::{Fillet, FilletTarget},
+    sketch::{Line, Plane, Point2D, Sketch, SketchPrimitive},
+    ModelingOperation,
+};
+use modeling_module::persistent_data::{Create, ModelingTransaction};
 use modeling_module::ModelingModule;
 use std::sync::Arc;
+use uuid::Uuid;
 use workspace::Workspace;
 
 struct App {
     viewport: viewport::Viewport,
+    #[expect(dead_code, reason = "kept so future demo edits can apply new changes")]
     project: project::Project,
+    #[expect(dead_code, reason = "kept so future demo edits can apply new changes")]
     project_view: Arc<project::ProjectView>,
-    data_uuid: project::DataId,
-    reg: project::ModuleRegistry,
-    tick_counter: u32,
 }
 
 impl Default for App {
@@ -24,8 +30,19 @@ impl Default for App {
 }
 
 #[derive(Debug)]
-enum Message {
-    Tick,
+enum Message {}
+
+fn square_xy() -> Sketch {
+    let mk = |from, to| (Uuid::new_v4(), SketchPrimitive::Line(Line { from, to }));
+    Sketch {
+        plane: Plane::XY,
+        primitives: vec![
+            mk(Point2D::new(0.0, 0.0), Point2D::new(1.0, 0.0)),
+            mk(Point2D::new(1.0, 0.0), Point2D::new(1.0, 1.0)),
+            mk(Point2D::new(1.0, 1.0), Point2D::new(0.0, 1.0)),
+            mk(Point2D::new(0.0, 1.0), Point2D::new(0.0, 0.0)),
+        ],
+    }
 }
 
 impl App {
@@ -37,21 +54,36 @@ impl App {
         let mut cb = project::ChangeBuilder::from(&project_view);
 
         let mut doc = project_view.create_document(&mut cb, "/doc".try_into().unwrap());
-        let data_uuid = *doc.create_data::<ModelingModule>();
         let mut data = doc.create_data::<ModelingModule>();
+        let data_uuid = *data;
 
-        data.apply_persistent(
-            modeling_module::persistent_data::ModelingTransaction::Create(
-                modeling_module::persistent_data::Create {
-                    id: uuid::Uuid::new_v4(),
-                    before: None,
-                    name: "demo".into(),
-                    operation: modeling_module::operation::ModelingOperation::Sketch(
-                        modeling_module::operation::sketch::Sketch::default(),
-                    ),
-                },
-            ),
-        );
+        let sketch_id = Uuid::new_v4();
+        data.apply_persistent(ModelingTransaction::Create(Create {
+            id: sketch_id,
+            before: None,
+            name: "sketch".into(),
+            operation: ModelingOperation::Sketch(square_xy()),
+        }));
+        data.apply_persistent(ModelingTransaction::Create(Create {
+            id: Uuid::new_v4(),
+            before: None,
+            name: "extrude".into(),
+            operation: ModelingOperation::Extrude(Extrude {
+                sketch_id,
+                depth: 0.3,
+                direction: ExtrudeDirection::Normal,
+                mode: ExtrudeMode::Add,
+            }),
+        }));
+        data.apply_persistent(ModelingTransaction::Create(Create {
+            id: Uuid::new_v4(),
+            before: None,
+            name: "fillet".into(),
+            operation: ModelingOperation::Fillet(Fillet {
+                radius: 0.1,
+                target: FilletTarget::WholeBody,
+            }),
+        }));
         project.apply_changes(cb, &reg).unwrap();
 
         let project_view = Arc::new(project.create_view(&reg).unwrap());
@@ -65,54 +97,15 @@ impl App {
             viewport,
             project,
             project_view,
-            data_uuid,
-            reg,
-            tick_counter: 0,
         }
     }
 
-    #[expect(clippy::needless_pass_by_value, reason = "required by iced")]
-    fn update(&mut self, message: Message) {
-        match message {
-            Message::Tick => {
-                let data = self
-                    .project_view
-                    .open_data_by_id::<ModelingModule>(self.data_uuid)
-                    .unwrap();
-
-                let mut cb = project::ChangeBuilder::from(&data);
-                if self.tick_counter > 100 {
-                    data.apply_persistent(
-                        modeling_module::persistent_data::ModelingTransaction::Create(
-                            modeling_module::persistent_data::Create {
-                                id: uuid::Uuid::new_v4(),
-                                before: None,
-                                name: "grow".into(),
-                                operation: modeling_module::operation::ModelingOperation::Grow,
-                            },
-                        ),
-                        &mut cb,
-                    );
-
-                    println!("grow");
-                    self.tick_counter = 0;
-                } else {
-                    let data = self
-                        .project_view
-                        .open_data_by_id::<ModelingModule>(self.data_uuid)
-                        .unwrap();
-
-                    let mut cb = project::ChangeBuilder::from(&data);
-
-                    data.apply_session((), &mut cb);
-                }
-                self.project.apply_changes(cb, &self.reg).unwrap();
-                self.project_view = Arc::new(self.project.create_view(&self.reg).unwrap());
-                self.viewport.update(self.project_view.clone());
-                self.tick_counter += 1;
-            }
-        }
-    }
+    #[expect(
+        clippy::unused_self,
+        clippy::missing_const_for_fn,
+        reason = "required by iced"
+    )]
+    fn update(&mut self, _message: Message) {}
 
     fn view(&self) -> iced::Element<'_, Message> {
         let viewport_shader = iced::widget::shader(&self.viewport)
@@ -120,11 +113,6 @@ impl App {
             .height(iced::Length::Fill);
 
         iced::widget::column!(iced::widget::text("Viewport:"), viewport_shader).into()
-    }
-
-    #[expect(clippy::unused_self)]
-    fn subscription(&self) -> Subscription<Message> {
-        time::every(time::Duration::from_millis(20)).map(|_| Message::Tick)
     }
 }
 
@@ -149,7 +137,6 @@ pub fn run_cadara() {
 
     iced::application(App::new, App::update, App::view)
         .title("CADara")
-        .subscription(App::subscription)
         .run()
         .unwrap();
 }

@@ -17,6 +17,4 @@ pub enum ModelingOperation {
     Sketch(sketch::Sketch),
     Extrude(extrude::Extrude),
     Fillet(fillet::Fillet),
-    Grow,
-    Shrink,
 }
