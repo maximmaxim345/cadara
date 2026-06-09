@@ -44,3 +44,43 @@ fn extrude_set_mode_changes_only_mode() {
     assert_eq!(e.mode, ExtrudeMode::Subtract);
     assert_eq!(e.depth, 1.0);
 }
+
+use modeling_module::operation::fillet::{EdgeRef, FaceRef, Fillet, FilletChange, FilletTarget};
+
+#[test]
+fn fillet_default_is_whole_body() {
+    let f = Fillet::default();
+    assert_eq!(f.target, FilletTarget::WholeBody);
+}
+
+#[test]
+fn fillet_set_radius_changes_only_radius() {
+    let mut f = Fillet {
+        radius: 0.5,
+        target: FilletTarget::WholeBody,
+    };
+    f.apply_change(FilletChange::SetRadius(1.25));
+    assert_eq!(f.radius, 1.25);
+    assert_eq!(f.target, FilletTarget::WholeBody);
+}
+
+#[test]
+fn fillet_set_target_replaces_target_leaves_radius() {
+    let mut f = Fillet {
+        radius: 0.5,
+        target: FilletTarget::WholeBody,
+    };
+    f.apply_change(FilletChange::SetTarget(FilletTarget::Face(FaceRef {
+        index: 3,
+    })));
+    assert_eq!(f.target, FilletTarget::Face(FaceRef { index: 3 }));
+    assert_eq!(f.radius, 0.5);
+}
+
+#[test]
+fn fillet_set_target_to_edges() {
+    let mut f = Fillet::default();
+    let edges = vec![EdgeRef { index: 0 }, EdgeRef { index: 2 }];
+    f.apply_change(FilletChange::SetTarget(FilletTarget::Edges(edges.clone())));
+    assert_eq!(f.target, FilletTarget::Edges(edges));
+}

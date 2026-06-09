@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
 
 pub mod extrude;
+pub mod fillet;
 pub mod sketch;
 
 pub trait Operation:
@@ -15,6 +16,7 @@ pub trait Operation:
 pub enum ModelingOperation {
     Sketch(sketch::Sketch),
     Extrude(extrude::Extrude),
+    Fillet(fillet::Fillet),
     Grow,
     Shrink,
 }
