@@ -3,6 +3,7 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::cognitive_complexity)]
 
+use iced::{time, Subscription};
 use modeling_module::operation::{
     extrude::{Extrude, ExtrudeDirection, ExtrudeMode},
     fillet::{Fillet, FilletTarget},
@@ -19,7 +20,6 @@ struct App {
     viewport: viewport::Viewport,
     #[expect(dead_code, reason = "kept so future demo edits can apply new changes")]
     project: project::Project,
-    #[expect(dead_code, reason = "kept so future demo edits can apply new changes")]
     project_view: Arc<project::ProjectView>,
 }
 
@@ -29,8 +29,10 @@ impl Default for App {
     }
 }
 
-#[derive(Debug)]
-enum Message {}
+#[derive(Debug, Clone, Copy)]
+enum Message {
+    Tick,
+}
 
 fn square_xy() -> Sketch {
     let mk = |from, to| (Uuid::new_v4(), SketchPrimitive::Line(Line { from, to }));
@@ -100,12 +102,18 @@ impl App {
         }
     }
 
-    #[expect(
-        clippy::unused_self,
-        clippy::missing_const_for_fn,
-        reason = "required by iced"
-    )]
-    fn update(&mut self, _message: Message) {}
+    fn update(&mut self, message: Message) {
+        match message {
+            Message::Tick => {
+                // Bump the viewport's project_view version so the shader
+                // re-renders. The Program::update path mutates camera state
+                // through a Mutex but does not request a redraw on its own,
+                // so without periodic ticks rotation, panning and resize
+                // would never appear on screen.
+                self.viewport.update(self.project_view.clone());
+            }
+        }
+    }
 
     fn view(&self) -> iced::Element<'_, Message> {
         let viewport_shader = iced::widget::shader(&self.viewport)
@@ -113,6 +121,11 @@ impl App {
             .height(iced::Length::Fill);
 
         iced::widget::column!(iced::widget::text("Viewport:"), viewport_shader).into()
+    }
+
+    #[expect(clippy::unused_self, reason = "iced subscription takes &self")]
+    fn subscription(&self) -> Subscription<Message> {
+        time::every(time::Duration::from_millis(20)).map(|_| Message::Tick)
     }
 }
 
@@ -137,6 +150,7 @@ pub fn run_cadara() {
 
     iced::application(App::new, App::update, App::view)
         .title("CADara")
+        .subscription(App::subscription)
         .run()
         .unwrap();
 }
