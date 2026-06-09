@@ -43,6 +43,7 @@ impl App {
         data.apply_persistent(
             modeling_module::persistent_data::ModelingTransaction::Create(
                 modeling_module::persistent_data::Create {
+                    id: uuid::Uuid::new_v4(),
                     before: None,
                     operation: modeling_module::operation::ModelingOperation::Sketch(
                         modeling_module::operation::sketch::Sketch,
@@ -83,6 +84,7 @@ impl App {
                     data.apply_persistent(
                         modeling_module::persistent_data::ModelingTransaction::Create(
                             modeling_module::persistent_data::Create {
+                                id: uuid::Uuid::new_v4(),
                                 before: None,
                                 operation: modeling_module::operation::ModelingOperation::Grow,
                             },

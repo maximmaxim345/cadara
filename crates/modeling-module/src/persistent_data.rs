@@ -9,8 +9,9 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Step {
-    name: String,
-    operation: ModelingOperation,
+    pub id: Uuid,
+    pub name: String,
+    pub operation: ModelingOperation,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -20,6 +21,7 @@ pub struct PersistentData {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Create {
+    pub id: Uuid,
     pub before: Option<Uuid>,
     pub operation: ModelingOperation,
 }
@@ -38,6 +40,7 @@ impl DataSection for PersistentData {
         match args {
             ModelingTransaction::Create(c) => {
                 self.steps.push(Step {
+                    id: c.id,
                     name: "new operation".to_string(),
                     operation: c.operation,
                 });
