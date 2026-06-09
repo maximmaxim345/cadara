@@ -531,5 +531,5 @@ inline std::unique_ptr<geom::Point> Mesh_vertices_at(const Mesh& m, size_t index
 #include "internal/MakeBottle.hpp"
 
 inline std::unique_ptr<occara::shape::Shape> MakeBottle_wrapper(Standard_Real theWidth, Standard_Real theHeight, Standard_Real theThickness) {
-    return std::make_unique<occara::shape::Shape>(std::move(MakeBottle(theWidth, theHeight, theThickness)));
+    return std::make_unique<occara::shape::Shape>(MakeBottle(theWidth, theHeight, theThickness));
 }
