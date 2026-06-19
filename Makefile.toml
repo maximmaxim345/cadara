@@ -175,6 +175,7 @@ script_runner = "@shell"
 script = '''
 WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR="$(pwd)/target/wasm-libcxx/wasm32-unknown-unknown-libcxx" # shell2batch:
 . $WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR/env.sh # shell2batch: call target\wasm-libcxx\wasm32-unknown-unknown-libcxx\env.bat
+if [ -z "$CC_wasm32_unknown_unknown" ]; then for cc in "$WASM_CC" /opt/homebrew/opt/llvm/bin/clang /usr/local/opt/llvm/bin/clang clang; do if [ -n "$cc" ] && command -v "$cc" >/dev/null 2>&1 && "$cc" -print-targets 2>/dev/null | grep -q wasm32; then ar_dir="$(dirname "$(command -v "$cc")")"; ar="$ar_dir/llvm-ar"; [ -x "$ar" ] || ar="llvm-ar"; export CC_wasm32_unknown_unknown="$cc" CXX_wasm32_unknown_unknown="${cc}++" AR_wasm32_unknown_unknown="$ar"; echo "Using wasm clang: $cc"; break; fi; done; fi # shell2batch:
 cd crates/cadara
 rustup run nightly wasm-pack build --target web --no-typescript --dev
 '''
@@ -200,6 +201,7 @@ script_runner = "@shell"
 script = '''
 WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR="$(pwd)/target/wasm-libcxx/wasm32-unknown-unknown-libcxx" # shell2batch:
 . $WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR/env.sh # shell2batch: call target\wasm-libcxx\wasm32-unknown-unknown-libcxx\env.bat
+if [ -z "$CC_wasm32_unknown_unknown" ]; then for cc in "$WASM_CC" /opt/homebrew/opt/llvm/bin/clang /usr/local/opt/llvm/bin/clang clang; do if [ -n "$cc" ] && command -v "$cc" >/dev/null 2>&1 && "$cc" -print-targets 2>/dev/null | grep -q wasm32; then ar_dir="$(dirname "$(command -v "$cc")")"; ar="$ar_dir/llvm-ar"; [ -x "$ar" ] || ar="llvm-ar"; export CC_wasm32_unknown_unknown="$cc" CXX_wasm32_unknown_unknown="${cc}++" AR_wasm32_unknown_unknown="$ar"; echo "Using wasm clang: $cc"; break; fi; done; fi # shell2batch:
 cd crates/cadara
 rustup run nightly wasm-pack build --target web --no-typescript
 '''
@@ -235,6 +237,7 @@ script_runner = "@shell"
 script = '''
 WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR="$(pwd)/target/wasm-libcxx/wasm32-unknown-unknown-libcxx" # shell2batch:
 . $WASM32_UNKNOWN_UNKNOWN_STDLIB_DIR/env.sh # shell2batch: call target\wasm-libcxx\wasm32-unknown-unknown-libcxx\env.bat
+if [ -z "$CC_wasm32_unknown_unknown" ]; then for cc in "$WASM_CC" /opt/homebrew/opt/llvm/bin/clang /usr/local/opt/llvm/bin/clang clang; do if [ -n "$cc" ] && command -v "$cc" >/dev/null 2>&1 && "$cc" -print-targets 2>/dev/null | grep -q wasm32; then ar_dir="$(dirname "$(command -v "$cc")")"; ar="$ar_dir/llvm-ar"; [ -x "$ar" ] || ar="llvm-ar"; export CC_wasm32_unknown_unknown="$cc" CXX_wasm32_unknown_unknown="${cc}++" AR_wasm32_unknown_unknown="$ar"; echo "Using wasm clang: $cc"; break; fi; done; fi # shell2batch:
 cd crates/occara
 rustup run nightly wasm-pack test --node
 '''
