@@ -354,13 +354,20 @@ unsafe impl Sync for FaceIterator {}
 
 pub struct FilletBuilder(pub(crate) cxx::UniquePtr<ffi::FilletBuilder>);
 
+/// Error returned when OCCT cannot build a fillet, `OpenCASCADE`s fillet algorithm is highly complex
+/// and doesn't handle all cases. Usually the radius is too large for the geometry.
+#[derive(Debug, thiserror::Error)]
+#[error("Failed to build fillet: {0}")]
+pub struct FilletError(String);
+
 impl FilletBuilder {
     pub fn add(&mut self, radius: f64, edge: &Edge) {
         ffi::FilletBuilder_add_edge(self.0.pin_mut(), radius, &edge.0);
     }
-    #[must_use]
-    pub fn build(&mut self) -> Shape {
-        Shape(ffi::FilletBuilder_build(self.0.pin_mut()))
+    pub fn build(&mut self) -> Result<Shape, FilletError> {
+        ffi::FilletBuilder_build(self.0.pin_mut())
+            .map(Shape)
+            .map_err(|e| FilletError(e.what().to_string()))
     }
 }
 
