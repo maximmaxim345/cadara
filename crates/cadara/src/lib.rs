@@ -5,7 +5,7 @@
 
 use iced::{time, Subscription};
 use modeling_module::operation::{
-    extrude::{Extrude, ExtrudeDirection, ExtrudeMode},
+    extrude::{Extrude, ExtrudeChange, ExtrudeDirection, ExtrudeMode},
     fillet::{Fillet, FilletTarget},
     sketch::{Line, Plane, Point2D, Sketch, SketchPrimitive},
     ModelingOperation,
@@ -18,9 +18,13 @@ use workspace::Workspace;
 
 struct App {
     viewport: viewport::Viewport,
-    #[expect(dead_code, reason = "kept so future demo edits can apply new changes")]
     project: project::Project,
     project_view: Arc<project::ProjectView>,
+    reg: project::ModuleRegistry,
+    data_uuid: project::DataId,
+    extrude_id: Uuid,
+    depth: f64,
+    tick: u32,
 }
 
 impl Default for App {
@@ -66,8 +70,9 @@ impl App {
             name: "sketch".into(),
             operation: ModelingOperation::Sketch(square_xy()),
         }));
+        let extrude_id = Uuid::new_v4();
         data.apply_persistent(ModelingTransaction::Create(Create {
-            id: Uuid::new_v4(),
+            id: extrude_id,
             before: None,
             name: "extrude".into(),
             operation: ModelingOperation::Extrude(Extrude {
@@ -99,17 +104,45 @@ impl App {
             viewport,
             project,
             project_view,
+            reg,
+            data_uuid,
+            extrude_id,
+            depth: 0.3,
+            tick: 0,
         }
     }
 
     fn update(&mut self, message: Message) {
         match message {
             Message::Tick => {
-                // Bump the viewport's project_view version so the shader
-                // re-renders. The Program::update path mutates camera state
-                // through a Mutex but does not request a redraw on its own,
-                // so without periodic ticks rotation, panning and resize
-                // would never appear on screen.
+                self.tick += 1;
+                // Periodically grow the extrude depth so the demo applies real
+                // changes through the project, not just redraws.
+                if self.tick >= 100 {
+                    self.tick = 0;
+                    self.depth = if self.depth >= 0.6 {
+                        0.3
+                    } else {
+                        self.depth + 0.1
+                    };
+                    let data = self
+                        .project_view
+                        .open_data_by_id::<ModelingModule>(self.data_uuid)
+                        .unwrap();
+                    let mut cb = project::ChangeBuilder::from(&data);
+                    data.apply_persistent(
+                        ModelingTransaction::EditExtrude {
+                            step_id: self.extrude_id,
+                            change: ExtrudeChange::SetDepth(self.depth),
+                        },
+                        &mut cb,
+                    );
+                    self.project.apply_changes(cb, &self.reg).unwrap();
+                    self.project_view = Arc::new(self.project.create_view(&self.reg).unwrap());
+                }
+                // Ticks also drive redraws: Program::update mutates camera state
+                // through a Mutex but does not request a redraw on its own, so
+                // without them rotation, panning and resize never reach the screen.
                 self.viewport.update(self.project_view.clone());
             }
         }
