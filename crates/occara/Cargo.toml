@@ -13,6 +13,7 @@ publish = false
 
 [dependencies]
 cxx.workspace = true
+thiserror.workspace = true
 walkdir.workspace = true
 
 [build-dependencies]

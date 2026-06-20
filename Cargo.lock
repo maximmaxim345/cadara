@@ -2617,6 +2617,7 @@ dependencies = [
  "cxx-build",
  "miette",
  "opencascade-sys",
+ "thiserror 2.0.18",
  "walkdir",
  "wasm-bindgen-test",
  "wasm-libc",
