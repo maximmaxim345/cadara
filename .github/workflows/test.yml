@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-2022]
         toolchain: [stable]
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.toolchain == 'nightly' }}
@@ -74,16 +74,24 @@ jobs:
             ~/.cargo/git/db/
             target/*
             !target/opencascade-sys
-          key: cargo-wasm-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+            !target/wasm-libcxx
+          key: cargo-wasm-v2-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            cargo-wasm-${{ runner.os }}-
+            cargo-wasm-v2-${{ runner.os }}-
       - name: Cache OpenCASCADE
         uses: actions/cache@v5
         with:
           path: |
             target/opencascade-sys/
-          key: occt-wasm-${{ runner.os }}-${{ hashFiles('crates/opencascade-sys/**') }}
-          restore-keys: |
-            occt-wasm-${{ runner.os }}-
+          key: occt-wasm-v2-${{ runner.os }}-${{ hashFiles('crates/opencascade-sys/**') }}
+      - name: Install LLVM 22
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 22 all
       - name: Run WASM tests
+        env:
+          CC_wasm32_unknown_unknown: clang-22
+          CXX_wasm32_unknown_unknown: clang++-22
+          AR_wasm32_unknown_unknown: llvm-ar-22
         run: cargo make test-wasm

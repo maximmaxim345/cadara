@@ -48,7 +48,9 @@ pub fn make_bottle_rust(width: f64, height: f64, thickness: f64) -> Shape {
         for edge in body.edges() {
             fillet_builder.add(fillet_radius, &edge);
         }
-        fillet_builder.build()
+        fillet_builder
+            .build()
+            .expect("bottle fillet radius is valid")
     };
 
     // Create the neck from a cylinder

@@ -1,7 +1,9 @@
 #pragma once
 #include "geom.hpp"
 #include "shape.hpp"
+#include <Standard_Failure.hxx>
 #include <memory>
+#include <stdexcept>
 
 // This file provides wrappers that adapt the existing C++ API to work with cxx
 // by returning std::unique_ptr instead of values
@@ -317,7 +319,11 @@ inline void FilletBuilder_add_edge(FilletBuilder& f, Standard_Real radius, const
 }
 
 inline std::unique_ptr<Shape> FilletBuilder_build(FilletBuilder& f) {
-    return std::make_unique<Shape>(f.build());
+    try {
+        return std::make_unique<Shape>(f.build());
+    } catch (const Standard_Failure& e) {
+        throw std::runtime_error(e.GetMessageString());
+    }
 }
 
 // ShellBuilder wrappers

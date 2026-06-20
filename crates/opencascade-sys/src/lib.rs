@@ -156,10 +156,9 @@ impl OpenCascadeSource {
                     .define("CMAKE_CXX_COMPILER_WORKS", "TRUE")
                     .define("CMAKE_SIZEOF_VOID_P", "4");
 
-                // Disable OCC_CONVERT_SIGNALS for WASM - it uses setjmp/longjmp for signal
-                // handling, which is not supported in WASM. On Linux/macOS, this is
-                // automatically enabled by OpenCASCADE, so we must explicitly disable it.
-                config.define("OCC_CONVERT_SIGNALS", "OFF");
+                // Enable the WASM build path: -fwasm-exceptions and no OCC_CONVERT_SIGNALS
+                // (setjmp/longjmp signal handling is unsupported in WASM and conflicts with EH).
+                config.define("CADARA_WASM", "ON");
             }
 
             config.build();

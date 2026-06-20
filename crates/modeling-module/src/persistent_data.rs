@@ -89,6 +89,6 @@ impl PersistentData {
         for e in b.edges() {
             f.add(0.2, &e);
         }
-        f.build()
+        f.build().expect("box fillet radius is valid")
     }
 }

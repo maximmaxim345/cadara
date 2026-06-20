@@ -260,7 +260,8 @@ pub mod ffi {
             edge: &Edge,
         );
         #[namespace = "occara::shape"]
-        fn FilletBuilder_build(fillet_builder: Pin<&mut FilletBuilder>) -> UniquePtr<Shape>;
+        fn FilletBuilder_build(fillet_builder: Pin<&mut FilletBuilder>)
+            -> Result<UniquePtr<Shape>>;
 
         // ShellBuilder functions
         #[namespace = "occara::shape"]
