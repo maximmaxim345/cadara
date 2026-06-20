@@ -74,17 +74,16 @@ jobs:
             ~/.cargo/git/db/
             target/*
             !target/opencascade-sys
-          key: cargo-wasm-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+            !target/wasm-libcxx
+          key: cargo-wasm-v2-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            cargo-wasm-${{ runner.os }}-
+            cargo-wasm-v2-${{ runner.os }}-
       - name: Cache OpenCASCADE
         uses: actions/cache@v5
         with:
           path: |
             target/opencascade-sys/
-          key: occt-wasm-${{ runner.os }}-${{ hashFiles('crates/opencascade-sys/**') }}
-          restore-keys: |
-            occt-wasm-${{ runner.os }}-
+          key: occt-wasm-v2-${{ runner.os }}-${{ hashFiles('crates/opencascade-sys/**') }}
       - name: Install LLVM 22
         run: |
           wget https://apt.llvm.org/llvm.sh
