@@ -801,10 +801,23 @@ impl Project {
         LogEntry {
             lamport,
             session,
-            wall_clock: Some(std::time::SystemTime::now()),
+            wall_clock: Some(now_wall_clock()),
             payload,
         }
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn now_wall_clock() -> std::time::SystemTime {
+    std::time::SystemTime::now()
+}
+
+// wasm32-unknown-unknown has no wall clock, so SystemTime::now() panics. Read
+// the browser clock instead.
+#[cfg(target_arch = "wasm32")]
+fn now_wall_clock() -> std::time::SystemTime {
+    let millis = js_sys::Date::now().max(0.0) as u64;
+    std::time::UNIX_EPOCH + std::time::Duration::from_millis(millis)
 }
 
 /// Group entries by session and union their per-session active sets into a
