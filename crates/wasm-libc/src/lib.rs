@@ -186,31 +186,6 @@ mod api {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn __cxa_allocate_exception(thrown_size: usize) -> *mut u8 {
-        // Allocate memory for the exception object
-        // This is a stub - exceptions won't actually work, but we need to return
-        // valid memory to avoid immediate crashes. The exception will be "thrown"
-        // in __cxa_throw which will abort.
-        malloc(thrown_size)
-    }
-
-    #[no_mangle]
-    pub unsafe extern "C" fn __cxa_throw(
-        _thrown_exception: *mut u8,
-        _tinfo: *mut u8,
-        _dest: *mut u8,
-    ) -> ! {
-        // Exception handling is not yet implemented for WASM.
-        // According to OpenCASCADE documentation, exceptions should not be thrown
-        // during normal execution, but they're still present in the code.
-        error!(
-            "Exception thrown in WASM - this should not happen during normal OpenCASCADE execution"
-        );
-        error!("If you see this, there may be an error in the CAD operations");
-        process::abort();
-    }
-
-    #[no_mangle]
     pub unsafe extern "C" fn __cxa_atexit(a: i32, b: i32, c: i32) -> i32 {
         10
     }
@@ -314,6 +289,32 @@ mod api {
     pub unsafe extern "C" fn wmemcpy(dest: i32, src: i32, n: i32) -> i32 {
         std::ptr::copy_nonoverlapping(src as *const u8, dest as *mut u8, (n * 4) as usize);
         dest
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn wmemchr(s: i32, c: i32, n: i32) -> i32 {
+        let ptr = s as *const i32;
+        for i in 0..n {
+            if *ptr.add(i as usize) == c {
+                return s + i * 4;
+            }
+        }
+        0
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn strerror_r(_errnum: i32, _buf: i32, _buflen: i32) -> i32 {
+        error!("strerror_r not implemented");
+        0
+    }
+
+    unimplemented_function!(fgetwc, stream: i32);
+    unimplemented_function!(fputwc, wc: i32, stream: i32);
+    unimplemented_function!(ungetwc, wc: i32, stream: i32);
+
+    #[no_mangle]
+    pub unsafe extern "C" fn setbuf(_stream: i32, _buf: i32) {
+        error!("setbuf not implemented");
     }
 
     #[no_mangle]
@@ -636,6 +637,21 @@ mod api {
         } else {
             0
         }
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn isdigit(c: i32) -> i32 {
+        i32::from((c as u8).is_ascii_digit())
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn isxdigit(c: i32) -> i32 {
+        i32::from((c as u8).is_ascii_hexdigit())
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn aligned_alloc(_alignment: usize, size: usize) -> *mut u8 {
+        malloc(size)
     }
 
     #[no_mangle]
