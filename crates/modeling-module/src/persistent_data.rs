@@ -53,6 +53,8 @@ impl DataSection for PersistentData {
 }
 
 impl PersistentData {
+    /// # Panics
+    /// Panics if filleting the box fails, which should not happen for the fixed 0.2 radius used here.
     #[must_use]
     pub fn shape(&self) -> occara::shape::Shape {
         let mut scale = 1.0;

@@ -364,6 +364,8 @@ impl FilletBuilder {
     pub fn add(&mut self, radius: f64, edge: &Edge) {
         ffi::FilletBuilder_add_edge(self.0.pin_mut(), radius, &edge.0);
     }
+    /// # Errors
+    /// Returns [`FilletError`] when OCCT cannot build the fillet, usually because the radius is too large for the geometry.
     pub fn build(&mut self) -> Result<Shape, FilletError> {
         ffi::FilletBuilder_build(self.0.pin_mut())
             .map(Shape)
