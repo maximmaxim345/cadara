@@ -2896,6 +2896,7 @@ version = "0.1.0"
 dependencies = [
  "dyn-clone",
  "erased-serde",
+ "js-sys",
  "lazy_static",
  "log",
  "module",
