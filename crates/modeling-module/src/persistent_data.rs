@@ -316,7 +316,6 @@ fn sketch_undo_name(c: &SketchChange) -> String {
             SketchPrimitive::Arc(_) => "Add arc",
         },
         SketchChange::DeletePrimitive { .. } => "Del primitive",
-        SketchChange::ReorderPrimitive { .. } => "Move primitive",
         SketchChange::EditPrimitive { .. } => "Edit primitive",
     }
     .into()

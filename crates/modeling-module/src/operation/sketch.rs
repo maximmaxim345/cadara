@@ -95,15 +95,10 @@ pub enum SketchChange {
     SetPlane(Plane),
     AddPrimitive {
         id: Uuid,
-        before: Option<Uuid>,
         primitive: SketchPrimitive,
     },
     DeletePrimitive {
         id: Uuid,
-    },
-    ReorderPrimitive {
-        id: Uuid,
-        before: Option<Uuid>,
     },
     EditPrimitive {
         id: Uuid,
@@ -160,31 +155,14 @@ impl crate::operation::Operation for Sketch {
     fn apply_change(&mut self, change: SketchChange) {
         match change {
             SketchChange::SetPlane(p) => self.plane = p,
-            SketchChange::AddPrimitive {
-                id,
-                before,
-                primitive,
-            } => {
+            SketchChange::AddPrimitive { id, primitive } => {
                 if self.primitives.iter().any(|(i, _)| *i == id) {
                     return;
                 }
-                let pos = before
-                    .and_then(|a| self.primitives.iter().position(|(i, _)| *i == a))
-                    .unwrap_or(self.primitives.len());
-                self.primitives.insert(pos, (id, primitive));
+                self.primitives.push((id, primitive));
             }
             SketchChange::DeletePrimitive { id } => {
                 self.primitives.retain(|(i, _)| *i != id);
-            }
-            SketchChange::ReorderPrimitive { id, before } => {
-                let Some(from) = self.primitives.iter().position(|(i, _)| *i == id) else {
-                    return;
-                };
-                let item = self.primitives.remove(from);
-                let to = before
-                    .and_then(|a| self.primitives.iter().position(|(i, _)| *i == a))
-                    .unwrap_or(self.primitives.len());
-                self.primitives.insert(to, item);
             }
             SketchChange::EditPrimitive { id, change } => {
                 let Some(slot) = self.primitives.iter_mut().find(|(i, _)| *i == id) else {

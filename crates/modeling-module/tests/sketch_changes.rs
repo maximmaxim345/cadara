@@ -21,54 +21,22 @@ fn set_plane_updates_plane() {
 }
 
 #[test]
-fn add_primitive_with_no_anchor_appends() {
-    let mut s = Sketch::default();
-    let id = Uuid::new_v4();
-    s.apply_change(SketchChange::AddPrimitive {
-        id,
-        before: None,
-        primitive: line(0.0, 0.0, 1.0, 0.0),
-    });
-    assert_eq!(s.primitives.len(), 1);
-    assert_eq!(s.primitives[0].0, id);
-}
-
-#[test]
-fn add_primitive_inserts_before_anchor() {
+fn add_primitive_appends_in_order() {
     let mut s = Sketch::default();
     let id_a = Uuid::new_v4();
     let id_b = Uuid::new_v4();
     s.apply_change(SketchChange::AddPrimitive {
         id: id_a,
-        before: None,
         primitive: line(0.0, 0.0, 1.0, 0.0),
     });
     s.apply_change(SketchChange::AddPrimitive {
         id: id_b,
-        before: Some(id_a),
         primitive: line(1.0, 0.0, 1.0, 1.0),
     });
-    assert_eq!(s.primitives[0].0, id_b);
-    assert_eq!(s.primitives[1].0, id_a);
-}
-
-#[test]
-fn add_primitive_unknown_anchor_appends() {
-    let mut s = Sketch::default();
-    let id_a = Uuid::new_v4();
-    s.apply_change(SketchChange::AddPrimitive {
-        id: id_a,
-        before: None,
-        primitive: line(0.0, 0.0, 1.0, 0.0),
-    });
-    let id_b = Uuid::new_v4();
-    s.apply_change(SketchChange::AddPrimitive {
-        id: id_b,
-        before: Some(Uuid::new_v4()),
-        primitive: line(1.0, 0.0, 1.0, 1.0),
-    });
-    assert_eq!(s.primitives.len(), 2);
-    assert_eq!(s.primitives[1].0, id_b);
+    assert_eq!(
+        s.primitives.iter().map(|(i, _)| *i).collect::<Vec<_>>(),
+        vec![id_a, id_b]
+    );
 }
 
 #[test]
@@ -77,12 +45,10 @@ fn add_primitive_duplicate_id_is_noop() {
     let id = Uuid::new_v4();
     s.apply_change(SketchChange::AddPrimitive {
         id,
-        before: None,
         primitive: line(0.0, 0.0, 1.0, 0.0),
     });
     s.apply_change(SketchChange::AddPrimitive {
         id,
-        before: None,
         primitive: line(2.0, 2.0, 3.0, 3.0),
     });
     assert_eq!(s.primitives.len(), 1);
@@ -94,7 +60,6 @@ fn delete_primitive_removes_by_id() {
     let id = Uuid::new_v4();
     s.apply_change(SketchChange::AddPrimitive {
         id,
-        before: None,
         primitive: line(0.0, 0.0, 1.0, 0.0),
     });
     s.apply_change(SketchChange::DeletePrimitive { id });
@@ -109,64 +74,11 @@ fn delete_primitive_unknown_id_is_noop() {
 }
 
 #[test]
-fn reorder_primitive_moves_with_known_anchor() {
-    let mut s = Sketch::default();
-    let id_a = Uuid::new_v4();
-    let id_b = Uuid::new_v4();
-    let id_c = Uuid::new_v4();
-    for (id, p) in [
-        (id_a, line(0.0, 0.0, 1.0, 0.0)),
-        (id_b, line(1.0, 0.0, 1.0, 1.0)),
-        (id_c, line(1.0, 1.0, 0.0, 1.0)),
-    ] {
-        s.apply_change(SketchChange::AddPrimitive {
-            id,
-            before: None,
-            primitive: p,
-        });
-    }
-    s.apply_change(SketchChange::ReorderPrimitive {
-        id: id_c,
-        before: Some(id_a),
-    });
-    assert_eq!(
-        s.primitives.iter().map(|(i, _)| *i).collect::<Vec<_>>(),
-        vec![id_c, id_a, id_b]
-    );
-}
-
-#[test]
-fn reorder_primitive_unknown_anchor_moves_to_end() {
-    let mut s = Sketch::default();
-    let id_a = Uuid::new_v4();
-    let id_b = Uuid::new_v4();
-    s.apply_change(SketchChange::AddPrimitive {
-        id: id_a,
-        before: None,
-        primitive: line(0.0, 0.0, 1.0, 0.0),
-    });
-    s.apply_change(SketchChange::AddPrimitive {
-        id: id_b,
-        before: None,
-        primitive: line(1.0, 0.0, 1.0, 1.0),
-    });
-    s.apply_change(SketchChange::ReorderPrimitive {
-        id: id_a,
-        before: Some(Uuid::new_v4()),
-    });
-    assert_eq!(
-        s.primitives.iter().map(|(i, _)| *i).collect::<Vec<_>>(),
-        vec![id_b, id_a]
-    );
-}
-
-#[test]
 fn edit_primitive_line_set_from_changes_only_from() {
     let mut s = Sketch::default();
     let id = Uuid::new_v4();
     s.apply_change(SketchChange::AddPrimitive {
         id,
-        before: None,
         primitive: line(0.0, 0.0, 1.0, 0.0),
     });
     s.apply_change(SketchChange::EditPrimitive {
@@ -186,7 +98,6 @@ fn edit_primitive_mismatched_variant_is_noop() {
     let id = Uuid::new_v4();
     s.apply_change(SketchChange::AddPrimitive {
         id,
-        before: None,
         primitive: line(0.0, 0.0, 1.0, 0.0),
     });
     s.apply_change(SketchChange::EditPrimitive {
