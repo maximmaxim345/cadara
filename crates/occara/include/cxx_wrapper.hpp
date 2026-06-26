@@ -2,6 +2,7 @@
 #include "geom.hpp"
 #include "shape.hpp"
 #include <Standard_Failure.hxx>
+#include <gp_Circ.hxx>
 #include <memory>
 #include <stdexcept>
 
@@ -364,12 +365,28 @@ inline std::unique_ptr<Edge> Edge_from_2d_curve(const geom::Curve2D& curve, cons
     return std::make_unique<Edge>(Edge::from_2d_curve(curve, surface));
 }
 
+inline std::unique_ptr<Edge> Edge_circle(
+    const geom::Point& center,
+    const geom::Direction& normal,
+    Standard_Real radius) {
+    gp_Ax2 ax(center.point, normal.direction);
+    gp_Circ circ(ax, radius);
+    BRepBuilderAPI_MakeEdge builder(circ);
+    return std::make_unique<Edge>(Edge{builder.Edge()});
+}
+
 // EdgeIterator wrappers
 inline std::unique_ptr<EdgeIterator> EdgeIterator_create(const Shape& shape) {
     // Use the static create method and move the result
     auto it_value = EdgeIterator::create(shape);
     // Create unique_ptr by copying (EdgeIterator should be copyable)
     return std::make_unique<EdgeIterator>(std::move(it_value));
+}
+
+inline std::unique_ptr<EdgeIterator> EdgeIterator_create_from_face(const Face& face) {
+    EdgeIterator it;
+    it.explorer = std::make_shared<TopExp_Explorer>(face.face, TopAbs_EDGE);
+    return std::make_unique<EdgeIterator>(std::move(it));
 }
 
 inline std::unique_ptr<EdgeIterator> EdgeIterator_clone(const EdgeIterator& it) {
@@ -514,5 +531,5 @@ inline std::unique_ptr<geom::Point> Mesh_vertices_at(const Mesh& m, size_t index
 #include "internal/MakeBottle.hpp"
 
 inline std::unique_ptr<occara::shape::Shape> MakeBottle_wrapper(Standard_Real theWidth, Standard_Real theHeight, Standard_Real theThickness) {
-    return std::make_unique<occara::shape::Shape>(std::move(MakeBottle(theWidth, theHeight, theThickness)));
+    return std::make_unique<occara::shape::Shape>(MakeBottle(theWidth, theHeight, theThickness));
 }

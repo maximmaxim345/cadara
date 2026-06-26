@@ -427,6 +427,7 @@ dependencies = [
  "modeling-workspace",
  "project",
  "tracing-subscriber",
+ "uuid",
  "viewport",
  "wasm-bindgen",
  "wasm-libc",

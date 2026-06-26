@@ -4,17 +4,27 @@
 #![allow(clippy::cognitive_complexity)]
 
 use iced::{time, Subscription};
+use modeling_module::operation::{
+    extrude::{Extrude, ExtrudeChange, ExtrudeDirection, ExtrudeMode},
+    fillet::{Fillet, FilletTarget},
+    sketch::{Line, Plane, Point2D, Sketch, SketchPrimitive},
+    ModelingOperation,
+};
+use modeling_module::persistent_data::{Create, ModelingTransaction};
 use modeling_module::ModelingModule;
 use std::sync::Arc;
+use uuid::Uuid;
 use workspace::Workspace;
 
 struct App {
     viewport: viewport::Viewport,
     project: project::Project,
     project_view: Arc<project::ProjectView>,
-    data_uuid: project::DataId,
     reg: project::ModuleRegistry,
-    tick_counter: u32,
+    data_uuid: project::DataId,
+    extrude_id: Uuid,
+    depth: f64,
+    tick: u32,
 }
 
 impl Default for App {
@@ -23,9 +33,22 @@ impl Default for App {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 enum Message {
     Tick,
+}
+
+fn square_xy() -> Sketch {
+    let mk = |from, to| (Uuid::new_v4(), SketchPrimitive::Line(Line { from, to }));
+    Sketch {
+        plane: Plane::XY,
+        primitives: vec![
+            mk(Point2D::new(0.0, 0.0), Point2D::new(1.0, 0.0)),
+            mk(Point2D::new(1.0, 0.0), Point2D::new(1.0, 1.0)),
+            mk(Point2D::new(1.0, 1.0), Point2D::new(0.0, 1.0)),
+            mk(Point2D::new(0.0, 1.0), Point2D::new(0.0, 0.0)),
+        ],
+    }
 }
 
 impl App {
@@ -37,19 +60,37 @@ impl App {
         let mut cb = project::ChangeBuilder::from(&project_view);
 
         let mut doc = project_view.create_document(&mut cb, "/doc".try_into().unwrap());
-        let data_uuid = *doc.create_data::<ModelingModule>();
         let mut data = doc.create_data::<ModelingModule>();
+        let data_uuid = *data;
 
-        data.apply_persistent(
-            modeling_module::persistent_data::ModelingTransaction::Create(
-                modeling_module::persistent_data::Create {
-                    before: None,
-                    operation: modeling_module::operation::ModelingOperation::Sketch(
-                        modeling_module::operation::sketch::Sketch,
-                    ),
-                },
-            ),
-        );
+        let sketch_id = Uuid::new_v4();
+        data.apply_persistent(ModelingTransaction::Create(Create {
+            id: sketch_id,
+            before: None,
+            name: "sketch".into(),
+            operation: ModelingOperation::Sketch(square_xy()),
+        }));
+        let extrude_id = Uuid::new_v4();
+        data.apply_persistent(ModelingTransaction::Create(Create {
+            id: extrude_id,
+            before: None,
+            name: "extrude".into(),
+            operation: ModelingOperation::Extrude(Extrude {
+                sketch_id,
+                depth: 0.3,
+                direction: ExtrudeDirection::Normal,
+                mode: ExtrudeMode::Add,
+            }),
+        }));
+        data.apply_persistent(ModelingTransaction::Create(Create {
+            id: Uuid::new_v4(),
+            before: None,
+            name: "fillet".into(),
+            operation: ModelingOperation::Fillet(Fillet {
+                radius: 0.1,
+                target: FilletTarget::WholeBody,
+            }),
+        }));
         project.apply_changes(cb, &reg).unwrap();
 
         let project_view = Arc::new(project.create_view(&reg).unwrap());
@@ -63,49 +104,46 @@ impl App {
             viewport,
             project,
             project_view,
-            data_uuid,
             reg,
-            tick_counter: 0,
+            data_uuid,
+            extrude_id,
+            depth: 0.3,
+            tick: 0,
         }
     }
 
-    #[expect(clippy::needless_pass_by_value, reason = "required by iced")]
     fn update(&mut self, message: Message) {
         match message {
             Message::Tick => {
-                let data = self
-                    .project_view
-                    .open_data_by_id::<ModelingModule>(self.data_uuid)
-                    .unwrap();
-
-                let mut cb = project::ChangeBuilder::from(&data);
-                if self.tick_counter > 100 {
-                    data.apply_persistent(
-                        modeling_module::persistent_data::ModelingTransaction::Create(
-                            modeling_module::persistent_data::Create {
-                                before: None,
-                                operation: modeling_module::operation::ModelingOperation::Grow,
-                            },
-                        ),
-                        &mut cb,
-                    );
-
-                    println!("grow");
-                    self.tick_counter = 0;
-                } else {
+                self.tick += 1;
+                // Periodically grow the extrude depth so the demo applies real
+                // changes through the project, not just redraws.
+                if self.tick >= 100 {
+                    self.tick = 0;
+                    self.depth = if self.depth >= 0.6 {
+                        0.3
+                    } else {
+                        self.depth + 0.1
+                    };
                     let data = self
                         .project_view
                         .open_data_by_id::<ModelingModule>(self.data_uuid)
                         .unwrap();
-
                     let mut cb = project::ChangeBuilder::from(&data);
-
-                    data.apply_session((), &mut cb);
+                    data.apply_persistent(
+                        ModelingTransaction::EditExtrude {
+                            step_id: self.extrude_id,
+                            change: ExtrudeChange::SetDepth(self.depth),
+                        },
+                        &mut cb,
+                    );
+                    self.project.apply_changes(cb, &self.reg).unwrap();
+                    self.project_view = Arc::new(self.project.create_view(&self.reg).unwrap());
                 }
-                self.project.apply_changes(cb, &self.reg).unwrap();
-                self.project_view = Arc::new(self.project.create_view(&self.reg).unwrap());
+                // Ticks also drive redraws: Program::update mutates camera state
+                // through a Mutex but does not request a redraw on its own, so
+                // without them rotation, panning and resize never reach the screen.
                 self.viewport.update(self.project_view.clone());
-                self.tick_counter += 1;
             }
         }
     }
@@ -118,7 +156,7 @@ impl App {
         iced::widget::column!(iced::widget::text("Viewport:"), viewport_shader).into()
     }
 
-    #[expect(clippy::unused_self)]
+    #[expect(clippy::unused_self, reason = "iced subscription takes &self")]
     fn subscription(&self) -> Subscription<Message> {
         time::every(time::Duration::from_millis(20)).map(|_| Message::Tick)
     }
