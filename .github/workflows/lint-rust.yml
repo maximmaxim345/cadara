@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -37,13 +37,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
       - name: Cache Cargo
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/bin/
@@ -56,7 +56,7 @@ jobs:
           restore-keys: |
             cargo-clippy-
       - name: Load OpenCASCADE Cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: |
             target/opencascade-sys/
@@ -79,7 +79,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Fetch Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install Typos
         uses: taiki-e/install-action@v2
         with:
