@@ -24,13 +24,13 @@ jobs:
     continue-on-error: ${{ matrix.toolchain == 'nightly' }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.toolchain }}
       - name: Cache Cargo
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/bin/
@@ -43,7 +43,7 @@ jobs:
           restore-keys: |
             cargo-${{ runner.os }}-${{ matrix.toolchain }}-
       - name: Cache OpenCASCADE
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             target/opencascade-sys/
@@ -59,13 +59,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-make
         run: cargo install cargo-make
       - name: Cache Cargo
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/bin/
@@ -79,7 +79,7 @@ jobs:
           restore-keys: |
             cargo-wasm-v2-${{ runner.os }}-
       - name: Cache OpenCASCADE
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             target/opencascade-sys/
